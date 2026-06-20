@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_Preview__preview_start",
+      "WebFetch(domain:www.tiktok.com)",
+      "Bash(git --version)",
+      "Bash(gh --version)",
+      "Bash(git config *)",
+      "Bash(echo \"user.name: $\\(git config --global user.name || echo '\\(не задано\\)'\\)\")",
+      "Bash(echo \"user.email: $\\(git config --global user.email || echo '\\(не задано\\)'\\)\")"
+    ]
+  }
+}

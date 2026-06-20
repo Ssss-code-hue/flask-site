@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Кирилл 🌴 Тропический сайт на Python</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <!-- Волнистый самый задний фон 🌊 -->
+    <div class="waves" aria-hidden="true">
+        <svg class="waves-svg" viewBox="0 24 150 28" preserveAspectRatio="none">
+            <defs>
+                <path id="gentle-wave" d="M-160 44c30 0 58-18 88-18s58 18 88 18 58-18 88-18 58 18 88 18 v44h-352z" />
+            </defs>
+            <g class="parallax">
+                <use href="#gentle-wave" x="48" y="0" fill="rgba(34,211,238,0.16)" />
+                <use href="#gentle-wave" x="48" y="3" fill="rgba(20,184,166,0.24)" />
+                <use href="#gentle-wave" x="48" y="5" fill="rgba(16,185,129,0.30)" />
+                <use href="#gentle-wave" x="48" y="7" fill="rgba(11,107,99,0.55)" />
+            </g>
+        </svg>
+    </div>
+
+    <!-- Живой 3D-фон из пальм (Three.js рисует сюда) -->
+    <div id="bg"></div>
+
+    <!-- Слой плавающих лепестков и солнечных бликов (заполняется в script.js) -->
+    <div class="fx-layer" id="fx" aria-hidden="true"></div>
+
+    <!-- Декоративные пальмы по углам (наползают на текст) -->
+    <div class="palm-deco palm-tl"></div>
+    <div class="palm-deco palm-tr"></div>
+    <div class="palm-deco palm-bl"></div>
+    <div class="palm-deco palm-br"></div>
+
+    <!-- ================= ШАПКА / МЕНЮ ================= -->
+    <header class="navbar">
+        <nav class="nav-inner container">
+            <a href="#hero" class="logo"><span class="leaf">🌴</span> Kirill.dev</a>
+            <ul class="nav-links">
+                <li><a href="#hero">Главная</a></li>
+                <li><a href="#about">Обо мне</a></li>
+                <li><a href="#features">Возможности</a></li>
+                <li><a href="#contact" class="btn-nav">Связаться</a></li>
+            </ul>
+            <button class="burger" aria-label="Открыть меню"><span></span><span></span><span></span></button>
+        </nav>
+    </header>
+
+    <main>
+        <!-- ================= HERO ================= -->
+        <section id="hero" class="hero container">
+            <span class="badge">сайт на Python + Flask</span>
+            <h1>Привет! Меня зовут <span class="accent">Кирилл</span></h1>
+            <p class="subtitle">Добро пожаловать на мой первый сайт я крутой кирилл</p>
+            <div class="hero-actions">
+                <a href="#contact" class="btn btn-primary">Написать мне →</a>
+                <a href="#about" class="btn btn-ghost">Узнать больше</a>
+            </div>
+        </section>
+
+        <!-- ================= ОБО МНЕ ================= -->
+        <section id="about" class="container">
+            <div class="section-head reveal">
+                <div class="eyebrow">Обо мне</div>
+                <h2 class="section-title">Немного о себе</h2>
+                <p class="section-subtitle">Наведи курсор на карточки — они наклоняются и светятся 🌟</p>
+            </div>
+            <div class="cards">
+                <div class="card reveal">
+                    <div class="icon">🐍</div>
+                    <h3>ничего не делаю</h3>
+                    <p>да ничего не делаю.</p>
+                </div>
+                <div class="card reveal">
+                    <div class="icon">🏝️</div>
+                    <h3>Мечтаю о тропиках</h3>
+                    <p>родители хотят оставить на все лето в корткеросе.</p>
+                </div>
+                <div class="card reveal">
+                    <div class="icon">🤖</div>
+                    <h3>Тестирую клод</h3>
+                    <p>ничего не делаю.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= ВОЗМОЖНОСТИ ================= -->
+        <section id="features" class="container">
+            <div class="section-head reveal">
+                <div class="eyebrow">Возможности</div>
+                <h2 class="section-title">Что умеет этот сайт</h2>
+                <p class="section-subtitle">Тропический вайб, 3D и живой фон</p>
+            </div>
+            <div class="cards">
+                <div class="card reveal">
+                    <div class="icon">🌴</div>
+                    <h3>Живой 3D-фон</h3>
+                    <p>Пальмовые листья двигаются в 3D-пространстве при прокрутке.</p>
+                </div>
+                <div class="card reveal">
+                    <div class="icon">🎴</div>
+                    <h3>Карточки с 3D-наклоном</h3>
+                    <p>Наклон в сторону курсора и мягкое тропическое свечение.</p>
+                </div>
+                <div class="card reveal">
+                    <div class="icon">📱</div>
+                    <h3>Адаптивность</h3>
+                    <p>Отлично выглядит и на телефоне, и на большом мониторе.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= ФОРМА ОБРАТНОЙ СВЯЗИ ================= -->
+        <section id="contact" class="container">
+            <div class="section-head reveal">
+                <div class="eyebrow">Контакты</div>
+                <h2 class="section-title">Обратная связь</h2>
+                <p class="section-subtitle">Оставь сообщение — мне будет приятно 🌺</p>
+            </div>
+
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="flash">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form class="form-card reveal" action="{{ url_for('contact') }}" method="POST">
+                <div class="field">
+                    <input type="text" id="name" name="name" placeholder=" " required>
+                    <label for="name">Как тебя зовут?</label>
+                </div>
+                <div class="field">
+                    <input type="email" id="email" name="email" placeholder=" " required>
+                    <label for="email">Email</label>
+                </div>
+                <div class="field">
+                    <textarea id="message" name="message" placeholder=" " required></textarea>
+                    <label for="message">Сообщение</label>
+                </div>
+                <button type="submit" class="btn btn-primary">Отправить сообщение 🌴</button>
+            </form>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>© 2026 Kirill.dev · Создано на Python + Flask 🐍 под пальмами 🌴 с помощью <a href="#hero">Claude AI</a></p>
+    </footer>
+
+    <!-- Three.js (3D-фон из пальм) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

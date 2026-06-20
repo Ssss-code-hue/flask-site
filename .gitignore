@@ -1,0 +1,23 @@
+# Виртуальное окружение (у каждого своё, в Git не нужно!)
+venv/
+.venv/
+env/
+
+# Кэш Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Настройки редакторов / IDE
+.idea/
+.vscode/
+
+# Переменные окружения с секретами
+.env
+*.env
+
+# Логи и временные файлы
+*.log
+instance/
+.DS_Store
+Thumbs.db
