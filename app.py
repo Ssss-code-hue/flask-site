@@ -1,11 +1,10 @@
 import os
 
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template
 
 app = Flask(__name__)
-# Секретный ключ нужен, чтобы работали flash-сообщения ("спасибо за отзыв").
-# Для реального проекта замени на свой случайный набор символов.
-app.secret_key = 'change-me-to-a-random-secret'
+# Секретный ключ берём из переменной окружения (для будущей кассы/сессий).
+app.secret_key = os.environ.get('SECRET_KEY', 'change-me-to-a-random-secret')
 
 
 @app.route('/')
@@ -13,19 +12,16 @@ def home():
     return render_template('index.html')
 
 
-@app.route('/contact', methods=['POST'])
-def contact():
-    # Забираем данные из формы
-    name = request.form.get('name')
-    email = request.form.get('email')
-    message = request.form.get('message')
+@app.route('/tariffs')
+def tariffs():
+    # Страница выбора тарифа и оплаты (касса будет добавлена позже)
+    return render_template('tariffs.html')
 
-    # Пока просто выводим в консоль (потом можно сохранять в файл или БД)
-    print(f'Новое сообщение от {name} ({email}): {message}')
 
-    # Показываем пользователю сообщение об успехе и возвращаем на главную
-    flash(f'Спасибо, {name}! Твоё сообщение получено. ✅')
-    return redirect(url_for('home') + '#contact')
+@app.route('/bot')
+def bot():
+    # Страница со ссылкой на Telegram-бота (добавим позже)
+    return render_template('bot.html')
 
 
 if __name__ == '__main__':

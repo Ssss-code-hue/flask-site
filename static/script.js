@@ -1,230 +1,169 @@
 // ===========================================================
-//  Kirill.dev 🌴 — тропический интерактив
-//  • Пальмовый лист рисуется процедурно на canvas
-//  • Three.js: листья двигаются в 3D-пространстве при скролле
-//  • Карточки: 3D-наклон + свечение за курсором
+//  Kirill.dev — винтажный чёрно-белый интерактив
+//  • Three.js: монохромная «пыль плёнки» в 3D (реагирует на скролл/курсор)
+//  • свет за курсором + наклон карточек + проявление блоков
 // ===========================================================
 
-/* ============ 1. Рисуем пальмовый лист на canvas ============ */
-function makePalmCanvas() {
-    const c = document.createElement('canvas');
-    c.width = 512; c.height = 512;
-    const x = c.getContext('2d');
-
-    const P0 = { x: 256, y: 500 };   // основание (черешок)
-    const P1 = { x: 210, y: 250 };   // изгиб
-    const P2 = { x: 250, y: 40 };    // кончик
-
-    // точка и касательная на квадратичной кривой Безье
-    const pt = (t) => ({
-        x: (1 - t) ** 2 * P0.x + 2 * (1 - t) * t * P1.x + t ** 2 * P2.x,
-        y: (1 - t) ** 2 * P0.y + 2 * (1 - t) * t * P1.y + t ** 2 * P2.y,
-    });
-    const tangent = (t) => {
-        const dx = 2 * (1 - t) * (P1.x - P0.x) + 2 * t * (P2.x - P1.x);
-        const dy = 2 * (1 - t) * (P1.y - P0.y) + 2 * t * (P2.y - P1.y);
-        return Math.atan2(dy, dx);
-    };
-
-    // зелёный градиент листа
-    const g = x.createLinearGradient(0, 500, 0, 30);
-    g.addColorStop(0, '#0a6b3f');
-    g.addColorStop(0.55, '#1ba85f');
-    g.addColorStop(1, '#9be15d');
-    x.fillStyle = g;
-    x.strokeStyle = g;
-
-    // одно перо листа (leaflet)
-    function leaflet(bx, by, ang, len, wid) {
-        const tx = bx + Math.cos(ang) * len;
-        const ty = by + Math.sin(ang) * len;
-        const perp = ang + Math.PI / 2;
-        const mx = bx + Math.cos(ang) * len * 0.45;
-        const my = by + Math.sin(ang) * len * 0.45;
-        x.beginPath();
-        x.moveTo(bx, by);
-        x.quadraticCurveTo(mx + Math.cos(perp) * wid, my + Math.sin(perp) * wid, tx, ty);
-        x.quadraticCurveTo(mx - Math.cos(perp) * wid, my - Math.sin(perp) * wid, bx, by);
-        x.fill();
-    }
-
-    const N = 26;
-    for (let i = 1; i < N; i++) {
-        const t = i / N;
-        const b = pt(t);
-        const a = tangent(t);                 // направление "вверх по стеблю"
-        const len = 150 * Math.sin(Math.PI * t) ** 0.7 + 18;
-        const wid = len * 0.16;
-        const spread = 1.0;                    // угол отхождения пера
-        leaflet(b.x, b.y, a - spread, len, wid);  // левая сторона
-        leaflet(b.x, b.y, a + spread, len, wid);  // правая сторона
-    }
-
-    // центральный стебель поверх
-    x.lineWidth = 7; x.lineCap = 'round';
-    x.beginPath();
-    x.moveTo(P0.x, P0.y);
-    x.quadraticCurveTo(P1.x, P1.y, P2.x, P2.y);
-    x.stroke();
-
-    return c;
-}
-
-const palmCanvas = makePalmCanvas();
-const palmURL = palmCanvas.toDataURL();
-
-/* ============ 2. Декоративные пальмы по углам ============ */
-const decos = [...document.querySelectorAll('.palm-deco')];
-const baseRot = { 'palm-tl': 25, 'palm-tr': 110, 'palm-bl': -60, 'palm-br': 200 };
-decos.forEach((d) => { d.style.backgroundImage = `url(${palmURL})`; });
-
-/* ============ 3. 3D-фон из пальм (Three.js) ============ */
-let leaves = [];
+let mx = 0, my = 0, tmx = 0, tmy = 0;   // сглаженная позиция курсора (-1..1)
 let scrollY = 0, scrollTarget = 0;
 
-(function initBackground() {
+const spotlight = document.querySelector('.spotlight');
+
+/* --- курсор: двигаем свет + цель для параллакса фона --- */
+window.addEventListener('mousemove', (e) => {
+    tmx = (e.clientX / window.innerWidth) * 2 - 1;
+    tmy = (e.clientY / window.innerHeight) * 2 - 1;
+    if (spotlight) {
+        spotlight.style.setProperty('--mx', e.clientX + 'px');
+        spotlight.style.setProperty('--my', e.clientY + 'px');
+    }
+}, { passive: true });
+
+/* ============ 0. Винтажные розетки-печати (гильош) ============ */
+function makeRosetteCanvas() {
+    const S = 600, c = document.createElement('canvas');
+    c.width = c.height = S;
+    const x = c.getContext('2d'), cx = S / 2, cy = S / 2;
+    x.strokeStyle = '#9a968c'; x.lineWidth = 1;
+    const rings = [
+        { R: 285, amp: 16, k: 28 }, { R: 240, amp: 12, k: 20 },
+        { R: 195, amp: 22, k: 34 }, { R: 150, amp: 10, k: 16 },
+        { R: 108, amp: 18, k: 24 },
+    ];
+    rings.forEach((rg, idx) => {
+        x.beginPath();
+        for (let a = 0; a <= Math.PI * 2 + 0.02; a += 0.01) {
+            const r = rg.R + rg.amp * Math.sin(rg.k * a + idx);
+            const px = cx + Math.cos(a) * r, py = cy + Math.sin(a) * r;
+            a === 0 ? x.moveTo(px, py) : x.lineTo(px, py);
+        }
+        x.stroke();
+    });
+    [60, 300].forEach((r) => { x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.stroke(); });
+    return c;
+}
+(function initMarks() {
+    const marks = [...document.querySelectorAll('.vintage-mark')];
+    if (!marks.length) return;
+    const url = makeRosetteCanvas().toDataURL();
+    marks.forEach((m) => { m.style.backgroundImage = `url(${url})`; });
+})();
+
+/* ============ 1. 3D-частицы (пыль плёнки) ============ */
+(function initDust() {
     const host = document.getElementById('bg');
     if (!host || !window.THREE) return;
 
+    // мягкая круглая точка
+    function discTexture() {
+        const c = document.createElement('canvas');
+        c.width = c.height = 64;
+        const g = c.getContext('2d').createRadialGradient(32, 32, 0, 32, 32, 32);
+        g.addColorStop(0, 'rgba(255,255,255,1)');
+        g.addColorStop(0.4, 'rgba(255,255,255,0.6)');
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, 64, 64);
+        return new THREE.CanvasTexture(c);
+    }
+
     const W = window.innerWidth, H = window.innerHeight;
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 100);
-    camera.position.z = 10;
+    const camera = new THREE.PerspectiveCamera(60, W / H, 0.1, 100);
+    camera.position.z = 18;
 
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(W, H);
     host.appendChild(renderer.domElement);
 
-    const texture = new THREE.CanvasTexture(palmCanvas);
-    texture.anisotropy = 4;
-
-    // создаём множество листьев на разной глубине
-    const COUNT = 16;
+    const COUNT = 420;
+    const positions = new Float32Array(COUNT * 3);
     for (let i = 0; i < COUNT; i++) {
-        const mat = new THREE.MeshBasicMaterial({
-            map: texture, transparent: true, depthWrite: false,
-            opacity: 0.45 + Math.random() * 0.4,
-        });
-        const size = 3 + Math.random() * 5;
-        const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
-
-        const depth = -8 + Math.random() * 12;         // z-глубина
-        mesh.position.set(
-            (Math.random() - 0.5) * 22,
-            (Math.random() - 0.5) * 16,
-            depth
-        );
-        mesh.rotation.z = Math.random() * Math.PI * 2;
-
-        mesh.userData = {
-            baseY: mesh.position.y,
-            baseRot: mesh.rotation.z,
-            // ближе к камере (больше depth) → сильнее параллакс
-            parallax: 0.4 + (depth + 8) / 12 * 1.4,
-            swayAmp: 0.05 + Math.random() * 0.12,
-            swaySpeed: 0.3 + Math.random() * 0.6,
-            phase: Math.random() * Math.PI * 2,
-        };
-        scene.add(mesh);
-        leaves.push(mesh);
+        positions[i * 3]     = (Math.random() - 0.5) * 60;
+        positions[i * 3 + 1] = (Math.random() - 0.5) * 60;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 35;
     }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
-    const clock = new THREE.Clock();
+    const mat = new THREE.PointsMaterial({
+        size: 0.22, map: discTexture(), transparent: true,
+        opacity: 0.55, depthWrite: false, sizeAttenuation: true,
+        color: 0xece9e1,
+    });
+    const dust = new THREE.Points(geo, mat);
+    scene.add(dust);
+
+    // смена цвета пыли под тему (тёмная пыль на белом фоне)
+    window.__setDustTheme = (light) => {
+        mat.color.set(light ? 0x1a1712 : 0xece9e1);
+        mat.opacity = light ? 0.5 : 0.55;
+    };
+
     function render() {
         requestAnimationFrame(render);
-        const t = clock.getElapsedTime();
-        scrollY += (scrollTarget - scrollY) * 0.07;   // плавная прокрутка
+        mx += (tmx - mx) * 0.04;
+        my += (tmy - my) * 0.04;
+        scrollY += (scrollTarget - scrollY) * 0.07;
 
-        leaves.forEach((m) => {
-            const u = m.userData;
-            // движение фона при скролле (параллакс по глубине)
-            m.position.y = u.baseY + scrollY * 0.012 * u.parallax;
-            // лёгкое покачивание
-            m.rotation.z = u.baseRot + Math.sin(t * u.swaySpeed + u.phase) * u.swayAmp;
-        });
+        // курсор слегка двигает камеру (параллакс при наведении на фон)
+        camera.position.x = mx * 4;
+        camera.position.y = -my * 4 + scrollY * 0.012;   // + параллакс при скролле
+        camera.lookAt(0, scrollY * 0.012, 0);
+
+        dust.rotation.y += 0.0004;
+        dust.rotation.z = scrollY * 0.0002;
         renderer.render(scene, camera);
     }
     render();
 
     window.addEventListener('resize', () => {
         const w = window.innerWidth, h = window.innerHeight;
-        camera.aspect = w / h;
-        camera.updateProjectionMatrix();
+        camera.aspect = w / h; camera.updateProjectionMatrix();
         renderer.setSize(w, h);
     });
 })();
 
-/* ============ 4. Скролл: цель параллакса + угловые пальмы + шапка ============ */
+/* ============ 2. Скролл: прогресс, шапка и круговой переход темы ============ */
 const navbar = document.querySelector('.navbar');
+const progress = document.querySelector('.progress');
+const whySection = document.getElementById('why');
+const syncReveals = [...document.querySelectorAll('.sync')];   // появляются вместе с переходом
+let isLight = false;
+
+// единственный переход: тёмная ⇄ светлая тема (круг на CSS + цвета + пыль)
+function setLight(on) {
+    if (on === isLight) return;
+    isLight = on;
+    document.body.classList.toggle('light', on);
+    if (window.__setDustTheme) window.__setDustTheme(on);
+}
 
 function onScroll() {
-    scrollTarget = window.scrollY;
-    if (navbar) navbar.classList.toggle('scrolled', window.scrollY > 20);
-
-    // угловые пальмы плавно сдвигаются (параллакс)
-    decos.forEach((d, i) => {
-        const cls = [...d.classList].find((c) => c.startsWith('palm-') && c !== 'palm-deco');
-        const rot = baseRot[cls] || 0;
-        const dir = i % 2 === 0 ? 1 : -1;
-        const shift = window.scrollY * 0.06 * dir;
-        d.style.transform = `translateY(${shift}px) rotate(${rot + window.scrollY * 0.01 * dir}deg)`;
-    });
+    const y = window.scrollY;
+    scrollTarget = y;
+    if (navbar) navbar.classList.toggle('scrolled', y > 16);
+    if (progress) {
+        const max = document.documentElement.scrollHeight - window.innerHeight;
+        progress.style.width = (max > 0 ? (y / max) * 100 : 0) + '%';
+    }
+    // переход И появление «Почему IKK» синхронизированы у границы hero → секция
+    const vh = window.innerHeight;
+    const trigger = whySection ? whySection.offsetTop - vh * 0.5 : vh * 0.6;
+    if (!isLight && y > trigger) {
+        setLight(true);
+        syncReveals.forEach((e) => e.classList.add('visible'));
+    } else if (isLight && y < trigger - vh * 0.12) {
+        setLight(false);
+        syncReveals.forEach((e) => e.classList.remove('visible'));
+    }
 }
 window.addEventListener('scroll', onScroll, { passive: true });
-// задаём стартовый поворот углов
-decos.forEach((d) => {
-    const cls = [...d.classList].find((c) => c.startsWith('palm-') && c !== 'palm-deco');
-    d.style.transform = `rotate(${baseRot[cls] || 0}deg)`;
-});
+onScroll();
 
-/* ============ 4b. Плавающие лепестки 🌸 + солнечные блики ✨ ============ */
-(function initFX() {
-    const fx = document.getElementById('fx');
-    if (!fx || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-    const rand = (a, b) => a + Math.random() * (b - a);
-    // тропические цвета лепестков (пары для градиента)
-    const palette = [
-        ['#fda4af', '#fb7185'], // коралл
-        ['#f9a8d4', '#f472b6'], // розовый
-        ['#fde68a', '#fbbf24'], // золото
-        ['#fecdd3', '#fda4af'], // нежно-розовый
-        ['#fef3c7', '#fcd34d'], // светло-жёлтый
-    ];
-
-    // --- лепестки ---
-    for (let i = 0; i < 18; i++) {
-        const p = document.createElement('div');
-        p.className = 'petal';
-        const c = palette[Math.floor(Math.random() * palette.length)];
-        p.style.setProperty('--x', rand(0, 100) + 'vw');
-        p.style.setProperty('--size', rand(10, 22) + 'px');
-        p.style.setProperty('--c1', c[0]);
-        p.style.setProperty('--c2', c[1]);
-        p.style.setProperty('--dur', rand(9, 18) + 's');
-        p.style.setProperty('--delay', -rand(0, 18) + 's');   // отрицательная задержка = старт вразнобой
-        p.style.setProperty('--sway', rand(-140, 140) + 'px');
-        p.style.setProperty('--op', rand(0.45, 0.85).toFixed(2));
-        fx.appendChild(p);
-    }
-
-    // --- солнечные блики (больше у солнца, в правом верхнем углу) ---
-    for (let i = 0; i < 14; i++) {
-        const g = document.createElement('div');
-        g.className = 'glint';
-        const nearSun = Math.random() < 0.6;
-        g.style.setProperty('--x', (nearSun ? rand(55, 98) : rand(0, 100)) + 'vw');
-        g.style.setProperty('--y', (nearSun ? rand(0, 40) : rand(0, 100)) + 'vh');
-        g.style.setProperty('--g', rand(4, 10) + 'px');
-        g.style.setProperty('--op', rand(0.6, 1).toFixed(2));
-        g.style.setProperty('--tdur', rand(2.5, 5) + 's');
-        g.style.setProperty('--tdelay', -rand(0, 5) + 's');
-        fx.appendChild(g);
-    }
-})();
-
-/* ============ 5. Меню-гамбургер ============ */
+/* ============ 3. Меню-гамбургер ============ */
 const burger = document.querySelector('.burger');
 const navLinks = document.querySelector('.nav-links');
 if (burger && navLinks) {
@@ -233,15 +172,27 @@ if (burger && navLinks) {
         l.addEventListener('click', () => navLinks.classList.remove('open')));
 }
 
-/* ============ 6. Появление блоков при прокрутке ============ */
+/* ============ 4. Появление блоков при прокрутке ============ */
 const revealObserver = new IntersectionObserver((entries) => {
     entries.forEach((e) => {
-        if (e.isIntersecting) { e.target.classList.add('visible'); revealObserver.unobserve(e.target); }
+        if (!e.isIntersecting) return;
+        const el = e.target;
+        // карточки появляются по очереди (ступенчато), потом задержку сбрасываем,
+        // чтобы она не мешала наклону при наведении
+        if (el.classList.contains('card')) {
+            const idx = [...el.parentNode.children].indexOf(el);
+            el.style.transitionDelay = (idx * 0.12) + 's';
+            requestAnimationFrame(() => el.classList.add('visible'));
+            setTimeout(() => { el.style.transitionDelay = ''; }, 1000 + idx * 120);
+        } else {
+            el.classList.add('visible');
+        }
+        revealObserver.unobserve(el);
     });
 }, { threshold: 0.15 });
-document.querySelectorAll('.reveal').forEach((el) => revealObserver.observe(el));
+document.querySelectorAll('.reveal:not(.sync)').forEach((el) => revealObserver.observe(el));
 
-/* ============ 7. Карточки: 3D-наклон + свечение ============ */
+/* ============ 5. Карточки: 3D-наклон + свет за курсором ============ */
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 document.querySelectorAll('.card').forEach((card) => {
     card.addEventListener('mousemove', (e) => {
@@ -250,9 +201,9 @@ document.querySelectorAll('.card').forEach((card) => {
         card.style.setProperty('--mx', `${px}px`);
         card.style.setProperty('--my', `${py}px`);
         if (reduceMotion) return;
-        const rotX = ((py / r.height) - 0.5) * -10;
-        const rotY = ((px / r.width) - 0.5) * 10;
-        card.style.transform = `perspective(900px) rotateX(${rotX}deg) rotateY(${rotY}deg) translateY(-6px)`;
+        const rotX = ((py / r.height) - 0.5) * -9;
+        const rotY = ((px / r.width) - 0.5) * 9;
+        card.style.transform = `perspective(1000px) rotateX(${rotX}deg) rotateY(${rotY}deg) translateY(-4px)`;
     });
     card.addEventListener('mouseleave', () => { card.style.transform = ''; });
 });

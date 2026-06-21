@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Тарифы и оплата — IKK VPN{% endblock %}
+
+{% block content %}
+    <section class="container">
+        <div class="section-head">
+            <div class="eyebrow">Тарифы и оплата</div>
+            <h2 class="section-title hand">Тарифы</h2>
+            <div class="rule"></div>
+        </div>
+
+        <div class="notice reveal">
+            <strong>Оплата временно недоступна.</strong>
+            Касса в разработке — скоро можно будет оплатить прямо здесь.
+        </div>
+
+        <div class="cards">
+            <div class="card plan reveal">
+                <div class="plan-name">1 месяц</div>
+                <div class="price">149 ₽<span>/мес</span></div>
+                <ul class="plan-features">
+                    <li>Все серверы</li>
+                    <li>Без логов</li>
+                    <li>1 устройство</li>
+                </ul>
+                <span class="btn disabled" aria-disabled="true">Оплатить — скоро</span>
+            </div>
+            <div class="card plan featured reveal">
+                <div class="badge-pop">популярный</div>
+                <div class="plan-name">3 месяца</div>
+                <div class="price">399 ₽<span>/3 мес</span></div>
+                <ul class="plan-features">
+                    <li>Все серверы</li>
+                    <li>Без логов</li>
+                    <li>2 устройства</li>
+                    <li>Приоритетная поддержка</li>
+                </ul>
+                <span class="btn disabled" aria-disabled="true">Оплатить — скоро</span>
+            </div>
+            <div class="card plan reveal">
+                <div class="plan-name">12 месяцев</div>
+                <div class="price">1290 ₽<span>/год</span></div>
+                <ul class="plan-features">
+                    <li>Все серверы</li>
+                    <li>Без логов</li>
+                    <li>3 устройства</li>
+                    <li>Лучшая цена</li>
+                </ul>
+                <span class="btn disabled" aria-disabled="true">Оплатить — скоро</span>
+            </div>
+        </div>
+
+        <p class="note reveal">Пока оплата не подключена — напишите
+            <a href="https://t.me/solpure" target="_blank" rel="noopener">@solpure</a>, оформим вручную.</p>
+    </section>
+{% endblock %}
