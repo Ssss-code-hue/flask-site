@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>IKK VPN — инструкция</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg:#0c0c0d; --bg-2:#16161a; --ink:#ece9e1; --dim:#9a968c;
+            --line:rgba(236,233,225,.16); --line-soft:rgba(236,233,225,.08);
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family:'EB Garamond', Georgia, serif;
+            background:
+                radial-gradient(900px 600px at 50% -10%, #161617, transparent 60%),
+                var(--bg);
+            color:var(--ink);
+            padding:24px 16px 48px;
+            line-height:1.5;
+        }
+
+        /* рукописные заголовки и текст (Caveat) */
+        .hand { font-family:'Caveat', cursive; font-weight:700; line-height:1.1; }
+
+        .eyebrow {
+            text-transform:uppercase; letter-spacing:4px; font-size:.72rem;
+            color:var(--dim); text-align:center; margin-bottom:6px;
+        }
+        h1.title { font-size:clamp(2.6rem,11vw,3.4rem); text-align:center; }
+        .sub {
+            font-family:'Caveat', cursive; font-weight:500;
+            font-size:1.45rem; color:var(--dim); text-align:center; margin:2px 0 22px;
+        }
+        .rule { width:64px; height:2px; background:var(--line); border-radius:2px; margin:10px auto 22px; }
+
+        /* закруглённые вкладыши (вкладки устройств) */
+        .tabs { display:flex; gap:8px; overflow-x:auto; padding-bottom:12px; margin-bottom:18px; -webkit-overflow-scrolling:touch; }
+        .tab {
+            white-space:nowrap; flex:none;
+            font-family:'Caveat', cursive; font-weight:700; font-size:1.25rem;
+            padding:8px 22px; border:1px solid var(--line); border-radius:999px;
+            background:transparent; color:var(--dim); cursor:pointer; transition:.25s;
+        }
+        .tab.active { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+
+        /* закруглённые карточки-вкладыши с текстом */
+        .panel { display:none; }
+        .panel.active { display:block; animation:fade .35s ease; }
+        @keyframes fade { from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:none;} }
+
+        .step {
+            display:flex; gap:14px; align-items:flex-start;
+            background:var(--bg-2); border:1px solid var(--line);
+            border-radius:22px; padding:16px 18px; margin-bottom:12px;
+        }
+        .num {
+            flex:none; width:40px; height:40px; border-radius:50%;
+            border:1px solid var(--line); display:flex; align-items:center; justify-content:center;
+            font-family:'Caveat', cursive; font-weight:700; font-size:1.5rem; color:var(--ink);
+        }
+        .step p { font-family:'Caveat', cursive; font-weight:500; font-size:1.35rem; line-height:1.35; padding-top:4px; }
+        .step b { font-weight:700; color:#fff; }
+
+        .note {
+            font-style:italic; font-size:.95rem; color:var(--dim);
+            text-align:center; margin-top:20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="eyebrow">Подключение · Happ</div>
+    <h1 class="title hand">IKK VPN</h1>
+    <div class="sub">Выберите своё устройство</div>
+    <div class="rule"></div>
+
+    <div class="tabs">
+        <button class="tab active" data-t="ios">iOS</button>
+        <button class="tab" data-t="android">Android</button>
+        <button class="tab" data-t="windows">Windows</button>
+        <button class="tab" data-t="macos">macOS</button>
+        <button class="tab" data-t="tv">Android TV</button>
+    </div>
+
+    <div id="panels"></div>
+
+    <div class="note">Нет ссылки-подписки? Купите её в боте — раздел «⭐ Купить подписку».</div>
+
+    <script>
+        const install = {
+            ios:     'Установите приложение <b>Happ</b> из <b>App Store</b>.',
+            android: 'Установите приложение <b>Happ</b> из <b>Google Play</b>.',
+            windows: 'Скачайте и установите <b>Happ для Windows</b>.',
+            macos:   'Установите <b>Happ</b> из <b>App Store</b> (Mac).',
+            tv:      'Установите <b>Happ</b> из <b>Google Play</b> на телевизоре.',
+        };
+        const add = {
+            ios:     'Откройте Happ → «<b>+</b>» → «<b>Добавить из буфера обмена</b>».',
+            android: 'Откройте Happ → «<b>+</b>» → «<b>Добавить из буфера обмена</b>».',
+            windows: 'В Happ нажмите «<b>Добавить</b>» и вставьте ссылку.',
+            macos:   'Откройте Happ → «<b>+</b>» → «<b>Добавить из буфера обмена</b>».',
+            tv:      'В Happ добавьте подписку по ссылке (или войдите через QR/код).',
+        };
+        const keys = ['ios','android','windows','macos','tv'];
+        const panels = document.getElementById('panels');
+        keys.forEach((k, i) => {
+            const div = document.createElement('div');
+            div.className = 'panel' + (i === 0 ? ' active' : '');
+            div.dataset.p = k;
+            div.innerHTML = `
+                <div class="step"><div class="num">1</div><p>${install[k]}</p></div>
+                <div class="step"><div class="num">2</div><p>Купите подписку в боте и <b>скопируйте</b> свою ссылку-подписку.</p></div>
+                <div class="step"><div class="num">3</div><p>${add[k]}</p></div>
+                <div class="step"><div class="num">4</div><p>Выберите сервер и нажмите «<b>Подключить</b>». Готово! 🎉</p></div>`;
+            panels.appendChild(div);
+        });
+
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+                tab.classList.add('active');
+                document.querySelector(`.panel[data-p="${tab.dataset.t}"]`).classList.add('active');
+            });
+        });
+
+        if (window.Telegram && Telegram.WebApp) {
+            Telegram.WebApp.ready();
+            Telegram.WebApp.expand();
+        }
+    </script>
+</body>
+</html>

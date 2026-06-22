@@ -1,0 +1,45 @@
+"""Клавиатуры (инлайн-кнопки) бота."""
+from aiogram.types import WebAppInfo
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+from .config import PLANS, WEBAPP_URL, OWNER_USERNAME
+
+
+def main_menu():
+    kb = InlineKeyboardBuilder()
+    kb.button(text="⭐ Купить подписку", callback_data="buy")
+    kb.button(text="📲 Инструкция подключения", callback_data="devices")
+    kb.button(text="🎁 Пригласить друга (+3 дня)", callback_data="ref")
+    kb.button(text="📡 Моя подписка", callback_data="status")
+    kb.button(text="💬 Поддержка", url=f"https://t.me/{OWNER_USERNAME}")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def plans_kb():
+    kb = InlineKeyboardBuilder()
+    for code, p in PLANS.items():
+        kb.button(text=f"{p['title']} — {p['stars']} ⭐", callback_data=f"plan:{code}")
+    kb.button(text="◀ Назад", callback_data="menu")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def devices_kb():
+    kb = InlineKeyboardBuilder()
+    if WEBAPP_URL:
+        kb.button(text="📱 Открыть инструкцию", web_app=WebAppInfo(url=WEBAPP_URL))
+    kb.button(text="iOS (iPhone/iPad)", callback_data="dev:ios")
+    kb.button(text="Android", callback_data="dev:android")
+    kb.button(text="Windows", callback_data="dev:windows")
+    kb.button(text="macOS", callback_data="dev:macos")
+    kb.button(text="Android TV", callback_data="dev:tv")
+    kb.button(text="◀ Назад", callback_data="menu")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def back_kb(target="menu"):
+    kb = InlineKeyboardBuilder()
+    kb.button(text="◀ Назад", callback_data=target)
+    return kb.as_markup()

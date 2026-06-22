@@ -24,6 +24,12 @@ def bot():
     return render_template('bot.html')
 
 
+@app.route('/app')
+def webapp():
+    # Мини-приложение Telegram с инструкцией подключения (Happ)
+    return render_template('webapp.html')
+
+
 if __name__ == '__main__':
     # Порт можно задать переменной окружения PORT (по умолчанию 5000)
     port = int(os.environ.get('PORT', 5000))
