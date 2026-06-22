@@ -1,0 +1,20 @@
+# Виртуальное окружение и кэш — в образ не нужны
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+
+# Git и настройки редакторов
+.git/
+.gitignore
+.idea/
+.vscode/
+.claude/
+
+# Сам докер-обвес и прочее
+Dockerfile
+.dockerignore
+docker-compose.yml
+*.md
+.env

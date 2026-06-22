@@ -1,0 +1,11 @@
+services:
+  web:
+    build: .
+    container_name: ikk-vpn
+    ports:
+      - "5000:5000"
+    environment:
+      # Для реального сервера замени на свой случайный секрет
+      - SECRET_KEY=change-me-to-a-random-secret
+      - PORT=5000
+    restart: unless-stopped
