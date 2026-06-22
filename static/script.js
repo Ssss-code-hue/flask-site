@@ -175,19 +175,23 @@ if (burger && navLinks) {
 /* ============ 4. Появление блоков при прокрутке ============ */
 const revealObserver = new IntersectionObserver((entries) => {
     entries.forEach((e) => {
-        if (!e.isIntersecting) return;
         const el = e.target;
-        // карточки появляются по очереди (ступенчато), потом задержку сбрасываем,
-        // чтобы она не мешала наклону при наведении
-        if (el.classList.contains('card')) {
-            const idx = [...el.parentNode.children].indexOf(el);
-            el.style.transitionDelay = (idx * 0.12) + 's';
-            requestAnimationFrame(() => el.classList.add('visible'));
-            setTimeout(() => { el.style.transitionDelay = ''; }, 1000 + idx * 120);
-        } else {
+        if (e.isIntersecting) {
+            // карточки появляются по очереди (ступенчато)
+            if (el.classList.contains('card')) {
+                const idx = [...el.parentNode.children].indexOf(el);
+                el.style.transitionDelay = (idx * 0.1) + 's';
+                // через секунду сбрасываем задержку, чтобы она не мешала наклону при наведении
+                clearTimeout(el._dt);
+                el._dt = setTimeout(() => { el.style.transitionDelay = ''; }, 900 + idx * 100);
+            }
             el.classList.add('visible');
+        } else {
+            // ушёл из экрана — прячем обратно, чтобы появился снова при следующем заходе
+            el.classList.remove('visible');
+            clearTimeout(el._dt);
+            el.style.transitionDelay = '';
         }
-        revealObserver.unobserve(el);
     });
 }, { threshold: 0.15 });
 document.querySelectorAll('.reveal:not(.sync)').forEach((el) => revealObserver.observe(el));

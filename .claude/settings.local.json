@@ -9,7 +9,17 @@
       "Bash(echo \"user.name: $\\(git config --global user.name || echo '\\(не задано\\)'\\)\")",
       "Bash(echo \"user.email: $\\(git config --global user.email || echo '\\(не задано\\)'\\)\")",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(docker --version)",
+      "Bash(docker info *)",
+      "Bash(docker build *)",
+      "Bash(docker rm *)",
+      "Bash(docker run *)",
+      "Bash(curl -s -o /dev/null -w \"Статус: %{http_code}\\\\n\" http://localhost:8000/)",
+      "Bash(curl -s http://localhost:8000/)",
+      "Bash(curl -s -o /dev/null -w \"/tariffs: %{http_code}\\\\n\" http://localhost:8000/tariffs)",
+      "Bash(curl -s -o /dev/null -w \"/bot: %{http_code}\\\\n\" http://localhost:8000/bot)"
     ]
   }
 }
