@@ -21,7 +21,11 @@
       "Bash(curl -s -o /dev/null -w \"/tariffs: %{http_code}\\\\n\" http://localhost:8000/tariffs)",
       "Bash(curl -s -o /dev/null -w \"/bot: %{http_code}\\\\n\" http://localhost:8000/bot)",
       "Bash(venv/Scripts/python.exe -m pip install -q \"aiogram>=3.13,<4\")",
-      "Bash(venv/Scripts/python.exe -c \"import bot.main; print\\('OK: bot.main импортируется, обработчиков:', len\\(bot.main.dp.sub_routers\\)+1\\)\")"
+      "Bash(venv/Scripts/python.exe -c \"import bot.main; print\\('OK: bot.main импортируется, обработчиков:', len\\(bot.main.dp.sub_routers\\)+1\\)\")",
+      "Bash(venv/Scripts/python.exe -m pip install -q \"flasgger>=0.9.7\")",
+      "Bash(venv/Scripts/python.exe -c \"import app; print\\('OK: app импортируется, маршрутов:', len\\(list\\(app.app.url_map.iter_rules\\(\\)\\)\\)\\)\")",
+      "Bash(venv/Scripts/python.exe -m pip install -q \"requests>=2.31\")",
+      "Bash(venv/Scripts/python.exe -m bot.panel)"
     ]
   }
 }

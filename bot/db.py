@@ -92,3 +92,13 @@ def record_payment(uid, plan, stars, charge_id):
             "INSERT INTO payments(user_id, plan, stars, charge_id, created_at) VALUES(?,?,?,?,?)",
             (uid, plan, stars, charge_id, int(time.time())),
         )
+
+
+def stats():
+    now = int(time.time())
+    with _conn() as c:
+        users = c.execute("SELECT COUNT(*) AS n FROM users").fetchone()["n"]
+        active = c.execute("SELECT COUNT(*) AS n FROM users WHERE sub_until > ?", (now,)).fetchone()["n"]
+        payments = c.execute("SELECT COUNT(*) AS n FROM payments").fetchone()["n"]
+        stars = c.execute("SELECT COALESCE(SUM(stars), 0) AS s FROM payments").fetchone()["s"]
+    return {"users": users, "active_subscriptions": active, "payments": payments, "stars_total": stars}

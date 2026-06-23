@@ -1,10 +1,25 @@
 import os
 
 from flask import Flask, render_template
+from flasgger import Swagger
+
+from api import api as api_blueprint
+from bot import db
 
 app = Flask(__name__)
 # Секретный ключ берём из переменной окружения (для будущей кассы/сессий).
 app.secret_key = os.environ.get('SECRET_KEY', 'change-me-to-a-random-secret')
+
+# REST API + Swagger UI (документация на /apidocs)
+db.init_db()                       # на всякий случай создаём таблицы
+app.register_blueprint(api_blueprint)
+Swagger(app, template={
+    "info": {
+        "title": "IKK VPN API",
+        "description": "API сервиса IKK VPN: тарифы, подписки, рефералы, статистика.",
+        "version": "1.0.0",
+    },
+})
 
 
 @app.route('/')
