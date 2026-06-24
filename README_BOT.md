@@ -21,7 +21,7 @@ pip install -r bot/requirements.txt
 |------------|-------|--------|
 | `BOT_TOKEN` | токен от @BotFather (обязательно) | `123456:ABC...` |
 | `BOT_USERNAME` | юзернейм бота (для реф-ссылок) | `IKKvpnpbot` |
-| `OWNER_USERNAME` | для кнопки «Поддержка» | `solpure` |
+| `OWNER_USERNAME` | для кнопки «Поддержка» | `IKKvpndev` |
 | `OWNER_ID` | ID владельца для уведомлений | `123456789` |
 | `WEBAPP_URL` | HTTPS-адрес мини-приложения | `https://ваш-домен/app` |
 | `SUB_BASE_URL` | база подписок вашей VPN-панели | `https://panel/sub` |

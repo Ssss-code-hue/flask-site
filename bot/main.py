@@ -7,10 +7,12 @@ from datetime import datetime
 from aiogram import Bot, Dispatcher, F
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.filters import CommandStart
+from aiogram.filters import Command, CommandStart
 from aiogram.types import (
+    BotCommand,
     CallbackQuery,
     LabeledPrice,
+    MenuButtonCommands,
     Message,
     PreCheckoutQuery,
 )
@@ -33,6 +35,19 @@ dp = Dispatcher()
 
 def fmt_date(ts):
     return datetime.fromtimestamp(ts).strftime("%d.%m.%Y")
+
+
+def ref_text(uid):
+    link = f"https://t.me/{BOT_USERNAME}?start=ref_{uid}"
+    n = db.count_referrals(uid)
+    return texts.REF.format(link=link, days=REFERRAL_BONUS_DAYS, count=n, earned=n * REFERRAL_BONUS_DAYS)
+
+
+def status_text(uid):
+    u = db.get_user(uid)
+    if u and u["sub_until"] and u["sub_until"] > int(time.time()):
+        return texts.STATUS_ACTIVE.format(date=fmt_date(u["sub_until"]))
+    return texts.STATUS_INACTIVE
 
 
 # ============ /start (+ рефералы) ============
@@ -65,6 +80,35 @@ async def cmd_start(message: Message):
     await message.answer(texts.WELCOME, reply_markup=main_menu())
 
 
+# ============ Команды-функции (видны в меню слева от поля ввода) ============
+@dp.message(Command("buy"))
+async def cmd_buy(message: Message):
+    await message.answer(texts.PLANS_INTRO, reply_markup=plans_kb())
+
+
+@dp.message(Command("devices"))
+async def cmd_devices(message: Message):
+    await message.answer(texts.DEVICES_INTRO, reply_markup=devices_kb())
+
+
+@dp.message(Command("ref"))
+async def cmd_ref(message: Message):
+    db.create_user(message.from_user.id, message.from_user.username)
+    await message.answer(
+        ref_text(message.from_user.id), reply_markup=back_kb("menu"), disable_web_page_preview=True
+    )
+
+
+@dp.message(Command("status"))
+async def cmd_status(message: Message):
+    await message.answer(status_text(message.from_user.id), reply_markup=main_menu())
+
+
+@dp.message(Command("help"))
+async def cmd_help(message: Message):
+    await message.answer(texts.HELP, reply_markup=main_menu())
+
+
 # ============ Навигация по меню ============
 @dp.callback_query(F.data == "menu")
 async def cb_menu(cq: CallbackQuery):
@@ -95,25 +139,15 @@ async def cb_device(cq: CallbackQuery):
 
 @dp.callback_query(F.data == "ref")
 async def cb_ref(cq: CallbackQuery):
-    uid = cq.from_user.id
-    link = f"https://t.me/{BOT_USERNAME}?start=ref_{uid}"
-    n = db.count_referrals(uid)
     await cq.message.edit_text(
-        texts.REF.format(link=link, days=REFERRAL_BONUS_DAYS, count=n, earned=n * REFERRAL_BONUS_DAYS),
-        reply_markup=back_kb("menu"),
-        disable_web_page_preview=True,
+        ref_text(cq.from_user.id), reply_markup=back_kb("menu"), disable_web_page_preview=True
     )
     await cq.answer()
 
 
 @dp.callback_query(F.data == "status")
 async def cb_status(cq: CallbackQuery):
-    u = db.get_user(cq.from_user.id)
-    if u and u["sub_until"] and u["sub_until"] > int(time.time()):
-        txt = texts.STATUS_ACTIVE.format(date=fmt_date(u["sub_until"]))
-    else:
-        txt = texts.STATUS_INACTIVE
-    await cq.message.edit_text(txt, reply_markup=main_menu())
+    await cq.message.edit_text(status_text(cq.from_user.id), reply_markup=main_menu())
     await cq.answer()
 
 
@@ -183,6 +217,19 @@ async def main():
         raise SystemExit("Ошибка: задайте переменную окружения BOT_TOKEN (токен от @BotFather).")
     db.init_db()
     bot = Bot(BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+
+    # список функций для кнопки «Меню» слева от поля ввода
+    await bot.set_my_commands([
+        BotCommand(command="start", description="Главное меню"),
+        BotCommand(command="buy", description="Купить подписку"),
+        BotCommand(command="devices", description="Инструкция подключения"),
+        BotCommand(command="status", description="Моя подписка"),
+        BotCommand(command="ref", description="Пригласить друга (+3 дня)"),
+        BotCommand(command="help", description="Помощь"),
+    ])
+    # кнопка слева показывает список функций (команд)
+    await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+
     logging.info("IKK VPN bot запущен")
     await dp.start_polling(bot)
 

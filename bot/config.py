@@ -6,7 +6,7 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 
 # Юзернеймы (без @)
 BOT_USERNAME = os.environ.get("BOT_USERNAME", "IKKvpnpbot")
-OWNER_USERNAME = os.environ.get("OWNER_USERNAME", "solpure")
+OWNER_USERNAME = os.environ.get("OWNER_USERNAME", "IKKvpndev")
 
 # ID владельца для уведомлений об оплатах (число). Узнать можно у @userinfobot
 OWNER_ID = int(os.environ.get("OWNER_ID", "0")) or None

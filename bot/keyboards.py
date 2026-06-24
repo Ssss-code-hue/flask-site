@@ -8,11 +8,12 @@ from .config import PLANS, WEBAPP_URL, OWNER_USERNAME
 def main_menu():
     kb = InlineKeyboardBuilder()
     kb.button(text="⭐ Купить подписку", callback_data="buy")
-    kb.button(text="📲 Инструкция подключения", callback_data="devices")
-    kb.button(text="🎁 Пригласить друга (+3 дня)", callback_data="ref")
+    kb.button(text="📲 Инструкция", callback_data="devices")
     kb.button(text="📡 Моя подписка", callback_data="status")
+    kb.button(text="🎁 Пригласить друга (+3 дня)", callback_data="ref")
     kb.button(text="💬 Поддержка", url=f"https://t.me/{OWNER_USERNAME}")
-    kb.adjust(1)
+    # 1 + 2 + 1 + 1: «Купить» на всю ширину, потом две в ряд, далее по одной
+    kb.adjust(1, 2, 1, 1)
     return kb.as_markup()
 
 
