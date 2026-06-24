@@ -26,7 +26,8 @@
       "Bash(venv/Scripts/python.exe -c \"import app; print\\('OK: app импортируется, маршрутов:', len\\(list\\(app.app.url_map.iter_rules\\(\\)\\)\\)\\)\")",
       "Bash(venv/Scripts/python.exe -m pip install -q \"requests>=2.31\")",
       "Bash(venv/Scripts/python.exe -m bot.panel)",
-      "Bash(venv/Scripts/python.exe -c \"import bot.main as m; cmds=[h.callback.__name__ for h in m.dp.message.handlers]; print\\('OK, message-обработчики:', cmds\\)\")"
+      "Bash(venv/Scripts/python.exe -c \"import bot.main as m; cmds=[h.callback.__name__ for h in m.dp.message.handlers]; print\\('OK, message-обработчики:', cmds\\)\")",
+      "WebFetch(domain:ikkvpn.com)"
     ]
   }
 }

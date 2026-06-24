@@ -292,6 +292,7 @@ section { padding: 100px 0; position: relative; z-index: 1; }
 }
 .card::before {
     content: ""; position: absolute; inset: 0; border-radius: 24px; opacity: 0;
+    pointer-events: none;              /* чтобы слой подсветки не перехватывал клики по ссылкам */
     transition: opacity var(--slow);
     background: radial-gradient(320px circle at var(--mx, 50%) var(--my, 50%),
         rgba(236, 233, 225, 0.12), transparent 60%);
@@ -332,6 +333,7 @@ section { padding: 100px 0; position: relative; z-index: 1; }
 .price { font-family: 'EB Garamond', serif; font-size: 2.8rem; font-weight: 600; line-height: 1; }
 .price span { font-size: 1rem; color: var(--ink-dim); margin-left: 4px; }
 .stars {
+    position: relative; z-index: 1;   /* над декоративным слоем карточки */
     display: inline-block; font-size: 0.98rem; color: var(--ink-dim);
     margin-top: 6px; text-decoration: none;
     border-bottom: 1px dashed var(--line);
