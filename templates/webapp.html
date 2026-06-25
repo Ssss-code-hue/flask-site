@@ -68,6 +68,15 @@
         .step p { font-family:'Caveat', cursive; font-weight:500; font-size:1.35rem; line-height:1.35; padding-top:4px; }
         .step b { font-weight:700; color:#fff; }
 
+        /* кнопка скачивания Happ */
+        .dl-btn {
+            display:block; text-align:center; margin:0 0 16px;
+            font-family:'Caveat', cursive; font-weight:700; font-size:1.45rem;
+            padding:12px 16px; border-radius:16px; text-decoration:none;
+            background:var(--bg); color:var(--ink); border:1px solid var(--line);
+        }
+        .dl-btn:active { opacity:.85; }
+
         .note {
             font-style:italic; font-size:.95rem; color:var(--dim);
             text-align:center; margin-top:20px;
@@ -107,6 +116,14 @@
             macos:   'Откройте Happ → «<b>+</b>» → «<b>Добавить из буфера обмена</b>».',
             tv:      'В Happ добавьте подписку по ссылке (или войдите через QR/код).',
         };
+        // официальные ссылки на скачивание Happ
+        const dl = {
+            ios:     'https://apps.apple.com/us/app/happ-proxy-utility/id6504287215',
+            android: 'https://play.google.com/store/apps/details?id=com.happproxy',
+            windows: 'https://github.com/Happ-proxy/happ-desktop/releases',
+            macos:   'https://github.com/Happ-proxy/happ-desktop/releases',
+            tv:      'https://play.google.com/store/apps/details?id=com.happproxy',
+        };
         const keys = ['ios','android','windows','macos','tv'];
         const panels = document.getElementById('panels');
         keys.forEach((k, i) => {
@@ -114,6 +131,7 @@
             div.className = 'panel' + (i === 0 ? ' active' : '');
             div.dataset.p = k;
             div.innerHTML = `
+                <a class="dl-btn" href="${dl[k]}" target="_blank" rel="noopener">⬇ Скачать Happ</a>
                 <div class="step"><div class="num">1</div><p>${install[k]}</p></div>
                 <div class="step"><div class="num">2</div><p>Купите подписку в боте и <b>скопируйте</b> свою ссылку-подписку.</p></div>
                 <div class="step"><div class="num">3</div><p>${add[k]}</p></div>
@@ -127,6 +145,16 @@
                 document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
                 tab.classList.add('active');
                 document.querySelector(`.panel[data-p="${tab.dataset.t}"]`).classList.add('active');
+            });
+        });
+
+        // ссылки на магазины открываем во внешнем браузере (корректно в Telegram-webview)
+        document.querySelectorAll('.dl-btn').forEach(b => {
+            b.addEventListener('click', (e) => {
+                if (window.Telegram && Telegram.WebApp && Telegram.WebApp.openLink) {
+                    e.preventDefault();
+                    Telegram.WebApp.openLink(b.href);
+                }
             });
         });
 

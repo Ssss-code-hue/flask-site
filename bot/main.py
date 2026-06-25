@@ -143,15 +143,6 @@ async def cb_devices(cq: CallbackQuery):
     await cq.answer()
 
 
-@dp.callback_query(F.data.startswith("dev:"))
-async def cb_device(cq: CallbackQuery):
-    key = cq.data.split(":", 1)[1]
-    await cq.message.edit_text(
-        texts.DEVICE_TEXTS.get(key, "—"), reply_markup=back_kb("devices")
-    )
-    await cq.answer()
-
-
 @dp.callback_query(F.data == "ref")
 async def cb_ref(cq: CallbackQuery):
     await cq.message.edit_text(

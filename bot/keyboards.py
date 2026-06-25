@@ -42,11 +42,6 @@ def devices_kb():
     kb = InlineKeyboardBuilder()
     if WEBAPP_URL:
         kb.button(text="📱 Открыть инструкцию", web_app=WebAppInfo(url=WEBAPP_URL))
-    kb.button(text="iOS (iPhone/iPad)", callback_data="dev:ios")
-    kb.button(text="Android", callback_data="dev:android")
-    kb.button(text="Windows", callback_data="dev:windows")
-    kb.button(text="macOS", callback_data="dev:macos")
-    kb.button(text="Android TV", callback_data="dev:tv")
     kb.button(text="◀ Назад", callback_data="menu")
     kb.adjust(1)
     return kb.as_markup()
