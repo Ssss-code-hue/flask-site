@@ -460,6 +460,8 @@ section { padding: 100px 0; position: relative; z-index: 1; }
         transform: translateY(-180%); transition: transform var(--slow);
     }
     .nav-links.open { transform: translateY(0); }
+    /* в светлой теме мобильное меню тоже светлое */
+    body.light .nav-links { background: rgba(239, 236, 227, 0.97); }
     .nav-links a { text-align: center; padding: 14px; }
     section { padding: 70px 0; }
     .hero { padding: 80px 0 70px; }
