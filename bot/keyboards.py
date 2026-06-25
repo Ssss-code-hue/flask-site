@@ -2,7 +2,7 @@
 from aiogram.types import WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from .config import PLANS, WEBAPP_URL, OWNER_USERNAME
+from .config import PLANS, WEBAPP_URL, OFFER_URL, OWNER_USERNAME
 
 
 def main_menu():
@@ -17,11 +17,23 @@ def main_menu():
     return kb.as_markup()
 
 
+def offer_consent_kb():
+    kb = InlineKeyboardBuilder()
+    if OFFER_URL:
+        kb.button(text="📄 Открыть оферту", web_app=WebAppInfo(url=OFFER_URL))
+    else:
+        kb.button(text="📄 Читать оферту", callback_data="offer_text")
+    kb.button(text="✅ Принимаю — к тарифам", callback_data="plans")
+    kb.button(text="◀ Назад", callback_data="menu")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
 def plans_kb():
     kb = InlineKeyboardBuilder()
     for code, p in PLANS.items():
         kb.button(text=f"{p['title']} — {p['stars']} ⭐", callback_data=f"plan:{code}")
-    kb.button(text="◀ Назад", callback_data="menu")
+    kb.button(text="◀ Назад", callback_data="buy")
     kb.adjust(1)
     return kb.as_markup()
 

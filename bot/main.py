@@ -26,7 +26,7 @@ from .config import (
     PLANS,
     REFERRAL_BONUS_DAYS,
 )
-from .keyboards import back_kb, devices_kb, main_menu, plans_kb
+from .keyboards import back_kb, devices_kb, main_menu, offer_consent_kb, plans_kb
 from .panel import get_subscription_url
 
 logging.basicConfig(level=logging.INFO)
@@ -83,7 +83,7 @@ async def cmd_start(message: Message):
 # ============ Команды-функции (видны в меню слева от поля ввода) ============
 @dp.message(Command("buy"))
 async def cmd_buy(message: Message):
-    await message.answer(texts.PLANS_INTRO, reply_markup=plans_kb())
+    await message.answer(texts.OFFER_INTRO, reply_markup=offer_consent_kb())
 
 
 @dp.message(Command("devices"))
@@ -118,6 +118,21 @@ async def cb_menu(cq: CallbackQuery):
 
 @dp.callback_query(F.data == "buy")
 async def cb_buy(cq: CallbackQuery):
+    # перед покупкой — оферта и согласие
+    await cq.message.edit_text(texts.OFFER_INTRO, reply_markup=offer_consent_kb())
+    await cq.answer()
+
+
+@dp.callback_query(F.data == "offer_text")
+async def cb_offer_text(cq: CallbackQuery):
+    # текстовая оферта (запасной вариант, если мини-приложение не настроено)
+    await cq.message.edit_text(texts.OFFER_TEXT, reply_markup=back_kb("buy"), disable_web_page_preview=True)
+    await cq.answer()
+
+
+@dp.callback_query(F.data == "plans")
+async def cb_plans(cq: CallbackQuery):
+    # пользователь принял оферту — показываем тарифы
     await cq.message.edit_text(texts.PLANS_INTRO, reply_markup=plans_kb())
     await cq.answer()
 

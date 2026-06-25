@@ -51,6 +51,12 @@ def offer():
     return render_template('offer.html')
 
 
+@app.route('/offer-app')
+def offer_app():
+    # Оферта в виде мини-приложения Telegram (для бота)
+    return render_template('offer_app.html')
+
+
 if __name__ == '__main__':
     # Порт можно задать переменной окружения PORT (по умолчанию 5000)
     port = int(os.environ.get('PORT', 5000))

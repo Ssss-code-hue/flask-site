@@ -23,7 +23,8 @@ pip install -r bot/requirements.txt
 | `BOT_USERNAME` | юзернейм бота (для реф-ссылок) | `IKKvpnpbot` |
 | `OWNER_USERNAME` | для кнопки «Поддержка» | `IKKvpndev` |
 | `OWNER_ID` | ID владельца для уведомлений | `123456789` |
-| `WEBAPP_URL` | HTTPS-адрес мини-приложения | `https://ваш-домен/app` |
+| `WEBAPP_URL` | HTTPS-адрес мини-приложения (инструкция) | `https://ваш-домен/app` |
+| `OFFER_URL` | HTTPS-адрес мини-приложения оферты | `https://ваш-домен/offer-app` |
 | `SUB_BASE_URL` | база подписок вашей VPN-панели | `https://panel/sub` |
 | `REFERRAL_BONUS_DAYS` | дней за реферала | `3` |
 
