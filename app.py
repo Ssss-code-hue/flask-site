@@ -45,6 +45,12 @@ def webapp():
     return render_template('webapp.html')
 
 
+@app.route('/offer')
+def offer():
+    # Публичная оферта на подписку
+    return render_template('offer.html')
+
+
 if __name__ == '__main__':
     # Порт можно задать переменной окружения PORT (по умолчанию 5000)
     port = int(os.environ.get('PORT', 5000))

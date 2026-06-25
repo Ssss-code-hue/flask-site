@@ -131,6 +131,7 @@ const navbar = document.querySelector('.navbar');
 const progress = document.querySelector('.progress');
 const whySection = document.getElementById('why');
 const syncReveals = [...document.querySelectorAll('.sync')];   // появляются вместе с переходом
+const noTheme = document.body.classList.contains('no-theme');   // на странице оферты тему не меняем
 let isLight = false;
 
 // единственный переход: тёмная ⇄ светлая тема (круг на CSS + цвета + пыль)
@@ -150,14 +151,17 @@ function onScroll() {
         progress.style.width = (max > 0 ? (y / max) * 100 : 0) + '%';
     }
     // переход И появление «Почему IKK» синхронизированы у границы hero → секция
-    const vh = window.innerHeight;
-    const trigger = whySection ? whySection.offsetTop - vh * 0.5 : vh * 0.6;
-    if (!isLight && y > trigger) {
-        setLight(true);
-        syncReveals.forEach((e) => e.classList.add('visible'));
-    } else if (isLight && y < trigger - vh * 0.12) {
-        setLight(false);
-        syncReveals.forEach((e) => e.classList.remove('visible'));
+    // (на странице оферты тему не меняем — остаётся тёмной)
+    if (!noTheme) {
+        const vh = window.innerHeight;
+        const trigger = whySection ? whySection.offsetTop - vh * 0.5 : vh * 0.6;
+        if (!isLight && y > trigger) {
+            setLight(true);
+            syncReveals.forEach((e) => e.classList.add('visible'));
+        } else if (isLight && y < trigger - vh * 0.12) {
+            setLight(false);
+            syncReveals.forEach((e) => e.classList.remove('visible'));
+        }
     }
 }
 window.addEventListener('scroll', onScroll, { passive: true });
