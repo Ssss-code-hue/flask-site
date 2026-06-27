@@ -33,6 +33,12 @@ def tariffs():
     return render_template('tariffs.html')
 
 
+@app.route('/advantages')
+def advantages():
+    # Отдельная страница преимуществ
+    return render_template('advantages.html')
+
+
 @app.route('/bot')
 def bot():
     # Страница со ссылкой на Telegram-бота (добавим позже)

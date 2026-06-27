@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Преимущества — IKK VPN{% endblock %}
+{% block body_class %}no-theme{% endblock %}
+
+{% block content %}
+    <section class="container">
+        <div class="section-head reveal">
+            <div class="eyebrow">Преимущества</div>
+            <h2 class="section-title hand">Почему IKK</h2>
+            <div class="rule"></div>
+        </div>
+
+        <p class="lead reveal">IKK — это личный VPN от человека, а не безликая корпорация.
+            Я сам слежу за серверами, держу скорость высокой, не храню логи и всегда на связи.
+            Вы платите за реальную приватность и честный сервис — а не за рекламу и обещания.</p>
+
+        <div class="cards">
+            <div class="card reveal">
+                <span class="index">I</span>
+                <h3 class="hand">Без логов</h3>
+                <p>Я не храню историю подключений — ваш трафик остаётся только вашим.</p>
+            </div>
+            <div class="card reveal">
+                <span class="index">II</span>
+                <h3 class="hand">Скорость</h3>
+                <p>Быстрые серверы без искусственных ограничений канала и троттлинга.</p>
+            </div>
+            <div class="card reveal">
+                <span class="index">III</span>
+                <h3 class="hand">Без границ</h3>
+                <p>Доступ к любимым сайтам и сервисам из любой точки мира.</p>
+            </div>
+            <div class="card reveal">
+                <span class="index">IV</span>
+                <h3 class="hand">Шифрование</h3>
+                <p>Современные протоколы защищают вас даже в открытых сетях Wi-Fi.</p>
+            </div>
+            <div class="card reveal">
+                <span class="index">V</span>
+                <h3 class="hand">Telegram-бот</h3>
+                <p>Управление подпиской и ключами прямо в Telegram — удобно и быстро.</p>
+            </div>
+            <div class="card reveal">
+                <span class="index">VI</span>
+                <h3 class="hand">Личная поддержка</h3>
+                <p>Пишите напрямую владельцу — отвечаю лично и без шаблонных ответов.</p>
+            </div>
+        </div>
+
+        <p class="note reveal">Готовы попробовать? <a href="{{ url_for('tariffs') }}">Выберите тариф</a>.</p>
+    </section>
+{% endblock %}
