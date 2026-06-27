@@ -30,7 +30,8 @@
       "WebFetch(domain:ikkvpn.com)",
       "Bash(venv/Scripts/python.exe -c \"import bot.main as m; cbs=[h.callback.__name__ for h in m.dp.callback_query.handlers]; print\\('OK. callback-обработчики:', cbs\\)\")",
       "WebSearch",
-      "Bash(venv/Scripts/python.exe -c \"import bot.main as m; cbs=[h.callback.__name__ for h in m.dp.callback_query.handlers]; print\\('callback-обработчики:', cbs\\); print\\('dev removed:', 'cb_device' not in cbs\\)\")"
+      "Bash(venv/Scripts/python.exe -c \"import bot.main as m; cbs=[h.callback.__name__ for h in m.dp.callback_query.handlers]; print\\('callback-обработчики:', cbs\\); print\\('dev removed:', 'cb_device' not in cbs\\)\")",
+      "Bash(venv/Scripts/python.exe -c \"import bot.main; print\\('OK import'\\)\")"
     ]
   }
 }

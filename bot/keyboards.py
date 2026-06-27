@@ -19,7 +19,7 @@ def main_menu():
 
 def offer_consent_kb():
     kb = InlineKeyboardBuilder()
-    if OFFER_URL:
+    if OFFER_URL.startswith("https://"):
         kb.button(text="📄 Открыть оферту", web_app=WebAppInfo(url=OFFER_URL))
     else:
         kb.button(text="📄 Читать оферту", callback_data="offer_text")
@@ -40,7 +40,7 @@ def plans_kb():
 
 def devices_kb():
     kb = InlineKeyboardBuilder()
-    if WEBAPP_URL:
+    if WEBAPP_URL.startswith("https://"):
         kb.button(text="📱 Открыть инструкцию", web_app=WebAppInfo(url=WEBAPP_URL))
     kb.button(text="◀ Назад", callback_data="menu")
     kb.adjust(1)
