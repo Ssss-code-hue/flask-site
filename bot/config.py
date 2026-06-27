@@ -11,12 +11,16 @@ OWNER_USERNAME = os.environ.get("OWNER_USERNAME", "IKKvpndev")
 # ID владельца для уведомлений об оплатах (число). Узнать можно у @userinfobot
 OWNER_ID = int(os.environ.get("OWNER_ID", "0")) or None
 
-# HTTPS-адрес мини-приложения (страница /app вашего сайта). Напр. https://ikk.example.com/app
-# .strip() убирает случайные пробелы/переносы, иначе Telegram отклоняет web_app-кнопку
+# HTTPS-адрес мини-приложения (страница /app сайта).
+# Если переменная пустая/кривая (не начинается с https://) — берём рабочий адрес по умолчанию.
 WEBAPP_URL = os.environ.get("WEBAPP_URL", "").strip()
+if not WEBAPP_URL.startswith("https://"):
+    WEBAPP_URL = "https://ikkvpn.com/app"
 
-# HTTPS-адрес мини-приложения с офертой (страница /offer-app). Напр. https://ikkvpn.com/offer-app
+# HTTPS-адрес мини-приложения с офертой (страница /offer-app).
 OFFER_URL = os.environ.get("OFFER_URL", "").strip()
+if not OFFER_URL.startswith("https://"):
+    OFFER_URL = "https://ikkvpn.com/offer-app"
 
 # Сколько дней бесплатно даёт реферальная ссылка
 REFERRAL_BONUS_DAYS = int(os.environ.get("REFERRAL_BONUS_DAYS", "3"))
