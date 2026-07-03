@@ -115,9 +115,17 @@ def send_code(to_email, code):
 
     try:
         context = ssl.create_default_context()
-        with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=context, timeout=15) as server:
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.send_message(msg)
+        if SMTP_PORT == 587:
+            # Порт 587: сначала обычное соединение, потом шифрование (STARTTLS).
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+                server.starttls(context=context)
+                server.login(SMTP_USER, SMTP_PASSWORD)
+                server.send_message(msg)
+        else:
+            # Порт 465: шифрование сразу (SSL).
+            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=context, timeout=15) as server:
+                server.login(SMTP_USER, SMTP_PASSWORD)
+                server.send_message(msg)
         return True
     except Exception as e:
         print(f"[MAILER] Failed to send email to {to_email}: {e}", flush=True)
