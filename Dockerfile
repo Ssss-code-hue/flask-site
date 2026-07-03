@@ -14,6 +14,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Затем код приложения
 COPY . .
 
+# Папка для базы SQLite (на сервере подключается как volume — база
+# переживает пересборки и обновления контейнера)
+RUN mkdir -p /app/data
+
 # Порт приложения
 EXPOSE 5000
 
