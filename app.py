@@ -4,6 +4,7 @@ from flask import Flask, render_template
 from flasgger import Swagger
 
 from api import api as api_blueprint
+from auth import auth as auth_blueprint
 from bot import db
 
 app = Flask(__name__)
@@ -13,6 +14,7 @@ app.secret_key = os.environ.get('SECRET_KEY', 'change-me-to-a-random-secret')
 # REST API + Swagger UI (документация на /apidocs)
 db.init_db()                       # на всякий случай создаём таблицы
 app.register_blueprint(api_blueprint)
+app.register_blueprint(auth_blueprint)   # регистрация и вход по почте
 Swagger(app, template={
     "info": {
         "title": "IKK VPN API",

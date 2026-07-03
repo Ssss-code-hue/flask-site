@@ -5,7 +5,10 @@ services:
     ports:
       - "8000:5000"
     environment:
-      # Для реального сервера замени на свой случайный секрет
-      - SECRET_KEY=change-me-to-a-random-secret
+      # Значения берутся из файла .env рядом с docker-compose.yml
+      # (он в .gitignore, поэтому секреты не попадают в GitHub)
+      - SECRET_KEY=${SECRET_KEY:-change-me-to-a-random-secret}
       - PORT=5000
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
     restart: unless-stopped

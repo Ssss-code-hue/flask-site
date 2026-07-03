@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Регистрация — IKK VPN{% endblock %}
+{% block body_class %}no-theme{% endblock %}
+
+{% block content %}
+    <section class="container">
+        <div class="section-head reveal">
+            <div class="eyebrow">Аккаунт</div>
+            <h2 class="section-title hand">Регистрация</h2>
+            <div class="rule"></div>
+        </div>
+
+        {% with messages = get_flashed_messages() %}
+            {% for m in messages %}<div class="flash reveal">{{ m }}</div>{% endfor %}
+        {% endwith %}
+
+        <form class="form-card reveal" method="post" action="{{ url_for('auth.register') }}">
+            <div class="field">
+                <input type="email" name="email" id="email" placeholder=" " required autocomplete="email">
+                <label for="email">Электронная почта</label>
+            </div>
+            <div class="field">
+                <input type="password" name="password" id="password" placeholder=" " required
+                       minlength="8" autocomplete="new-password">
+                <label for="password">Пароль (от 8 символов)</label>
+            </div>
+            <div class="field">
+                <input type="password" name="password2" id="password2" placeholder=" " required
+                       minlength="8" autocomplete="new-password">
+                <label for="password2">Повторите пароль</label>
+            </div>
+            <div class="field">
+                <input type="text" name="captcha" id="captcha" placeholder=" " required
+                       inputmode="numeric" autocomplete="off">
+                <label for="captcha">{{ captcha_question }}</label>
+            </div>
+            <!-- Ловушка для ботов: люди это поле не видят и не заполняют -->
+            <div style="position:absolute; left:-9999px;" aria-hidden="true">
+                <input type="text" name="website" tabindex="-1" autocomplete="off">
+            </div>
+            <button type="submit" class="btn btn-primary">Получить код на почту</button>
+        </form>
+
+        <p class="note reveal">Уже есть аккаунт? <a href="{{ url_for('auth.login') }}">Войти</a></p>
+    </section>
+{% endblock %}

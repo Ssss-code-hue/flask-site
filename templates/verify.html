@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Подтверждение почты — IKK VPN{% endblock %}
+{% block body_class %}no-theme{% endblock %}
+
+{% block content %}
+    <section class="container">
+        <div class="section-head reveal">
+            <div class="eyebrow">Аккаунт</div>
+            <h2 class="section-title hand">Код из письма</h2>
+            <div class="rule"></div>
+        </div>
+
+        {% with messages = get_flashed_messages() %}
+            {% for m in messages %}<div class="flash reveal">{{ m }}</div>{% endfor %}
+        {% endwith %}
+
+        <form class="form-card reveal" method="post" action="{{ url_for('auth.verify') }}">
+            <p class="note" style="margin-top:0">Мы отправили 6-значный код на <b>{{ email }}</b>.
+               Код действует 15 минут.</p>
+            <div class="field">
+                <input type="text" name="code" id="code" placeholder=" " required
+                       inputmode="numeric" pattern="\d{6}" maxlength="6" autocomplete="one-time-code">
+                <label for="code">Код подтверждения</label>
+            </div>
+            <button type="submit" class="btn btn-primary">Подтвердить</button>
+        </form>
+
+        <p class="note reveal">Письмо не пришло?
+            <a href="{{ url_for('auth.resend_code') }}">Отправить код ещё раз</a> ·
+            <a href="{{ url_for('auth.register') }}">Указать другую почту</a></p>
+    </section>
+{% endblock %}

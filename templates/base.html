@@ -37,6 +37,11 @@
                 <li><a href="{{ url_for('tariffs') }}">Тарифы</a></li>
                 <li><a href="{{ url_for('offer') }}">Оферта</a></li>
                 <li><a href="{{ url_for('bot') }}">Бот</a></li>
+                {% if session.get('uid') %}
+                <li><a href="{{ url_for('auth.account') }}">Аккаунт</a></li>
+                {% else %}
+                <li><a href="{{ url_for('auth.login') }}">Войти</a></li>
+                {% endif %}
                 <li><a href="https://t.me/IKKvpndev" target="_blank" rel="noopener" class="btn-nav">Связаться</a></li>
             </ul>
             <button class="burger" aria-label="Открыть меню"><span></span><span></span><span></span></button>

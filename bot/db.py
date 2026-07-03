@@ -30,6 +30,20 @@ def init_db():
                 charge_id  TEXT,
                 created_at INTEGER
             );
+            CREATE TABLE IF NOT EXISTS web_users (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                email         TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                verified      INTEGER DEFAULT 0,   -- 1 = почта подтверждена кодом
+                created_at    INTEGER
+            );
+            CREATE TABLE IF NOT EXISTS email_codes (
+                email      TEXT PRIMARY KEY,
+                code_hash  TEXT,                   -- sha256 от кода (сам код не храним)
+                expires_at INTEGER,                -- unix-время, до которого код действует
+                attempts   INTEGER DEFAULT 0,      -- сколько раз вводили неверный код
+                sent_at    INTEGER                 -- когда отправлен (для повторной отправки)
+            );
             """
         )
 
@@ -86,12 +100,92 @@ def count_referrals(uid):
         ).fetchone()["n"]
 
 
+def get_payments(uid):
+    """История платежей пользователя (свежие сверху)."""
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT plan, stars, created_at FROM payments "
+            "WHERE user_id=? ORDER BY created_at DESC",
+            (uid,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def web_stats():
+    """Статистика аккаунтов сайта (без почтовых адресов — приватность)."""
+    with _conn() as c:
+        total = c.execute("SELECT COUNT(*) AS n FROM web_users").fetchone()["n"]
+        verified = c.execute(
+            "SELECT COUNT(*) AS n FROM web_users WHERE verified=1"
+        ).fetchone()["n"]
+    return {"web_users": total, "verified": verified}
+
+
 def record_payment(uid, plan, stars, charge_id):
     with _conn() as c:
         c.execute(
             "INSERT INTO payments(user_id, plan, stars, charge_id, created_at) VALUES(?,?,?,?,?)",
             (uid, plan, stars, charge_id, int(time.time())),
         )
+
+
+# ===== Пользователи сайта (регистрация по почте) =====
+
+def get_web_user_by_email(email):
+    with _conn() as c:
+        return c.execute("SELECT * FROM web_users WHERE email=?", (email,)).fetchone()
+
+
+def get_web_user(uid):
+    with _conn() as c:
+        return c.execute("SELECT * FROM web_users WHERE id=?", (uid,)).fetchone()
+
+
+def create_web_user(email, password_hash):
+    """Создаёт неподтверждённого пользователя сайта."""
+    with _conn() as c:
+        c.execute(
+            "INSERT INTO web_users(email, password_hash, verified, created_at) VALUES(?,?,0,?)",
+            (email, password_hash, int(time.time())),
+        )
+
+
+def set_web_user_password(email, password_hash):
+    with _conn() as c:
+        c.execute("UPDATE web_users SET password_hash=? WHERE email=?", (password_hash, email))
+
+
+def mark_web_user_verified(email):
+    with _conn() as c:
+        c.execute("UPDATE web_users SET verified=1 WHERE email=?", (email,))
+
+
+# ===== Коды подтверждения почты =====
+
+def save_email_code(email, code_hash, ttl_seconds):
+    """Сохраняет код для почты (старый код затирается)."""
+    now = int(time.time())
+    with _conn() as c:
+        c.execute(
+            "INSERT OR REPLACE INTO email_codes(email, code_hash, expires_at, attempts, sent_at) "
+            "VALUES(?,?,?,0,?)",
+            (email, code_hash, now + ttl_seconds, now),
+        )
+
+
+def get_email_code(email):
+    with _conn() as c:
+        return c.execute("SELECT * FROM email_codes WHERE email=?", (email,)).fetchone()
+
+
+def bump_code_attempts(email):
+    with _conn() as c:
+        c.execute("UPDATE email_codes SET attempts = attempts + 1 WHERE email=?", (email,))
+
+
+def delete_email_code(email):
+    with _conn() as c:
+        c.execute("DELETE FROM email_codes WHERE email=?", (email,))
 
 
 def stats():

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Вход — IKK VPN{% endblock %}
+{% block body_class %}no-theme{% endblock %}
+
+{% block content %}
+    <section class="container">
+        <div class="section-head reveal">
+            <div class="eyebrow">Аккаунт</div>
+            <h2 class="section-title hand">Вход</h2>
+            <div class="rule"></div>
+        </div>
+
+        {% with messages = get_flashed_messages() %}
+            {% for m in messages %}<div class="flash reveal">{{ m }}</div>{% endfor %}
+        {% endwith %}
+
+        <form class="form-card reveal" method="post" action="{{ url_for('auth.login') }}">
+            <div class="field">
+                <input type="email" name="email" id="email" placeholder=" " required autocomplete="email">
+                <label for="email">Электронная почта</label>
+            </div>
+            <div class="field">
+                <input type="password" name="password" id="password" placeholder=" " required
+                       autocomplete="current-password">
+                <label for="password">Пароль</label>
+            </div>
+            <button type="submit" class="btn btn-primary">Войти</button>
+        </form>
+
+        <p class="note reveal">Нет аккаунта? <a href="{{ url_for('auth.register') }}">Зарегистрироваться</a></p>
+    </section>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Аккаунт — IKK VPN{% endblock %}
+{% block body_class %}no-theme{% endblock %}
+
+{% block content %}
+    <section class="container">
+        <div class="section-head reveal">
+            <div class="eyebrow">Аккаунт</div>
+            <h2 class="section-title hand">Личный кабинет</h2>
+            <div class="rule"></div>
+        </div>
+
+        {% with messages = get_flashed_messages() %}
+            {% for m in messages %}<div class="flash reveal">{{ m }}</div>{% endfor %}
+        {% endwith %}
+
+        <div class="cards">
+            <div class="card reveal">
+                <div class="index">I</div>
+                <h3>Профиль</h3>
+                <p>Почта: <b>{{ user['email'] }}</b><br>
+                   С нами с {{ created }}<br>
+                   Почта подтверждена ✓</p>
+            </div>
+            <div class="card reveal">
+                <div class="index">II</div>
+                <h3>Подписка</h3>
+                <p>Оформление и продление подписки — в Telegram-боте.
+                   Там же — ключ подключения и инструкции.</p>
+                <p><a href="{{ url_for('bot') }}">Открыть бота →</a></p>
+            </div>
+            <div class="card reveal">
+                <div class="index">III</div>
+                <h3>Полезное</h3>
+                <p><a href="{{ url_for('tariffs') }}">Тарифы и цены →</a><br>
+                   <a href="{{ url_for('advantages') }}">Почему IKK →</a><br>
+                   <a href="{{ url_for('offer') }}">Публичная оферта →</a></p>
+            </div>
+        </div>
+
+        <div class="section-head reveal" style="margin-top:70px;">
+            <div class="eyebrow">Безопасность</div>
+            <h2 class="section-title hand">Смена пароля</h2>
+            <div class="rule"></div>
+        </div>
+
+        <form class="form-card reveal" method="post" action="{{ url_for('auth.change_password') }}">
+            <div class="field">
+                <input type="password" name="current_password" id="current_password" placeholder=" "
+                       required autocomplete="current-password">
+                <label for="current_password">Текущий пароль</label>
+            </div>
+            <div class="field">
+                <input type="password" name="new_password" id="new_password" placeholder=" "
+                       required minlength="8" autocomplete="new-password">
+                <label for="new_password">Новый пароль (от 8 символов)</label>
+            </div>
+            <div class="field">
+                <input type="password" name="new_password2" id="new_password2" placeholder=" "
+                       required minlength="8" autocomplete="new-password">
+                <label for="new_password2">Повторите новый пароль</label>
+            </div>
+            <button type="submit" class="btn">Обновить пароль</button>
+        </form>
+
+        <p class="note reveal"><a href="{{ url_for('auth.logout') }}">Выйти из аккаунта</a></p>
+    </section>
+{% endblock %}

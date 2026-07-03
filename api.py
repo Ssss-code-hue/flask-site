@@ -46,6 +46,77 @@ def plans():
     return jsonify(data)
 
 
+@api.get("/plans/<code>")
+def plan_detail(code):
+    """
+    Один тариф по коду (1m, 3m, 12m).
+    ---
+    tags:
+      - Тарифы
+    parameters:
+      - in: path
+        name: code
+        type: string
+        required: true
+        description: Код тарифа (1m, 3m или 12m)
+    responses:
+      200:
+        description: Тариф (код, название, дней, цена в звёздах)
+      404:
+        description: Тариф не найден
+    """
+    p = PLANS.get(code)
+    if not p:
+        return jsonify({"error": "plan not found"}), 404
+    return jsonify({"code": code, "title": p["title"], "days": p["days"], "stars": p["stars"]})
+
+
+@api.get("/payments/<int:user_id>")
+def payments(user_id):
+    """
+    История платежей пользователя.
+    ---
+    tags:
+      - Подписки
+    parameters:
+      - in: path
+        name: user_id
+        type: integer
+        required: true
+        description: Telegram ID пользователя
+    responses:
+      200:
+        description: Список платежей (тариф, звёзды, дата) — свежие сверху
+      404:
+        description: Пользователь не найден
+    """
+    if not db.get_user(user_id):
+        return jsonify({"error": "user not found"}), 404
+    items = [
+        {
+            "plan": p["plan"],
+            "stars": p["stars"],
+            "date": datetime.fromtimestamp(p["created_at"]).strftime("%d.%m.%Y %H:%M"),
+        }
+        for p in db.get_payments(user_id)
+    ]
+    return jsonify({"user_id": user_id, "count": len(items), "payments": items})
+
+
+@api.get("/web/stats")
+def web_stats():
+    """
+    Статистика аккаунтов на сайте (регистрация по почте).
+    ---
+    tags:
+      - Система
+    responses:
+      200:
+        description: Всего аккаунтов и сколько из них подтвердили почту
+    """
+    return jsonify(db.web_stats())
+
+
 @api.get("/subscription/<int:user_id>")
 def subscription(user_id):
     """
