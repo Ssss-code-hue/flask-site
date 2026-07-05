@@ -1,20 +1,31 @@
-"""Отправка писем с кодом подтверждения через SMTP (по умолчанию — Gmail).
+"""Отправка писем с кодом подтверждения.
 
-Настройка через переменные окружения:
-    SMTP_USER     — адрес Gmail, с которого шлём (например, ikkvpn@gmail.com)
-    SMTP_PASSWORD — «пароль приложения» Google (не обычный пароль от почты!)
-    SMTP_HOST     — по умолчанию smtp.gmail.com (для Mail.ru: smtp.mail.ru)
-    SMTP_PORT     — по умолчанию 465 (SSL)
-    MAIL_FROM     — адрес отправителя в письме (по умолчанию = SMTP_USER)
+Два способа (проверяются по порядку):
 
-Если SMTP_USER/SMTP_PASSWORD не заданы — режим разработки:
+1. Resend (https://resend.com) — HTTP-API через порт 443, работает даже когда
+   хостер блокирует SMTP-порты. Настройка:
+       RESEND_API_KEY — API-ключ из панели Resend (re_...)
+       MAIL_FROM      — адрес отправителя на подтверждённом домене,
+                        например noreply@ikkvpn.com
+
+2. SMTP (по умолчанию — Gmail). Настройка:
+       SMTP_USER     — адрес, с которого шлём
+       SMTP_PASSWORD — «пароль приложения» (не обычный пароль от почты!)
+       SMTP_HOST     — по умолчанию smtp.gmail.com (для Mail.ru: smtp.mail.ru)
+       SMTP_PORT     — 465 (SSL) или 587 (STARTTLS)
+       MAIL_FROM     — адрес отправителя (по умолчанию = SMTP_USER)
+
+Если ничего не настроено — режим разработки:
 письмо не отправляется, код печатается в консоль сервера.
 """
+import json
 import os
 import smtplib
 import ssl
+import urllib.request
 from email.message import EmailMessage
 
+RESEND_API_KEY = (os.environ.get("RESEND_API_KEY") or "").strip()
 SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com").strip()
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "465"))
 SMTP_USER = (os.environ.get("SMTP_USER") or "").strip()
@@ -24,7 +35,7 @@ MAIL_FROM = (os.environ.get("MAIL_FROM") or SMTP_USER).strip()
 
 def is_configured():
     """True, если почта настроена и письма реально отправляются."""
-    return bool(SMTP_USER and SMTP_PASSWORD)
+    return bool(RESEND_API_KEY or (SMTP_USER and SMTP_PASSWORD))
 
 
 def _code_email_html(code):
@@ -86,6 +97,40 @@ def _code_email_html(code):
 </html>"""
 
 
+def _plain_text(code):
+    """Текстовая версия письма — для клиентов без HTML."""
+    return (
+        f"Ваш код подтверждения: {code}\n\n"
+        f"Введите его на сайте, чтобы завершить регистрацию.\n"
+        f"Код действует 15 минут.\n\n"
+        f"Если вы не регистрировались на IKK VPN — просто удалите это письмо.\n\n"
+        f"— IKK VPN · приватность прежде всего"
+    )
+
+
+def _send_via_resend(to_email, code):
+    """Отправка через HTTP-API Resend (порт 443 — SMTP-блокировки не мешают)."""
+    payload = {
+        "from": f"IKK VPN <{MAIL_FROM}>",
+        "to": [to_email],
+        "subject": f"IKK VPN — код подтверждения: {code}",
+        "text": _plain_text(code),
+        "html": _code_email_html(code),
+    }
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        resp.read()
+    return True
+
+
 def send_code(to_email, code):
     """Отправляет письмо с кодом подтверждения.
 
@@ -95,22 +140,30 @@ def send_code(to_email, code):
     if not is_configured():
         # Режим разработки: почта не настроена, показываем код в консоли.
         # Пишем латиницей: консоль Windows может не показывать кириллицу.
-        print(f"[MAILER] SMTP not configured (SMTP_USER/SMTP_PASSWORD). "
-              f"Code for {to_email}: {code}", flush=True)
+        print(f"[MAILER] Mail not configured (RESEND_API_KEY or SMTP_USER/"
+              f"SMTP_PASSWORD). Code for {to_email}: {code}", flush=True)
         return True
+
+    if RESEND_API_KEY:
+        try:
+            return _send_via_resend(to_email, code)
+        except Exception as e:
+            # Показываем и тело ответа API — там причина (нет домена и т.п.)
+            detail = ""
+            if hasattr(e, "read"):
+                try:
+                    detail = " " + e.read().decode("utf-8", "replace")[:300]
+                except Exception:
+                    pass
+            print(f"[MAILER] Resend failed for {to_email}: {e}{detail}", flush=True)
+            return False
 
     msg = EmailMessage()
     msg["Subject"] = f"IKK VPN — код подтверждения: {code}"
     msg["From"] = MAIL_FROM
     msg["To"] = to_email
     # Простой текст — запасной вариант для клиентов без HTML.
-    msg.set_content(
-        f"Ваш код подтверждения: {code}\n\n"
-        f"Введите его на сайте, чтобы завершить регистрацию.\n"
-        f"Код действует 15 минут.\n\n"
-        f"Если вы не регистрировались на IKK VPN — просто удалите это письмо.\n\n"
-        f"— IKK VPN · приватность прежде всего"
-    )
+    msg.set_content(_plain_text(code))
     msg.add_alternative(_code_email_html(code), subtype="html")
 
     try:
