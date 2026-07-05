@@ -53,7 +53,7 @@ def _code_email_html(code):
     <tr><td align="center">
       <table role="presentation" cellpadding="0" cellspacing="0"
              style="max-width:520px; width:100%; background-color:#111112;
-                    border:1px solid #2e2c28;">
+                    border:1px solid #2e2c28; border-radius:18px;">
 
         <!-- Шапка: логотип -->
         <tr><td style="padding:38px 40px 26px; text-align:center;
@@ -74,8 +74,9 @@ def _code_email_html(code):
                     color:#ece9e1; margin:0 0 28px;">
             Ваш код для завершения регистрации на&nbsp;сайте:</p>
           <div style="display:inline-block; border:1px solid rgba(236,233,225,0.25);
-                      padding:18px 34px 18px 46px; font-family:Georgia,serif;
-                      font-size:34px; letter-spacing:12px; color:#ece9e1;">{code}</div>
+                      border-radius:14px; padding:18px 34px 18px 46px;
+                      font-family:Georgia,serif; font-size:34px;
+                      letter-spacing:12px; color:#ece9e1;">{code}</div>
           <p style="font-family:Georgia,serif; font-size:13px; line-height:1.6;
                     color:#8d8a82; margin:28px 0 0;">
             Код действует 15 минут.<br>
