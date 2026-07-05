@@ -47,13 +47,13 @@ def _code_email_html(code):
     return f"""\
 <!DOCTYPE html>
 <html lang="ru">
-<body style="margin:0; padding:0; background-color:#0c0c0d;">
+<body style="margin:0; padding:0;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-         style="background-color:#0c0c0d; padding:40px 12px;">
+         style="padding:40px 12px;">
     <tr><td align="center">
       <table role="presentation" cellpadding="0" cellspacing="0"
              style="max-width:520px; width:100%; background-color:#111112;
-                    border:1px solid rgba(236,233,225,0.16);">
+                    border:1px solid #2e2c28;">
 
         <!-- Шапка: логотип -->
         <tr><td style="padding:38px 40px 26px; text-align:center;

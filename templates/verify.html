@@ -15,7 +15,7 @@
         {% endwith %}
 
         <form class="form-card reveal" method="post" action="{{ url_for('auth.verify') }}">
-            <p class="note" style="margin-top:0">Мы отправили 6-значный код на <b>{{ email }}</b>.
+            <p class="note" style="margin: 0 0 44px;">Мы отправили 6-значный код на <b>{{ email }}</b>.
                Код действует 15 минут.</p>
             <div class="field">
                 <input type="text" name="code" id="code" placeholder=" " required
