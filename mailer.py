@@ -123,6 +123,8 @@ def _send_via_resend(to_email, code):
         headers={
             "Authorization": f"Bearer {RESEND_API_KEY}",
             "Content-Type": "application/json",
+            # Без User-Agent запрос отбивает антибот Cloudflare (ошибка 1010)
+            "User-Agent": "ikk-vpn-site/1.0 (+https://ikkvpn.com)",
         },
         method="POST",
     )
