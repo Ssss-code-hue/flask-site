@@ -13,6 +13,9 @@ services:
       - DB_PATH=/app/data/ikk_bot.db
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      # Resend (HTTP-API почты) — приоритетнее SMTP, если ключ задан
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - MAIL_FROM=${MAIL_FROM:-}
     volumes:
       # База лежит в папке data рядом с проектом — не стирается при обновлениях
       - ./data:/app/data
