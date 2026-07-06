@@ -14,31 +14,70 @@
             {% for m in messages %}<div class="flash reveal">{{ m }}</div>{% endfor %}
         {% endwith %}
 
-        <div class="cards">
-            <div class="card reveal">
-                <div class="index">I</div>
-                <h3>Профиль</h3>
-                <p>Почта: <b>{{ user['email'] }}</b><br>
-                   С нами с {{ created }}<br>
-                   Почта подтверждена ✓</p>
+        <!-- Верх: профиль + быстрые ссылки -->
+        <div class="acc-top reveal">
+            <div class="card acc-profile">
+                <div class="acc-head">
+                    <div class="acc-avatar">{{ user['email'][0]|upper }}</div>
+                    <div>
+                        <div class="acc-name">{{ user['email'] }}</div>
+                        <div class="acc-meta">С нами с {{ created }}</div>
+                    </div>
+                </div>
+                <p class="acc-status">Аккаунт в полном порядке — почта подтверждена ✓,
+                   ограничений нет.</p>
+                <a class="btn acc-btn" href="#password">Сменить пароль</a>
             </div>
-            <div class="card reveal">
-                <div class="index">II</div>
-                <h3>Подписка</h3>
-                <p>Оформление и продление подписки — в Telegram-боте.
-                   Там же — ключ подключения и инструкции.</p>
-                <p><a href="{{ url_for('bot') }}">Открыть бота →</a></p>
-            </div>
-            <div class="card reveal">
-                <div class="index">III</div>
-                <h3>Полезное</h3>
-                <p><a href="{{ url_for('tariffs') }}">Тарифы и цены →</a><br>
-                   <a href="{{ url_for('advantages') }}">Почему IKK →</a><br>
-                   <a href="{{ url_for('offer') }}">Публичная оферта →</a></p>
+
+            <div class="acc-links">
+                <a class="acc-row" href="{{ url_for('tariffs') }}">
+                    <span>Тарифы и оплата</span><span class="arr">→</span></a>
+                <a class="acc-row" href="{{ url_for('bot') }}">
+                    <span>Telegram-бот</span><span class="arr">→</span></a>
+                <a class="acc-row" href="https://t.me/IKKvpndev" target="_blank" rel="noopener">
+                    <span>Поддержка · @IKKvpndev</span><span class="arr">→</span></a>
             </div>
         </div>
 
-        <div class="section-head reveal" style="margin-top:70px;">
+        <!-- Баннер -->
+        <div class="acc-banner reveal">
+            <div>
+                <div class="acc-banner-hand">Подписка живёт в Telegram</div>
+                <p>Оплата звёздами, VPN-ключ и продление — всё в нашем боте.</p>
+            </div>
+            <a class="btn" href="{{ url_for('bot') }}">Открыть бота</a>
+        </div>
+
+        <!-- Сервисы -->
+        <div class="cards reveal">
+            <div class="card">
+                <div class="index">I</div>
+                <h3>Подписка</h3>
+                <p>Пока не оформлена.<br>
+                   <a href="{{ url_for('tariffs') }}">Выбрать тариф →</a></p>
+            </div>
+            <div class="card">
+                <div class="index">II</div>
+                <h3>VPN-ключ</h3>
+                <p>Выдаётся в боте сразу после оплаты.<br>
+                   <a href="{{ url_for('bot') }}">Получить в боте →</a></p>
+            </div>
+            <div class="card">
+                <div class="index">III</div>
+                <h3>Подключение</h3>
+                <p>Инструкции для всех устройств (Happ).<br>
+                   <a href="{{ url_for('webapp') }}">Открыть инструкцию →</a></p>
+            </div>
+            <div class="card">
+                <div class="index">IV</div>
+                <h3>Рефералы</h3>
+                <p>+3 дня за каждого приглашённого друга.<br>
+                   <a href="{{ url_for('bot') }}">Пригласить через бота →</a></p>
+            </div>
+        </div>
+
+        <!-- Смена пароля -->
+        <div class="section-head reveal" id="password" style="margin-top:70px;">
             <div class="eyebrow">Безопасность</div>
             <h2 class="section-title hand">Смена пароля</h2>
             <div class="rule"></div>
