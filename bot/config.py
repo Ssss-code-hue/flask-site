@@ -39,9 +39,9 @@ TRIAL_DAYS = int(os.environ.get("TRIAL_DAYS", "5"))
 # Путь к базе SQLite
 DB_PATH = os.environ.get("DB_PATH", "ikk_bot.db")
 
-# Тарифы. stars — цена в Telegram Stars (XTR), days — длительность.
+# Тарифы. stars — цена в Telegram Stars (XTR), rub — в рублях (Platega), days — длительность.
 PLANS = {
-    "1m":  {"title": "1 месяц",    "days": 30,  "stars": 100},
-    "3m":  {"title": "3 месяца",   "days": 90,  "stars": 270},
-    "12m": {"title": "12 месяцев", "days": 365, "stars": 900},
+    "1m":  {"title": "1 месяц",    "days": 30,  "stars": 100, "rub": 149},
+    "3m":  {"title": "3 месяца",   "days": 90,  "stars": 270, "rub": 399},
+    "12m": {"title": "12 месяцев", "days": 365, "stars": 900, "rub": 1290},
 }

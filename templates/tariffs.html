@@ -10,10 +10,24 @@
             <div class="rule"></div>
         </div>
 
+        {% if not platega_on %}
         <div class="notice reveal">
             <strong>Оплата временно недоступна.</strong>
             Касса в разработке — скоро можно будет оплатить прямо здесь.
         </div>
+        {% endif %}
+
+        {% macro pay_button(code) %}
+            {% if platega_on and session.get('uid') %}
+                <form method="post" action="{{ url_for('pay.start', code=code) }}">
+                    <button type="submit" class="btn">Оплатить</button>
+                </form>
+            {% elif platega_on %}
+                <a class="btn" href="{{ url_for('auth.login') }}">Войти и оплатить</a>
+            {% else %}
+                <span class="btn disabled" aria-disabled="true">Оплатить — скоро</span>
+            {% endif %}
+        {% endmacro %}
 
         <!-- Пробный период -->
         <div class="card reveal" id="trial" style="margin-bottom:40px;">
@@ -40,7 +54,7 @@
                     <li>Без логов</li>
                     <li>1 устройство</li>
                 </ul>
-                <span class="btn disabled" aria-disabled="true">Оплатить — скоро</span>
+                {{ pay_button('1m') }}
             </div>
             <div class="card plan featured reveal">
                 <div class="badge-pop">популярный</div>
@@ -53,7 +67,7 @@
                     <li>2 устройства</li>
                     <li>Приоритетная поддержка</li>
                 </ul>
-                <span class="btn disabled" aria-disabled="true">Оплатить — скоро</span>
+                {{ pay_button('3m') }}
             </div>
             <div class="card plan reveal">
                 <div class="plan-name">12 месяцев</div>
@@ -65,11 +79,17 @@
                     <li>3 устройства</li>
                     <li>Лучшая цена</li>
                 </ul>
-                <span class="btn disabled" aria-disabled="true">Оплатить — скоро</span>
+                {{ pay_button('12m') }}
             </div>
         </div>
 
+        {% if platega_on %}
+        <p class="note reveal">Оплата проходит через платёжный сервис Platega (СБП).
+            Возникли трудности — напишите
+            <a href="https://t.me/IKKvpndev" target="_blank" rel="noopener">@IKKvpndev</a>.</p>
+        {% else %}
         <p class="note reveal">Пока оплата не подключена — напишите
             <a href="https://t.me/IKKvpndev" target="_blank" rel="noopener">@IKKvpndev</a>, оформим вручную.</p>
+        {% endif %}
     </section>
 {% endblock %}

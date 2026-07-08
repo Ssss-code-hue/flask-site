@@ -37,6 +37,14 @@ def init_db():
                 verified      INTEGER DEFAULT 0,   -- 1 = почта подтверждена кодом
                 created_at    INTEGER
             );
+            CREATE TABLE IF NOT EXISTS web_payments (
+                id          TEXT PRIMARY KEY,      -- transactionId от Platega
+                web_user_id INTEGER,
+                plan        TEXT,
+                amount_rub  INTEGER,
+                status      TEXT DEFAULT 'PENDING',-- PENDING/CONFIRMED/CANCELED/CHARGEBACKED
+                created_at  INTEGER
+            );
             CREATE TABLE IF NOT EXISTS email_codes (
                 email      TEXT PRIMARY KEY,
                 code_hash  TEXT,                   -- sha256 от кода (сам код не храним)
@@ -175,6 +183,37 @@ def set_web_user_password(email, password_hash):
 def mark_web_user_verified(email):
     with _conn() as c:
         c.execute("UPDATE web_users SET verified=1 WHERE email=?", (email,))
+
+
+def web_add_days(uid, days):
+    """Продлевает подписку пользователя сайта на N дней (от текущего конца или от сейчас)."""
+    now = int(time.time())
+    u = get_web_user(uid)
+    base = max(now, u["sub_until"]) if (u and u["sub_until"]) else now
+    new_until = base + days * 86400
+    with _conn() as c:
+        c.execute("UPDATE web_users SET sub_until=? WHERE id=?", (new_until, uid))
+    return new_until
+
+
+def create_web_payment(tx_id, web_user_id, plan, amount_rub):
+    """Запоминает созданный в Platega платёж (до подтверждения — PENDING)."""
+    with _conn() as c:
+        c.execute(
+            "INSERT OR IGNORE INTO web_payments(id, web_user_id, plan, amount_rub, status, created_at) "
+            "VALUES(?,?,?,?, 'PENDING', ?)",
+            (tx_id, web_user_id, plan, amount_rub, int(time.time())),
+        )
+
+
+def get_web_payment(tx_id):
+    with _conn() as c:
+        return c.execute("SELECT * FROM web_payments WHERE id=?", (tx_id,)).fetchone()
+
+
+def set_web_payment_status(tx_id, status):
+    with _conn() as c:
+        c.execute("UPDATE web_payments SET status=? WHERE id=?", (status, tx_id))
 
 
 def web_activate_sub(uid, sub_until, sub_url, trial=False):

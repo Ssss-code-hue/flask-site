@@ -3,9 +3,11 @@ import os
 from flask import Flask, render_template, session
 from flasgger import Swagger
 
+import platega
 from api import api as api_blueprint
 from auth import TRIAL_DAYS, auth as auth_blueprint
 from bot import db
+from pay import pay as pay_blueprint
 
 app = Flask(__name__)
 # Секретный ключ берём из переменной окружения (для будущей кассы/сессий).
@@ -15,6 +17,7 @@ app.secret_key = os.environ.get('SECRET_KEY', 'change-me-to-a-random-secret')
 db.init_db()                       # на всякий случай создаём таблицы
 app.register_blueprint(api_blueprint)
 app.register_blueprint(auth_blueprint)   # регистрация и вход по почте
+app.register_blueprint(pay_blueprint)    # оплата через Platega (СБП/карта)
 Swagger(app, template={
     "info": {
         "title": "IKK VPN API",
@@ -38,8 +41,9 @@ def home():
 
 @app.route('/tariffs')
 def tariffs():
-    # Страница выбора тарифа и оплаты (касса будет добавлена позже)
-    return render_template('tariffs.html', trial_days=TRIAL_DAYS)
+    # Страница выбора тарифа; кнопки оплаты активны, когда настроена Platega
+    return render_template('tariffs.html', trial_days=TRIAL_DAYS,
+                           platega_on=platega.is_configured())
 
 
 @app.route('/advantages')

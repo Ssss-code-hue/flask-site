@@ -21,6 +21,11 @@ services:
       - PANEL_USERNAME=${PANEL_USERNAME:-}
       - PANEL_PASSWORD=${PANEL_PASSWORD:-}
       - WEB_TRIAL_DAYS=${WEB_TRIAL_DAYS:-5}
+      # Platega — оплата СБП/картой на сайте
+      - PLATEGA_MERCHANT_ID=${PLATEGA_MERCHANT_ID:-}
+      - PLATEGA_SECRET=${PLATEGA_SECRET:-}
+      - PLATEGA_METHOD=${PLATEGA_METHOD:-2}
+      - SITE_URL=${SITE_URL:-https://ikkvpn.com}
     volumes:
       # База лежит в папке data рядом с проектом — не стирается при обновлениях
       - ./data:/app/data
