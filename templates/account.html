@@ -63,8 +63,8 @@
                 <form method="post" action="{{ url_for('auth.vpn_trial') }}">
                     <label class="note" style="display:flex; gap:10px; align-items:flex-start;
                                                margin-bottom:16px; cursor:pointer;">
-                        <input type="checkbox" name="accept_offer" required
-                               style="margin-top:4px; accent-color: currentColor;">
+                        <input type="checkbox" name="accept_offer" class="tick" required
+                               style="margin-top:4px;">
                         <span>Я ознакомился с <a href="{{ url_for('offer') }}" target="_blank"
                               rel="noopener">офертой</a> и принимаю её правила</span>
                     </label>

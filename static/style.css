@@ -540,3 +540,27 @@ section { padding: 100px 0; position: relative; z-index: 1; }
     .grain { display: none; }
     *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
 }
+/* ===========================================================
+   ГАЛОЧКИ СОГЛАСИЙ (регистрация, пробный ключ)
+   Не нажата: тёмная внутри, тонкая светлая окантовка.
+   Нажата: появляется галочка цвета чернил.
+   =========================================================== */
+input[type="checkbox"].tick {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px; height: 18px; flex-shrink: 0;
+    background: var(--bg);
+    border: 1px solid var(--ink);
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-grid; place-content: center;
+}
+input[type="checkbox"].tick::before {
+    content: '';
+    width: 11px; height: 11px;
+    transform: scale(0);
+    background: var(--ink);
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+    transition: transform 0.15s ease;
+}
+input[type="checkbox"].tick:checked::before { transform: scale(1); }
