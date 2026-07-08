@@ -8,8 +8,10 @@
   PANEL_URL        — адрес панели, напр. https://panel.example.com
   PANEL_USERNAME   — логин администратора Marzban (sudo-admin)
   PANEL_PASSWORD   — пароль администратора
-  PANEL_PROXIES    — JSON протоколов, по умолчанию {"vless": {}}
-  PANEL_INBOUNDS   — JSON инбаундов (необязательно), напр. {"vless": ["VLESS TCP REALITY"]}
+  PANEL_PROXIES    — JSON протоколов, по умолчанию {"vless": {"flow": "xtls-rprx-vision"}}
+  PANEL_INBOUNDS   — JSON инбаундов, напр. {"vless": ["VLESS TCP REALITY"]}.
+                     Если не задано — берём ВСЕ инбаунды панели по нашим протоколам
+                     (без инбаундов Marzban создаёт пользователя с пустой подпиской).
   PANEL_VERIFY_SSL — "0" чтобы НЕ проверять SSL (по умолчанию проверяем)
   USERNAME_PREFIX  — префикс имени пользователя в панели (по умолчанию ikk_)
 
@@ -30,10 +32,11 @@ VERIFY = os.environ.get("PANEL_VERIFY_SSL", "1") != "0"
 USERNAME_PREFIX = os.environ.get("USERNAME_PREFIX", "ikk_")
 TIMEOUT = 15
 
+_DEFAULT_PROXIES = '{"vless": {"flow": "xtls-rprx-vision"}}'
 try:
-    PROXIES = json.loads(os.environ.get("PANEL_PROXIES", '{"vless": {}}'))
+    PROXIES = json.loads(os.environ.get("PANEL_PROXIES", _DEFAULT_PROXIES))
 except json.JSONDecodeError:
-    PROXIES = {"vless": {}}
+    PROXIES = json.loads(_DEFAULT_PROXIES)
 
 try:
     _inb = os.environ.get("PANEL_INBOUNDS", "")
@@ -70,6 +73,28 @@ def _full_sub(url):
     return PANEL_URL + url if url.startswith("/") else url
 
 
+_auto_inbounds = None
+
+
+def _inbounds(token):
+    """Инбаунды для пользователя: из env или все доступные в панели (кэш на процесс)."""
+    global _auto_inbounds
+    if INBOUNDS:
+        return INBOUNDS
+    if _auto_inbounds is None:
+        r = requests.get(
+            f"{PANEL_URL}/api/inbounds",
+            headers=_headers(token), timeout=TIMEOUT, verify=VERIFY,
+        )
+        r.raise_for_status()
+        _auto_inbounds = {
+            proto: [i["tag"] for i in items]
+            for proto, items in r.json().items()
+            if proto in PROXIES and items
+        }
+    return _auto_inbounds
+
+
 def get_subscription_url(user_id, sub_until):
     """Создаёт/продлевает пользователя в Marzban и возвращает subscription-URL."""
     # Демо-режим, если панель не настроена (бот не упадёт)
@@ -88,28 +113,32 @@ def get_subscription_url(user_id, sub_until):
         )
 
         if r.status_code == 404:
-            # создаём нового
+            # создаём нового (inbounds обязательны: без них подписка будет пустой)
             body = {
                 "username": username,
                 "proxies": PROXIES,
+                "inbounds": _inbounds(token),
                 "expire": int(sub_until),
                 "data_limit": 0,
                 "data_limit_reset_strategy": "no_reset",
                 "status": "active",
             }
-            if INBOUNDS:
-                body["inbounds"] = INBOUNDS
             r = requests.post(
                 f"{PANEL_URL}/api/user",
                 headers=_headers(token), json=body, timeout=TIMEOUT, verify=VERIFY,
             )
         else:
             r.raise_for_status()
-            # продлеваем существующего
+            # продлеваем существующего; inbounds шлём тоже —
+            # это чинит пользователей, созданных ранее без инбаундов
             r = requests.put(
                 f"{PANEL_URL}/api/user/{username}",
                 headers=_headers(token),
-                json={"expire": int(sub_until), "status": "active"},
+                json={
+                    "expire": int(sub_until),
+                    "status": "active",
+                    "inbounds": _inbounds(token),
+                },
                 timeout=TIMEOUT, verify=VERIFY,
             )
 
