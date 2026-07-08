@@ -1,3 +1,4 @@
 Flask==3.1.3
 gunicorn==23.0.0
 flasgger>=0.9.7
+requests>=2.31          # выдача VPN-ключей через API панели Marzban (bot/panel.py)

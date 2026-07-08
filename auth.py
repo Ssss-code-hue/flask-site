@@ -4,6 +4,7 @@
 Пока код не введён — аккаунт считается неподтверждённым.
 """
 import hashlib
+import os
 import random
 import re
 import secrets
@@ -16,12 +17,14 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 import mailer
 from bot import db
+from bot.panel import get_subscription_url
 
 auth = Blueprint("auth", __name__)
 
 CODE_TTL = 15 * 60        # код действует 15 минут
 CODE_RESEND_COOLDOWN = 60  # повторная отправка не чаще раза в минуту
 CODE_MAX_ATTEMPTS = 5      # попыток ввода кода
+TRIAL_DAYS = int(os.environ.get("WEB_TRIAL_DAYS", "3"))  # пробный VPN-ключ с сайта
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
@@ -186,7 +189,44 @@ def account():
         session.pop("uid", None)
         return redirect(url_for("auth.login"))
     created = time.strftime("%d.%m.%Y", time.localtime(user["created_at"]))
-    return render_template("account.html", user=user, created=created)
+
+    # VPN-подписка: ссылка уже сохранена в базе, панель на каждый заход не дёргаем
+    now = int(time.time())
+    vpn_active = bool(user["sub_until"] and user["sub_until"] > now and user["sub_url"])
+    vpn_until = (time.strftime("%d.%m.%Y", time.localtime(user["sub_until"]))
+                 if user["sub_until"] else None)
+    return render_template(
+        "account.html", user=user, created=created,
+        vpn_active=vpn_active, vpn_until=vpn_until,
+        sub_url=user["sub_url"], trial_used=bool(user["trial_used"]),
+        trial_days=TRIAL_DAYS,
+    )
+
+
+@auth.route("/account/vpn-trial", methods=["POST"])
+@login_required
+def vpn_trial():
+    """Выдаёт пробный VPN-ключ: создаёт пользователя в панели Marzban."""
+    user = db.get_web_user(session["uid"])
+    if not user:
+        session.pop("uid", None)
+        return redirect(url_for("auth.login"))
+
+    now = int(time.time())
+    if user["trial_used"]:
+        flash("Пробный ключ уже был использован на этом аккаунте.")
+    elif user["sub_until"] and user["sub_until"] > now:
+        flash("Подписка уже активна — ключ ниже.")
+    else:
+        new_until = now + TRIAL_DAYS * 86400
+        # имя в панели: ikk_web_<id> — не пересекается с Telegram (ikk_<uid>)
+        url = get_subscription_url(f"web_{user['id']}", new_until)
+        if url:
+            db.web_activate_sub(user["id"], new_until, url, trial=True)
+            flash(f"Готово! Пробный ключ на {TRIAL_DAYS} дн. — ниже, в разделе «VPN-ключ».")
+        else:
+            flash("Не получилось выдать ключ. Попробуйте позже или напишите в поддержку.")
+    return redirect(url_for("auth.account"))
 
 
 @auth.route("/account/password", methods=["POST"])

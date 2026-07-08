@@ -39,6 +39,63 @@
             </div>
         </div>
 
+        <!-- VPN-ключ -->
+        <div class="card reveal" id="vpn" style="margin-top:28px;">
+            <div class="eyebrow">VPN-ключ</div>
+            {% if vpn_active %}
+                <h3>Ключ активен до {{ vpn_until }}</h3>
+                <p>Скопируйте ссылку-подписку и добавьте её в приложение <b>Happ</b>:</p>
+                <div class="field">
+                    <!-- Ссылка скрыта точками, как пароль: вокруг могут быть чужие глаза -->
+                    <input type="password" id="subUrl" readonly value="{{ sub_url }}">
+                </div>
+                <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                    <button type="button" class="btn" onclick="copySub(this)">Скопировать ссылку</button>
+                    <button type="button" class="btn" onclick="toggleSub(this)">Показать</button>
+                    <a class="btn" href="happ://add/{{ sub_url }}">Открыть в Happ</a>
+                </div>
+                <p class="note" style="margin-top:14px;">
+                    <a href="{{ url_for('webapp') }}">Как подключить на своём устройстве →</a></p>
+            {% elif not trial_used %}
+                <h3>Попробуйте бесплатно</h3>
+                <p>Пробный ключ на {{ trial_days }} дня — без карты и оплаты.
+                   Работает в приложении Happ на всех устройствах.</p>
+                <form method="post" action="{{ url_for('auth.vpn_trial') }}">
+                    <button type="submit" class="btn">Получить пробный ключ</button>
+                </form>
+            {% else %}
+                <h3>Срок ключа истёк</h3>
+                <p>Продлить подписку пока можно в Telegram-боте —
+                   оплата картой прямо на сайте появится совсем скоро.</p>
+                <a class="btn" href="{{ url_for('bot') }}">Продлить в боте</a>
+            {% endif %}
+        </div>
+        {% if vpn_active %}
+        <script>
+            function copySub(btn) {
+                const inp = document.getElementById('subUrl');
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(inp.value);
+                } else {
+                    // старый способ: скрытый ввод копируется только как текст
+                    const was = inp.type;
+                    inp.type = 'text';
+                    inp.select();
+                    document.execCommand('copy');
+                    inp.type = was;
+                }
+                btn.textContent = 'Скопировано ✓';
+                setTimeout(() => { btn.textContent = 'Скопировать ссылку'; }, 2000);
+            }
+            function toggleSub(btn) {
+                const inp = document.getElementById('subUrl');
+                const hidden = inp.type === 'password';
+                inp.type = hidden ? 'text' : 'password';
+                btn.textContent = hidden ? 'Скрыть' : 'Показать';
+            }
+        </script>
+        {% endif %}
+
         <!-- Баннер -->
         <div class="acc-banner reveal">
             <div>
@@ -59,8 +116,8 @@
             <div class="card">
                 <div class="index">II</div>
                 <h3>VPN-ключ</h3>
-                <p>Выдаётся в боте сразу после оплаты.<br>
-                   <a href="{{ url_for('bot') }}">Получить в боте →</a></p>
+                <p>Выдаётся прямо на сайте — или в боте после оплаты.<br>
+                   <a href="#vpn">К моему ключу →</a></p>
             </div>
             <div class="card">
                 <div class="index">III</div>

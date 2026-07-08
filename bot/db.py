@@ -46,6 +46,14 @@ def init_db():
             );
             """
         )
+        # Миграция старых баз: колонки VPN-подписки у пользователей сайта
+        cols = {r["name"] for r in c.execute("PRAGMA table_info(web_users)")}
+        if "sub_until" not in cols:
+            c.execute("ALTER TABLE web_users ADD COLUMN sub_until INTEGER DEFAULT 0")
+        if "trial_used" not in cols:
+            c.execute("ALTER TABLE web_users ADD COLUMN trial_used INTEGER DEFAULT 0")
+        if "sub_url" not in cols:
+            c.execute("ALTER TABLE web_users ADD COLUMN sub_url TEXT")
 
 
 def get_user(uid):
@@ -158,6 +166,25 @@ def set_web_user_password(email, password_hash):
 def mark_web_user_verified(email):
     with _conn() as c:
         c.execute("UPDATE web_users SET verified=1 WHERE email=?", (email,))
+
+
+def web_activate_sub(uid, sub_until, sub_url, trial=False):
+    """Сохраняет подписку пользователя сайта после успешной выдачи ключа панелью.
+
+    Вызывается ТОЛЬКО когда панель уже вернула ссылку — чтобы пробный период
+    не «сгорал» из-за временной ошибки панели.
+    """
+    with _conn() as c:
+        if trial:
+            c.execute(
+                "UPDATE web_users SET sub_until=?, sub_url=?, trial_used=1 WHERE id=?",
+                (sub_until, sub_url, uid),
+            )
+        else:
+            c.execute(
+                "UPDATE web_users SET sub_until=?, sub_url=? WHERE id=?",
+                (sub_until, sub_url, uid),
+            )
 
 
 # ===== Коды подтверждения почты =====

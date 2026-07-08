@@ -25,3 +25,6 @@ data/
 instance/
 .DS_Store
 Thumbs.db
+
+# Локальные настройки Claude Code (могут содержать секреты — launch.json)
+.claude/
