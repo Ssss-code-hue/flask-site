@@ -217,6 +217,8 @@ def vpn_trial():
         flash("Пробный ключ уже был использован на этом аккаунте.")
     elif user["sub_until"] and user["sub_until"] > now:
         flash("Подписка уже активна — ключ ниже.")
+    elif not request.form.get("accept_offer"):
+        flash("Чтобы активировать пробный период, отметьте согласие с офертой.")
     else:
         new_until = now + TRIAL_DAYS * 86400
         # имя в панели: ikk_web_<id> — не пересекается с Telegram (ikk_<uid>)

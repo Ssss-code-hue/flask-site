@@ -27,7 +27,8 @@ from .config import (
     REFERRAL_BONUS_DAYS,
     TRIAL_DAYS,
 )
-from .keyboards import back_kb, devices_kb, main_menu, offer_consent_kb, plans_kb
+from .keyboards import (back_kb, devices_kb, main_menu, offer_consent_kb,
+                        plans_kb, trial_consent_kb)
 from .panel import get_subscription_url
 
 logging.basicConfig(level=logging.INFO)
@@ -135,11 +136,20 @@ async def _give_trial(uid, username, send):
     return True
 
 
+def _trial_available(uid, username):
+    """Проверяет, доступен ли пробный период (заодно регистрирует пользователя)."""
+    db.create_user(uid, username)
+    return not db.get_user(uid)["trial_used"]
+
+
 @dp.message(Command("trial"))
 async def cmd_trial(message: Message):
-    async def send(text, kb):
-        await message.answer(text, reply_markup=kb)
-    if not await _give_trial(message.from_user.id, message.from_user.username, send):
+    if _trial_available(message.from_user.id, message.from_user.username):
+        # сначала — согласие с офертой, активация кнопкой «Принимаю»
+        await message.answer(
+            texts.TRIAL_OFFER.format(days=TRIAL_DAYS), reply_markup=trial_consent_kb()
+        )
+    else:
         await message.answer(
             "🆓 Пробный период уже был использован.\n"
             "Оформите подписку — или получите бесплатные дни за друзей 🎁.",
@@ -149,10 +159,40 @@ async def cmd_trial(message: Message):
 
 @dp.callback_query(F.data == "trial")
 async def cb_trial(cq: CallbackQuery):
+    if _trial_available(cq.from_user.id, cq.from_user.username):
+        await cq.message.edit_text(
+            texts.TRIAL_OFFER.format(days=TRIAL_DAYS), reply_markup=trial_consent_kb()
+        )
+        await cq.answer()
+    else:
+        await cq.answer(
+            "🆓 Пробный период уже был использован. "
+            "Оформите подписку или пригласите друга 🎁",
+            show_alert=True,
+        )
+
+
+@dp.callback_query(F.data == "offer_text_trial")
+async def cb_offer_text_trial(cq: CallbackQuery):
+    # текстовая оферта (если мини-приложение не настроено), назад — к пробному периоду
+    await cq.message.edit_text(texts.OFFER_TEXT, reply_markup=back_kb("trial"), disable_web_page_preview=True)
+    await cq.answer()
+
+
+@dp.callback_query(F.data == "trial_go")
+async def cb_trial_go(cq: CallbackQuery):
+    # пользователь нажал «Принимаю» — активируем пробный период
     async def send(text, kb):
         await cq.message.edit_text(text, reply_markup=kb)
     if await _give_trial(cq.from_user.id, cq.from_user.username, send):
         await cq.answer()
+        if OWNER_ID:
+            try:
+                who = (f"@{cq.from_user.username}" if cq.from_user.username
+                       else f"id{cq.from_user.id}")
+                await cq.bot.send_message(OWNER_ID, f"🆓 Пробный период активирован: {who}")
+            except Exception:
+                pass
     else:
         await cq.answer(
             "🆓 Пробный период уже был использован. "

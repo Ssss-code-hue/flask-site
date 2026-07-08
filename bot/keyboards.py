@@ -30,6 +30,19 @@ def offer_consent_kb():
     return kb.as_markup()
 
 
+def trial_consent_kb():
+    """Согласие с офертой перед активацией пробного периода."""
+    kb = InlineKeyboardBuilder()
+    if OFFER_URL.startswith("https://"):
+        kb.button(text="📄 Открыть оферту", web_app=WebAppInfo(url=OFFER_URL))
+    else:
+        kb.button(text="📄 Читать оферту", callback_data="offer_text_trial")
+    kb.button(text="✅ Принимаю — активировать", callback_data="trial_go")
+    kb.button(text="◀ Назад", callback_data="menu")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
 def plans_kb():
     kb = InlineKeyboardBuilder()
     for code, p in PLANS.items():
