@@ -16,10 +16,11 @@
         </div>
 
         <!-- Пробный период -->
-        <div class="card reveal" id="trial" style="margin-bottom:26px;">
+        <div class="card reveal" id="trial" style="margin-bottom:40px;">
             <div class="eyebrow">Бесплатно</div>
-            <h3>Попробовать — {{ trial_days }} дн. бесплатно</h3>
-            <p>Пробный VPN-ключ для Happ — без карты и оплаты, один раз на аккаунт.
+            <h3 style="margin:16px 0 18px;">Попробовать — {{ trial_days }} дн. бесплатно</h3>
+            <p style="margin-bottom:30px; line-height:1.75; max-width:640px;">
+               Пробный VPN-ключ для Happ — без карты и оплаты, один раз на аккаунт.
                Получите его в личном кабинете на сайте или кнопкой
                «Попробовать бесплатно» в <a href="{{ url_for('bot') }}">Telegram-боте</a>.</p>
             {% if session.get('uid') %}
