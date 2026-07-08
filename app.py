@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask, render_template
+from flask import Flask, render_template, session
 from flasgger import Swagger
 
 from api import api as api_blueprint
@@ -22,6 +22,13 @@ Swagger(app, template={
         "version": "1.0.0",
     },
 })
+
+
+@app.context_processor
+def inject_nav_user():
+    # Пользователь для шапки (аватар возле «Аккаунт»); None, если не вошёл
+    uid = session.get('uid')
+    return {'nav_user': db.get_web_user(uid) if uid else None}
 
 
 @app.route('/')

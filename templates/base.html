@@ -38,7 +38,9 @@
                 <li><a href="{{ url_for('offer') }}">Оферта</a></li>
                 <li><a href="{{ url_for('bot') }}">Бот</a></li>
                 {% if session.get('uid') %}
-                <li><a href="{{ url_for('auth.account') }}">Аккаунт</a></li>
+                <li><a href="{{ url_for('auth.account') }}" class="nav-account">
+                    <span class="nav-avatar">{% if nav_user %}{{ nav_user['email'][0]|upper }}{% else %}✦{% endif %}</span>
+                    Аккаунт</a></li>
                 {% else %}
                 <li><a href="{{ url_for('auth.login') }}">Войти</a></li>
                 {% endif %}

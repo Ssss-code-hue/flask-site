@@ -40,15 +40,15 @@
             </div>
             <label class="note" style="display:flex; gap:10px; align-items:flex-start;
                                        margin-bottom:12px; cursor:pointer; text-align:left;">
-                <input type="checkbox" name="accept_terms" class="tick" required
-                       style="margin-top:4px;">
+                <input type="checkbox" name="accept_terms" required
+                       style="margin-top:4px; accent-color: currentColor;">
                 <span>Я принимаю <a href="{{ url_for('terms') }}" target="_blank"
                       rel="noopener">пользовательское соглашение</a></span>
             </label>
             <label class="note" style="display:flex; gap:10px; align-items:flex-start;
                                        margin-bottom:16px; cursor:pointer; text-align:left;">
-                <input type="checkbox" name="accept_privacy" class="tick" required
-                       style="margin-top:4px;">
+                <input type="checkbox" name="accept_privacy" required
+                       style="margin-top:4px; accent-color: currentColor;">
                 <span>Я ознакомился с <a href="{{ url_for('privacy') }}" target="_blank"
                       rel="noopener">политикой конфиденциальности</a></span>
             </label>
