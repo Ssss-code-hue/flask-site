@@ -15,6 +15,20 @@
             Касса в разработке — скоро можно будет оплатить прямо здесь.
         </div>
 
+        <!-- Пробный период -->
+        <div class="card reveal" id="trial" style="margin-bottom:26px;">
+            <div class="eyebrow">Бесплатно</div>
+            <h3>Попробовать — {{ trial_days }} дн. бесплатно</h3>
+            <p>Пробный VPN-ключ для Happ — без карты и оплаты, один раз на аккаунт.
+               Получите его в личном кабинете на сайте или кнопкой
+               «Попробовать бесплатно» в <a href="{{ url_for('bot') }}">Telegram-боте</a>.</p>
+            {% if session.get('uid') %}
+                <a class="btn" href="{{ url_for('auth.account') }}#vpn">Получить пробный ключ</a>
+            {% else %}
+                <a class="btn" href="{{ url_for('auth.register') }}">Зарегистрироваться и попробовать</a>
+            {% endif %}
+        </div>
+
         <div class="cards">
             <div class="card plan reveal">
                 <div class="plan-name">1 месяц</div>

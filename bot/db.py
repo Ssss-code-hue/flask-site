@@ -46,6 +46,10 @@ def init_db():
             );
             """
         )
+        # Миграция старых баз: пробный период у Telegram-пользователей
+        ucols = {r["name"] for r in c.execute("PRAGMA table_info(users)")}
+        if "trial_used" not in ucols:
+            c.execute("ALTER TABLE users ADD COLUMN trial_used INTEGER DEFAULT 0")
         # Миграция старых баз: колонки VPN-подписки у пользователей сайта
         cols = {r["name"] for r in c.execute("PRAGMA table_info(web_users)")}
         if "sub_until" not in cols:
@@ -90,6 +94,11 @@ def add_days(uid, days):
 def is_active(uid):
     u = get_user(uid)
     return bool(u and u["sub_until"] and u["sub_until"] > int(time.time()))
+
+
+def mark_trial_used(uid):
+    with _conn() as c:
+        c.execute("UPDATE users SET trial_used=1 WHERE user_id=?", (uid,))
 
 
 def set_referred_by(uid, ref_id):

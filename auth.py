@@ -24,7 +24,7 @@ auth = Blueprint("auth", __name__)
 CODE_TTL = 15 * 60        # код действует 15 минут
 CODE_RESEND_COOLDOWN = 60  # повторная отправка не чаще раза в минуту
 CODE_MAX_ATTEMPTS = 5      # попыток ввода кода
-TRIAL_DAYS = int(os.environ.get("WEB_TRIAL_DAYS", "3"))  # пробный VPN-ключ с сайта
+TRIAL_DAYS = int(os.environ.get("WEB_TRIAL_DAYS", "5"))  # пробный VPN-ключ с сайта
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 

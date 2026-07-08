@@ -20,7 +20,7 @@ services:
       - PANEL_URL=${PANEL_URL:-}
       - PANEL_USERNAME=${PANEL_USERNAME:-}
       - PANEL_PASSWORD=${PANEL_PASSWORD:-}
-      - WEB_TRIAL_DAYS=${WEB_TRIAL_DAYS:-3}
+      - WEB_TRIAL_DAYS=${WEB_TRIAL_DAYS:-5}
     volumes:
       # База лежит в папке data рядом с проектом — не стирается при обновлениях
       - ./data:/app/data

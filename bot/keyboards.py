@@ -2,18 +2,19 @@
 from aiogram.types import WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from .config import PLANS, WEBAPP_URL, OFFER_URL, OWNER_USERNAME
+from .config import PLANS, TRIAL_DAYS, WEBAPP_URL, OFFER_URL, OWNER_USERNAME
 
 
 def main_menu():
     kb = InlineKeyboardBuilder()
     kb.button(text="⭐ Купить подписку", callback_data="buy")
+    kb.button(text=f"🆓 Попробовать бесплатно ({TRIAL_DAYS} дн.)", callback_data="trial")
     kb.button(text="📲 Инструкция", callback_data="devices")
     kb.button(text="📡 Моя подписка", callback_data="status")
     kb.button(text="🎁 Пригласить друга (+3 дня)", callback_data="ref")
     kb.button(text="💬 Поддержка", url=f"https://t.me/{OWNER_USERNAME}")
-    # 1 + 2 + 1 + 1: «Купить» на всю ширину, потом две в ряд, далее по одной
-    kb.adjust(1, 2, 1, 1)
+    # «Купить» и «Попробовать» на всю ширину, потом две в ряд, далее по одной
+    kb.adjust(1, 1, 2, 1, 1)
     return kb.as_markup()
 
 

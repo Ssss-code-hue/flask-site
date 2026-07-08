@@ -4,7 +4,7 @@ from flask import Flask, render_template
 from flasgger import Swagger
 
 from api import api as api_blueprint
-from auth import auth as auth_blueprint
+from auth import TRIAL_DAYS, auth as auth_blueprint
 from bot import db
 
 app = Flask(__name__)
@@ -32,7 +32,7 @@ def home():
 @app.route('/tariffs')
 def tariffs():
     # Страница выбора тарифа и оплаты (касса будет добавлена позже)
-    return render_template('tariffs.html')
+    return render_template('tariffs.html', trial_days=TRIAL_DAYS)
 
 
 @app.route('/advantages')

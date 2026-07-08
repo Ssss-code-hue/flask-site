@@ -25,6 +25,9 @@ if not OFFER_URL.startswith("https://"):
 # Сколько дней бесплатно даёт реферальная ссылка
 REFERRAL_BONUS_DAYS = int(os.environ.get("REFERRAL_BONUS_DAYS", "3"))
 
+# Пробный период «Попробовать бесплатно» (дней, раз на пользователя)
+TRIAL_DAYS = int(os.environ.get("TRIAL_DAYS", "5"))
+
 # Путь к базе SQLite
 DB_PATH = os.environ.get("DB_PATH", "ikk_bot.db")
 

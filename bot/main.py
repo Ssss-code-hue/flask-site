@@ -25,6 +25,7 @@ from .config import (
     OWNER_USERNAME,
     PLANS,
     REFERRAL_BONUS_DAYS,
+    TRIAL_DAYS,
 )
 from .keyboards import back_kb, devices_kb, main_menu, offer_consent_kb, plans_kb
 from .panel import get_subscription_url
@@ -106,7 +107,58 @@ async def cmd_status(message: Message):
 
 @dp.message(Command("help"))
 async def cmd_help(message: Message):
-    await message.answer(texts.HELP, reply_markup=main_menu())
+    await message.answer(texts.HELP.format(trial=TRIAL_DAYS), reply_markup=main_menu())
+
+
+# ============ Пробный период ============
+async def _give_trial(uid, username, send):
+    """Общая логика «Попробовать бесплатно» для команды и кнопки.
+
+    send(text, kb) — как отправить ответ. Возвращает False, если пробный
+    период уже использован (нужно показать alert), иначе True.
+    """
+    db.create_user(uid, username)
+    u = db.get_user(uid)
+    if u["trial_used"]:
+        return False
+
+    new_until = db.add_days(uid, TRIAL_DAYS)
+    db.mark_trial_used(uid)
+    sub_url = get_subscription_url(uid, new_until)
+    if sub_url:
+        await send(texts.TRIAL_OK.format(date=fmt_date(new_until), url=sub_url), devices_kb())
+    else:
+        await send(
+            texts.TRIAL_NO_KEY.format(date=fmt_date(new_until), owner=OWNER_USERNAME),
+            devices_kb(),
+        )
+    return True
+
+
+@dp.message(Command("trial"))
+async def cmd_trial(message: Message):
+    async def send(text, kb):
+        await message.answer(text, reply_markup=kb)
+    if not await _give_trial(message.from_user.id, message.from_user.username, send):
+        await message.answer(
+            "🆓 Пробный период уже был использован.\n"
+            "Оформите подписку — или получите бесплатные дни за друзей 🎁.",
+            reply_markup=main_menu(),
+        )
+
+
+@dp.callback_query(F.data == "trial")
+async def cb_trial(cq: CallbackQuery):
+    async def send(text, kb):
+        await cq.message.edit_text(text, reply_markup=kb)
+    if await _give_trial(cq.from_user.id, cq.from_user.username, send):
+        await cq.answer()
+    else:
+        await cq.answer(
+            "🆓 Пробный период уже был использован. "
+            "Оформите подписку или пригласите друга 🎁",
+            show_alert=True,
+        )
 
 
 # ============ Навигация по меню ============
@@ -227,6 +279,7 @@ async def main():
     # список функций для кнопки «Меню» слева от поля ввода
     await bot.set_my_commands([
         BotCommand(command="start", description="Главное меню"),
+        BotCommand(command="trial", description=f"Попробовать бесплатно ({TRIAL_DAYS} дн.)"),
         BotCommand(command="buy", description="Купить подписку"),
         BotCommand(command="devices", description="Инструкция подключения"),
         BotCommand(command="status", description="Моя подписка"),

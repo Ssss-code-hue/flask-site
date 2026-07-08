@@ -58,7 +58,7 @@
                     <a href="{{ url_for('webapp') }}">Как подключить на своём устройстве →</a></p>
             {% elif not trial_used %}
                 <h3>Попробуйте бесплатно</h3>
-                <p>Пробный ключ на {{ trial_days }} дня — без карты и оплаты.
+                <p>Пробный ключ на {{ trial_days }} дн. — без карты и оплаты.
                    Работает в приложении Happ на всех устройствах.</p>
                 <form method="post" action="{{ url_for('auth.vpn_trial') }}">
                     <button type="submit" class="btn">Получить пробный ключ</button>
