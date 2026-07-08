@@ -27,8 +27,8 @@ from .config import (
     REFERRAL_BONUS_DAYS,
     TRIAL_DAYS,
 )
-from .keyboards import (back_kb, devices_kb, main_menu, offer_consent_kb,
-                        plans_kb, trial_consent_kb)
+from .keyboards import (back_kb, devices_kb, docs_kb, main_menu,
+                        offer_consent_kb, plans_kb, trial_consent_kb)
 from .panel import get_subscription_url
 
 logging.basicConfig(level=logging.INFO)
@@ -232,6 +232,12 @@ async def cb_plans(cq: CallbackQuery):
 @dp.callback_query(F.data == "devices")
 async def cb_devices(cq: CallbackQuery):
     await cq.message.edit_text(texts.DEVICES_INTRO, reply_markup=devices_kb())
+    await cq.answer()
+
+
+@dp.callback_query(F.data == "docs")
+async def cb_docs(cq: CallbackQuery):
+    await cq.message.edit_text(texts.DOCS, reply_markup=docs_kb())
     await cq.answer()
 
 

@@ -2,7 +2,8 @@
 from aiogram.types import WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from .config import PLANS, TRIAL_DAYS, WEBAPP_URL, OFFER_URL, OWNER_USERNAME
+from .config import (PLANS, PRIVACY_URL, TERMS_URL, TRIAL_DAYS, WEBAPP_URL,
+                     OFFER_URL, OWNER_USERNAME)
 
 
 def main_menu():
@@ -12,9 +13,21 @@ def main_menu():
     kb.button(text="📲 Инструкция", callback_data="devices")
     kb.button(text="📡 Моя подписка", callback_data="status")
     kb.button(text="🎁 Пригласить друга (+3 дня)", callback_data="ref")
+    kb.button(text="📄 Документы", callback_data="docs")
     kb.button(text="💬 Поддержка", url=f"https://t.me/{OWNER_USERNAME}")
-    # «Купить» и «Попробовать» на всю ширину, потом две в ряд, далее по одной
-    kb.adjust(1, 1, 2, 1, 1)
+    # «Купить» и «Попробовать» на всю ширину, потом по две в ряд
+    kb.adjust(1, 1, 2, 1, 2)
+    return kb.as_markup()
+
+
+def docs_kb():
+    """Документы сервиса: оферта, соглашение, политика — мини-приложениями."""
+    kb = InlineKeyboardBuilder()
+    kb.button(text="📄 Публичная оферта", web_app=WebAppInfo(url=OFFER_URL))
+    kb.button(text="📜 Пользовательское соглашение", web_app=WebAppInfo(url=TERMS_URL))
+    kb.button(text="🔒 Политика конфиденциальности", web_app=WebAppInfo(url=PRIVACY_URL))
+    kb.button(text="◀ Назад", callback_data="menu")
+    kb.adjust(1)
     return kb.as_markup()
 
 

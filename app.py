@@ -65,6 +65,30 @@ def offer_app():
     return render_template('offer_app.html')
 
 
+@app.route('/terms')
+def terms():
+    # Пользовательское соглашение (галочка при регистрации)
+    return render_template('terms.html')
+
+
+@app.route('/privacy')
+def privacy():
+    # Политика конфиденциальности (галочка при регистрации)
+    return render_template('privacy.html')
+
+
+@app.route('/terms-app')
+def terms_app():
+    # Соглашение в виде мини-приложения Telegram (для бота)
+    return render_template('terms_app.html')
+
+
+@app.route('/privacy-app')
+def privacy_app():
+    # Политика конфиденциальности в виде мини-приложения Telegram (для бота)
+    return render_template('privacy_app.html')
+
+
 if __name__ == '__main__':
     # Порт можно задать переменной окружения PORT (по умолчанию 5000)
     port = int(os.environ.get('PORT', 5000))

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>IKK VPN — пользовательское соглашение</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg:#0c0c0d; --ink:#ece9e1; --dim:#9a968c;
+            --line:rgba(236,233,225,.16); --line-soft:rgba(236,233,225,.08);
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family:'EB Garamond', Georgia, serif;
+            background:
+                radial-gradient(900px 600px at 50% -10%, #161617, transparent 60%),
+                var(--bg);
+            color:var(--ink);
+            padding:24px 18px 48px;
+            line-height:1.7;
+        }
+        .eyebrow {
+            text-transform:uppercase; letter-spacing:4px; font-size:.72rem;
+            color:var(--dim); text-align:center; margin-bottom:6px;
+        }
+        h1.title { font-family:'Caveat', cursive; font-weight:700; font-size:2.6rem; text-align:center; line-height:1.1; }
+        .rule { width:64px; height:2px; background:var(--line); border-radius:2px; margin:12px auto 26px; }
+
+        .intro { font-style:italic; color:var(--dim); margin-bottom:26px; text-align:center; }
+        h3 { font-size:1.1rem; letter-spacing:.5px; margin:24px 0 6px; color:var(--ink); }
+        p { color:var(--dim); margin-bottom:8px; }
+        b { color:var(--ink); }
+        a { color:var(--ink); }
+        .note {
+            margin-top:28px; font-size:.85rem; font-style:italic;
+            border-top:1px solid var(--line-soft); padding-top:16px; color:var(--dim);
+        }
+    </style>
+</head>
+<body>
+    <div class="eyebrow">Документы</div>
+    <h1 class="title">Пользовательское соглашение</h1>
+    <div class="rule"></div>
+
+    <p class="intro">Использование сервиса <b>IKK VPN</b> означает согласие
+        с условиями ниже.</p>
+
+    <h3>1. Общие положения</h3>
+    <p>1.1. Соглашение регулирует использование сайта ikkvpn.com, личного кабинета
+        и Telegram-бота IKK VPN.</p>
+    <p>1.2. Регистрация или использование сервиса — принятие Соглашения полностью.</p>
+
+    <h3>2. Аккаунт</h3>
+    <p>2.1. Пользователь указывает действующую почту и сам отвечает за сохранность пароля.</p>
+    <p>2.2. Один человек — один аккаунт. Дубли ради повторного пробного периода запрещены.</p>
+
+    <h3>3. Пробный период и подписки</h3>
+    <p>3.1. Пробный период — один раз на аккаунт; условия — на сайте и в боте.</p>
+    <p>3.2. Платные подписки регулируются публичной офертой.</p>
+
+    <h3>4. Правила использования</h3>
+    <p>4.1. Запрещены противоправные действия: CSAM, терроризм и экстремизм, спам,
+        взлом и DDoS, вредоносное ПО, нарушение прав третьих лиц и закона.</p>
+    <p>4.2. Запрещены попытки нарушить работу сервиса: подбор паролей, автоматические
+        регистрации, вмешательство в работу серверов и API.</p>
+    <p>4.3. За нарушение — блокировка без возврата средств.</p>
+
+    <h3>5. Ответственность</h3>
+    <p>5.1. Сервис предоставляется «как есть», без гарантий бесперебойной работы.</p>
+    <p>5.2. За действия через сервис отвечает пользователь.</p>
+
+    <h3>6. Изменения</h3>
+    <p>6.1. Актуальная версия — всегда на сайте. Удаление аккаунта — через поддержку.</p>
+
+    <h3>7. Контакты</h3>
+    <p>7.1. Связь: Telegram
+        <a href="https://t.me/IKKvpndev" target="_blank" rel="noopener">@IKKvpndev</a>.</p>
+
+    <p class="note">Документ носит ознакомительный характер.</p>
+
+    <script>
+        if (window.Telegram && Telegram.WebApp) {
+            Telegram.WebApp.ready();
+            Telegram.WebApp.expand();
+        }
+    </script>
+</body>
+</html>

@@ -22,6 +22,14 @@ OFFER_URL = os.environ.get("OFFER_URL", "").strip()
 if not OFFER_URL.startswith("https://"):
     OFFER_URL = "https://ikkvpn.com/offer-app"
 
+# Мини-приложения с пользовательским соглашением и политикой конфиденциальности
+TERMS_URL = os.environ.get("TERMS_URL", "").strip()
+if not TERMS_URL.startswith("https://"):
+    TERMS_URL = "https://ikkvpn.com/terms-app"
+PRIVACY_URL = os.environ.get("PRIVACY_URL", "").strip()
+if not PRIVACY_URL.startswith("https://"):
+    PRIVACY_URL = "https://ikkvpn.com/privacy-app"
+
 # Сколько дней бесплатно даёт реферальная ссылка
 REFERRAL_BONUS_DAYS = int(os.environ.get("REFERRAL_BONUS_DAYS", "3"))
 

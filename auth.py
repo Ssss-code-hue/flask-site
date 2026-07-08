@@ -76,7 +76,10 @@ def register():
         if honeypot:
             # Поле видят только боты — молча возвращаем на форму.
             return redirect(url_for("auth.register"))
-        if expected is None or captcha != str(expected):
+        if not request.form.get("accept_terms") or not request.form.get("accept_privacy"):
+            flash("Подтвердите согласие с пользовательским соглашением "
+                  "и политикой конфиденциальности.")
+        elif expected is None or captcha != str(expected):
             flash("Неверный ответ на пример. Попробуйте ещё раз.")
         elif not EMAIL_RE.match(email):
             flash("Введите корректный адрес почты.")
