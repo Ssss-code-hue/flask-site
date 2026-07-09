@@ -547,6 +547,103 @@ section { padding: 100px 0; position: relative; z-index: 1; }
 }
 
 /* ===========================================================
+   РЕДИЗАЙН: номера секций, факты, теги, витрина приложения
+   =========================================================== */
+
+/* номер в eyebrow: «01 — Преимущества» */
+.eyebrow b { color: var(--ink); font-weight: 600; }
+
+/* теги-«таблетки» (герой и витрина) */
+.pills { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 32px; }
+.pill {
+    font-family: 'EB Garamond', serif; text-transform: uppercase;
+    letter-spacing: 2px; font-size: 0.7rem; color: var(--ink-dim);
+    border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px;
+    transition: color var(--slow), border-color var(--slow), background var(--slow);
+}
+.pill.accent { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.pill:hover { color: var(--ink); border-color: var(--ink-dim); }
+.pill.accent:hover { color: var(--bg); }
+
+/* полоса фактов — крупные рукописные цифры */
+.stats {
+    display: flex; flex-wrap: wrap; justify-content: center;
+    gap: 20px 56px; max-width: 900px; margin: 0 auto;
+}
+.stat { text-align: center; min-width: 130px; }
+.stat-num {
+    font-family: 'Caveat', cursive; font-weight: 700;
+    font-size: clamp(3rem, 7vw, 4.6rem); line-height: 1; color: var(--ink);
+}
+.stat-label {
+    text-transform: uppercase; letter-spacing: 3px;
+    font-size: 0.68rem; color: var(--ink-dim); margin-top: 8px;
+}
+
+/* панель-обёртка — мягкий блок, чтобы разбить пустоту */
+.panel {
+    background: var(--bg-2); border: 1px solid var(--line);
+    border-radius: 32px; padding: 60px 54px;
+    transition: background var(--slow), border-color var(--slow);
+}
+
+/* витрина приложения: текст слева + телефон справа */
+.showcase { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 56px; align-items: center; }
+.showcase-text h2 { font-size: clamp(2.6rem, 6vw, 4.6rem); margin-bottom: 18px; }
+.showcase-text .lead-left {
+    color: var(--ink-dim); font-size: 1.15rem; line-height: 1.7;
+    max-width: 470px; margin-bottom: 4px;
+}
+.showcase .pills { justify-content: flex-start; margin-top: 28px; }
+
+/* телефон-мокап — чистый CSS, палитра темы */
+.phone-wrap { display: flex; justify-content: center; }
+.phone {
+    width: 300px; max-width: 80vw; aspect-ratio: 300 / 620;
+    border: 2px solid var(--ink); border-radius: 44px;
+    background: var(--bg); padding: 16px 14px; position: relative;
+    box-shadow: 0 40px 80px rgba(0, 0, 0, 0.45);
+    transition: transform 0.5s var(--pop), box-shadow var(--slow), background var(--slow);
+}
+.phone:hover { transform: translateY(-10px) rotate(-1.5deg); }
+.phone-notch {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    width: 108px; height: 22px; background: var(--ink); opacity: 0.85;
+    border-radius: 0 0 16px 16px; z-index: 2;
+}
+.phone-screen {
+    height: 100%; border: 1px solid var(--line); border-radius: 32px;
+    padding: 32px 15px 18px; display: flex; flex-direction: column; gap: 14px; overflow: hidden;
+}
+.phone-connect {
+    align-self: center; width: 128px; height: 128px; border-radius: 50%;
+    border: 1px solid var(--line-soft); box-shadow: 0 0 0 8px var(--line-soft);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    margin: 6px 0 2px;
+}
+.phone-power { font-size: 1.9rem; color: var(--ink); line-height: 1; }
+.phone-state { text-transform: uppercase; letter-spacing: 2px; font-size: 0.54rem; color: var(--ink-dim); }
+.phone-timer { font-family: 'Caveat', cursive; font-size: 1.3rem; color: var(--ink); line-height: 1; }
+.phone-appname {
+    text-transform: uppercase; letter-spacing: 2px; font-size: 0.58rem;
+    color: var(--ink-dim); text-align: center; margin-top: 2px;
+}
+.srv { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; }
+.srv-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink); flex-shrink: 0; }
+.srv.off .srv-dot { background: var(--ink-dim); opacity: 0.4; }
+.srv-name { font-size: 0.8rem; color: var(--ink); }
+.srv.off .srv-name { color: var(--ink-dim); }
+.srv-tag { margin-left: auto; text-transform: uppercase; letter-spacing: 1px; font-size: 0.52rem; color: var(--ink-dim); }
+
+@media (max-width: 860px) {
+    .showcase { grid-template-columns: 1fr; gap: 40px; }
+    .showcase-text { text-align: center; }
+    .showcase-text .lead-left { margin-left: auto; margin-right: auto; }
+    .showcase .pills { justify-content: center; }
+    .panel { padding: 40px 22px; }
+}
+
+/* ===========================================================
    УВАЖЕНИЕ К «УМЕНЬШИТЬ ДВИЖЕНИЕ»
    (показываем заголовки сразу, гасим анимации фона)
    =========================================================== */
