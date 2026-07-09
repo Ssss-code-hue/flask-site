@@ -3,7 +3,7 @@ import os
 from flask import Flask, render_template, session
 from flasgger import Swagger
 
-import platega
+import lolz
 from api import api as api_blueprint
 from auth import TRIAL_DAYS, auth as auth_blueprint
 from bot import db
@@ -17,7 +17,7 @@ app.secret_key = os.environ.get('SECRET_KEY', 'change-me-to-a-random-secret')
 db.init_db()                       # на всякий случай создаём таблицы
 app.register_blueprint(api_blueprint)
 app.register_blueprint(auth_blueprint)   # регистрация и вход по почте
-app.register_blueprint(pay_blueprint)    # оплата через Platega (СБП/карта)
+app.register_blueprint(pay_blueprint)    # оплата через Lolz (СБП/карта)
 Swagger(app, template={
     "info": {
         "title": "IKK VPN API",
@@ -41,9 +41,9 @@ def home():
 
 @app.route('/tariffs')
 def tariffs():
-    # Страница выбора тарифа; кнопки оплаты активны, когда настроена Platega
+    # Страница выбора тарифа; кнопки оплаты активны, когда настроен Lolz
     return render_template('tariffs.html', trial_days=TRIAL_DAYS,
-                           platega_on=platega.is_configured())
+                           platega_on=lolz.is_configured())
 
 
 @app.route('/advantages')

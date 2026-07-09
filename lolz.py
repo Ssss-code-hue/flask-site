@@ -1,0 +1,66 @@
+"""Оплата картой/СБП через Lolz Merchant (lzt.market) — счета (invoice).
+
+Как это работает:
+  1. Сайт создаёт счёт (create_invoice) и отправляет покупателя
+     на страницу оплаты Lolz (invoice.url).
+  2. После оплаты Lolz присылает webhook на /pay/callback со status=paid —
+     сайт продлевает подписку и выдаёт ключ.
+
+Настройка через переменные окружения:
+  LOLZ_TOKEN           — Access Token с scope invoice (lzt.market → API)
+  LOLZ_MERCHANT_ID     — ID мерчанта (число), из настроек мерчанта
+  LOLZ_MERCHANT_SECRET — merchant token; приходит в заголовке x-secret-key
+                         вебхука, им проверяем подлинность callback'а
+  LOLZ_URL             — база API (по умолчанию https://api.lzt.market)
+
+Callback URL задаётся при создании счёта (url_callback), отдельно
+в кабинете настраивать не нужно.
+"""
+import os
+
+import requests
+
+TOKEN = os.environ.get("LOLZ_TOKEN", "")
+MERCHANT_ID = os.environ.get("LOLZ_MERCHANT_ID", "")
+SECRET = os.environ.get("LOLZ_MERCHANT_SECRET", "")
+BASE = os.environ.get("LOLZ_URL", "https://api.lzt.market").rstrip("/")
+TIMEOUT = 25
+
+
+def is_configured():
+    return bool(TOKEN and MERCHANT_ID and SECRET)
+
+
+def _headers():
+    return {"Authorization": f"Bearer {TOKEN}", "Accept": "application/json"}
+
+
+def create_invoice(amount_rub, payment_id, comment, success_url, callback_url,
+                   additional_data=""):
+    """Создаёт счёт, возвращает (invoice_id, ссылка_на_оплату).
+
+    ВАЖНО: сумма в Lolz указывается в рублях (не в копейках).
+    Параметры LZT-маркета передаются в query-строке.
+    """
+    params = {
+        "currency": "rub",
+        "amount": amount_rub,
+        "payment_id": payment_id,          # наш уникальный ID (вернётся в webhook)
+        "comment": comment,
+        "url_success": success_url,
+        "url_callback": callback_url,
+        "merchant_id": int(MERCHANT_ID),
+        "lifetime": 3600,                  # счёт живёт 1 час
+    }
+    if additional_data:
+        params["additional_data"] = additional_data
+    r = requests.post(f"{BASE}/invoice", headers=_headers(), params=params, timeout=TIMEOUT)
+    r.raise_for_status()
+    inv = r.json()["invoice"]
+    return inv["invoice_id"], inv["url"]
+
+
+def check_secret(header_value):
+    """Проверка подлинности webhook: x-secret-key должен совпасть с merchant token."""
+    from hmac import compare_digest
+    return bool(header_value) and compare_digest(str(header_value), SECRET)
