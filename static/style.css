@@ -643,6 +643,67 @@ section { padding: 100px 0; position: relative; z-index: 1; }
     .panel { padding: 40px 22px; }
 }
 
+/* флёроны по краям eyebrow */
+.fleuron { color: var(--ink-dim); opacity: 0.7; margin: 0 14px; font-size: 0.85em; }
+
+/* орнаментальный разделитель секций — винтажная гравюра */
+.ornament {
+    display: flex; align-items: center; justify-content: center; gap: 22px;
+    max-width: 460px; margin: 44px auto; color: var(--ink-dim);
+}
+.ornament::before, .ornament::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(to right, transparent, var(--line), transparent);
+}
+.ornament span { font-size: 0.9rem; letter-spacing: 2px; opacity: 0.7; white-space: nowrap; }
+
+/* уголки-засечки на панели-витрине — рамка-гравюра */
+.panel { position: relative; }
+.panel::before, .panel::after {
+    content: ''; position: absolute; width: 30px; height: 30px;
+    pointer-events: none; opacity: 0.55;
+}
+.panel::before {
+    top: 16px; left: 16px;
+    border-top: 1px solid var(--ink-dim); border-left: 1px solid var(--ink-dim);
+}
+.panel::after {
+    bottom: 16px; right: 16px;
+    border-bottom: 1px solid var(--ink-dim); border-right: 1px solid var(--ink-dim);
+}
+
+/* ✦-маркеры у пунктов тарифа */
+.plan-features li { position: relative; padding-left: 22px; }
+.plan-features li::before {
+    content: '✦'; position: absolute; left: 2px; top: 8px;
+    font-size: 0.72em; color: var(--ink-dim);
+}
+
+/* --- Общие украшения для ВСЕХ страниц (кроме мини-приложений) --- */
+
+/* флёроны по краям eyebrow в заголовках секций */
+.section-head .eyebrow::before,
+.section-head .eyebrow::after {
+    content: '✦'; color: var(--ink-dim); opacity: 0.55;
+    font-size: 0.78em; vertical-align: middle;
+}
+.section-head .eyebrow::before { margin-right: 14px; }
+.section-head .eyebrow::after { margin-left: 14px; }
+
+/* ✦ над разделительной чертой заголовка */
+.section-head .rule { position: relative; overflow: visible; }
+.section-head .rule::after {
+    content: '✦'; position: absolute; left: 50%; top: -18px;
+    transform: translateX(-50%);
+    color: var(--ink-dim); opacity: 0.7; font-size: 0.8rem;
+}
+
+/* орнамент в подвале */
+.footer-orn {
+    color: var(--ink-dim); opacity: 0.5; letter-spacing: 2px;
+    font-size: 0.9rem; margin-bottom: 14px;
+}
+
 /* ===========================================================
    УВАЖЕНИЕ К «УМЕНЬШИТЬ ДВИЖЕНИЕ»
    (показываем заголовки сразу, гасим анимации фона)
