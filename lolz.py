@@ -20,9 +20,9 @@ import os
 
 import requests
 
-TOKEN = os.environ.get("LOLZ_TOKEN", "")
-MERCHANT_ID = os.environ.get("LOLZ_MERCHANT_ID", "")
-SECRET = os.environ.get("LOLZ_MERCHANT_SECRET", "")
+TOKEN = os.environ.get("LOLZ_TOKEN", "").strip()
+MERCHANT_ID = os.environ.get("LOLZ_MERCHANT_ID", "").strip()
+SECRET = os.environ.get("LOLZ_MERCHANT_SECRET", "").strip()
 BASE = os.environ.get("LOLZ_URL", "https://api.lzt.market").rstrip("/")
 TIMEOUT = 25
 
@@ -32,6 +32,12 @@ def is_configured():
 
 
 def _headers():
+    # Токен — только латиница и цифры. Кириллица появляется, если его вставляли
+    # в .env через веб-консоль с русской раскладкой: ловим сразу и понятно.
+    if not TOKEN.isascii():
+        raise ValueError(
+            "LOLZ_TOKEN содержит не-ASCII символы — токен испорчен при вставке в .env"
+        )
     return {"Authorization": f"Bearer {TOKEN}", "Accept": "application/json"}
 
 
