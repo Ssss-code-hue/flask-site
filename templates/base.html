@@ -57,9 +57,13 @@
     <!-- ПОДВАЛ -->
     <footer class="footer">
         <div class="footer-orn" aria-hidden="true">✦&nbsp;&nbsp;❖&nbsp;&nbsp;✦</div>
-        <p>© MMXXVI · IKK VPN · приватность прежде всего ·
-           <a href="{{ url_for('offer') }}">Оферта</a> · связь:
+        <p>© MMXXVI · IKK VPN · приватность прежде всего · связь:
            <a href="https://t.me/IKKvpndev" target="_blank" rel="noopener">@IKKvpndev</a></p>
+        <!-- Документы доступны с любой страницы и без регистрации -->
+        <p class="footer-docs">
+           <a href="{{ url_for('offer') }}">Оферта</a> ·
+           <a href="{{ url_for('terms') }}">Пользовательское соглашение</a> ·
+           <a href="{{ url_for('privacy') }}">Политика конфиденциальности</a></p>
     </footer>
 
     <!-- Three.js (3D-пыль на фоне) -->

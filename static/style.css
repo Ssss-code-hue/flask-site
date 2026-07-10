@@ -703,6 +703,130 @@ section { padding: 100px 0; position: relative; z-index: 1; }
     color: var(--ink-dim); opacity: 0.5; letter-spacing: 2px;
     font-size: 0.9rem; margin-bottom: 14px;
 }
+.footer-docs { margin-top: 10px; font-size: 0.85rem; }
+
+/* ===========================================================
+   КИНЕМАТОГРАФИЧНЫЙ HERO: «жидкое стекло», сцены, статистика
+   =========================================================== */
+
+/* «Жидкое стекло» — матовое стекло с градиентной каймой (монохром) */
+.liquid-glass {
+    background: rgba(236, 233, 225, 0.02);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border: none;
+    box-shadow: inset 0 1px 1px rgba(236, 233, 225, 0.10);
+    position: relative;
+    overflow: hidden;
+}
+.liquid-glass::before {
+    content: '';
+    position: absolute; inset: 0;
+    border-radius: inherit;
+    padding: 1.4px;
+    background: linear-gradient(180deg,
+        rgba(236,233,225,0.45) 0%, rgba(236,233,225,0.15) 20%,
+        rgba(236,233,225,0) 40%, rgba(236,233,225,0) 60%,
+        rgba(236,233,225,0.15) 80%, rgba(236,233,225,0.45) 100%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    pointer-events: none;
+}
+body.light .liquid-glass { background: rgba(26, 23, 18, 0.02); box-shadow: inset 0 1px 1px rgba(26,23,18,0.08); }
+body.light .liquid-glass::before {
+    background: linear-gradient(180deg,
+        rgba(26,23,18,0.35) 0%, rgba(26,23,18,0.12) 20%,
+        rgba(26,23,18,0) 40%, rgba(26,23,18,0) 60%,
+        rgba(26,23,18,0.12) 80%, rgba(26,23,18,0.35) 100%);
+}
+
+/* Hero на весь экран: контент по центру, статистика прижата вниз */
+.hero {
+    min-height: 100vh;
+    padding: 130px 0 34px;
+    justify-content: flex-start;
+}
+.hero-main { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+
+/* Слой сцен — полупрозрачные градиенты, сквозь них видна 3D-пыль */
+.hero-scenes { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.scene { position: absolute; inset: 0; opacity: 0; transition: opacity 1000ms ease-in-out; }
+.scene.active { opacity: 1; }
+.scene-1 { background: radial-gradient(1000px 700px at 50% -10%, rgba(236,233,225,0.10), transparent 60%); }
+.scene-2 {
+    background: linear-gradient(180deg, rgba(236,233,225,0.07) 0%, transparent 45%),
+                radial-gradient(1200px 500px at 50% 62%, rgba(236,233,225,0.06), transparent 70%);
+}
+.scene-3 {
+    background: radial-gradient(900px 620px at 50% 40%, rgba(0,0,0,0.5), transparent 70%),
+                linear-gradient(180deg, rgba(0,0,0,0.32), rgba(0,0,0,0.55));
+}
+.scene-4 {
+    background: radial-gradient(700px 520px at 18% 92%, rgba(236,233,225,0.15), transparent 65%),
+                radial-gradient(900px 600px at 82% 8%, rgba(236,233,225,0.06), transparent 60%);
+}
+
+/* Гильош, качающийся как вагон поезда */
+.hero-bob {
+    position: absolute; inset: 0; opacity: 0.05;
+    background: repeating-radial-gradient(circle at 50% 44%,
+        transparent 0 38px, rgba(236,233,225,0.6) 38px 39px);
+    transform: scale(1.03);
+    animation: train-bob 3s ease-in-out infinite;
+}
+@keyframes train-bob {
+    0%, 100% { transform: translateY(0) scale(1.03); }
+    50%      { transform: translateY(-6px) scale(1.03); }
+}
+
+/* Бейдж над заголовком */
+.hero-badge {
+    display: inline-block; margin: 0 auto 26px;
+    border-radius: 999px; padding: 11px 22px;
+    text-transform: uppercase; letter-spacing: 2.5px;
+    font-size: 0.7rem; color: var(--ink-dim);
+}
+
+/* Поле почты — «пилюля» со стеклом и кнопкой внутри */
+.hero-email {
+    display: flex; align-items: center; gap: 10px;
+    max-width: 320px; margin: 34px auto 0;
+    border-radius: 999px; padding: 6px 6px 6px 22px;
+}
+.hero-email input {
+    flex: 1; min-width: 0; background: transparent; border: none; outline: none;
+    color: var(--ink); font-family: 'EB Garamond', Georgia, serif; font-size: 1rem;
+}
+.hero-email input::placeholder { color: var(--ink-dim); }
+.hero-email .btn { flex-shrink: 0; padding: 11px 18px; font-size: 0.66rem; }
+@media (min-width: 640px) { .hero-email { max-width: 420px; } }
+
+/* Переключатель сцен */
+.scene-switch { display: flex; gap: 26px; justify-content: center; flex-wrap: wrap; margin-top: 40px; }
+.scene-btn {
+    background: none; border: none; border-bottom: 1px solid transparent;
+    padding: 6px 2px; cursor: pointer;
+    font-family: 'EB Garamond', Georgia, serif;
+    text-transform: uppercase; letter-spacing: 2.5px; font-size: 0.68rem;
+    color: var(--ink); opacity: 0.5;
+    transition: opacity 0.3s ease, border-color 0.3s ease;
+}
+.scene-btn:hover { opacity: 0.8; }
+.scene-btn.active { opacity: 1; border-bottom-color: var(--ink); }
+
+/* Статистика внизу экрана */
+.hero-stats {
+    display: flex; justify-content: center; align-items: center; flex-wrap: wrap;
+    color: var(--ink-dim); font-size: 0.78rem;
+}
+.hero-stats span { padding: 6px 22px; }
+.hero-stats span + span { border-left: 1px solid var(--line); }
+@media (max-width: 700px) {
+    .hero-stats span { padding: 4px 12px; }
+    .hero-stats span + span { border-left: none; }
+    .scene-switch { gap: 16px; }
+}
 
 /* ===========================================================
    УВАЖЕНИЕ К «УМЕНЬШИТЬ ДВИЖЕНИЕ»
