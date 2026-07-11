@@ -8,88 +8,116 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Playfair+Display&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 
     <style>
+        /* Тема сайта: глубокий тёмно-синий + белый + «жидкое стекло» */
         :root {
-            --bg:#0c0c0d; --bg-2:#16161a; --ink:#ece9e1; --dim:#9a968c;
-            --line:rgba(236,233,225,.16); --line-soft:rgba(236,233,225,.08);
+            --bg: hsl(201 100% 13%);
+            --fg: #ffffff;
+            --dim: #a5a5ad;
+            --line: rgba(255,255,255,.14);
+            --line-soft: rgba(255,255,255,.07);
+            --glass: rgba(255,255,255,.04);
+            --serif: 'Instrument Serif', 'Playfair Display', Georgia, serif;
         }
         * { margin:0; padding:0; box-sizing:border-box; }
         body {
-            font-family:'EB Garamond', Georgia, serif;
+            font-family:'Inter', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            padding:28px 16px 48px;
+            line-height:1.55;
+            -webkit-font-smoothing: antialiased;
+        }
+        /* отсвет северного сияния — как в живом фоне сайта */
+        body::before {
+            content:''; position:fixed; inset:-20%; z-index:-1; pointer-events:none;
             background:
-                radial-gradient(900px 600px at 50% -10%, #161617, transparent 60%),
-                var(--bg);
-            color:var(--ink);
-            padding:24px 16px 48px;
-            line-height:1.5;
+                radial-gradient(42% 36% at 18% 8%, hsl(197 85% 26% / .5), transparent 70%),
+                radial-gradient(46% 40% at 85% 92%, hsl(232 55% 30% / .45), transparent 70%);
         }
 
-        /* рукописные заголовки и текст (Caveat) */
-        .hand { font-family:'Caveat', cursive; font-weight:700; line-height:1.1; }
+        @keyframes fade-rise {
+            from { opacity:0; transform:translateY(18px); }
+            to   { opacity:1; transform:translateY(0); }
+        }
+        .rise   { animation: fade-rise .7s ease-out both; }
+        .rise-2 { animation: fade-rise .7s ease-out .15s both; }
+        .rise-3 { animation: fade-rise .7s ease-out .3s both; }
 
         .eyebrow {
-            text-transform:uppercase; letter-spacing:4px; font-size:.72rem;
-            color:var(--dim); text-align:center; margin-bottom:6px;
+            text-transform:uppercase; letter-spacing:4px; font-size:.66rem;
+            font-weight:500; color:var(--dim); text-align:center; margin-bottom:10px;
         }
-        h1.title { font-size:clamp(2.6rem,11vw,3.4rem); text-align:center; }
-        .sub {
-            font-family:'Caveat', cursive; font-weight:500;
-            font-size:1.45rem; color:var(--dim); text-align:center; margin:2px 0 22px;
+        h1.title {
+            font-family:var(--serif); font-weight:400; letter-spacing:-.02em;
+            font-size:clamp(2.6rem,11vw,3.4rem); text-align:center; line-height:1;
         }
-        .rule { width:64px; height:2px; background:var(--line); border-radius:2px; margin:10px auto 22px; }
+        .sub { font-size:.95rem; color:var(--dim); text-align:center; margin:10px 0 26px; }
 
-        /* закруглённые вкладыши (вкладки устройств) */
-        .tabs { display:flex; gap:8px; overflow-x:auto; padding-bottom:12px; margin-bottom:18px; -webkit-overflow-scrolling:touch; }
+        /* вкладки устройств — стеклянные таблетки */
+        .tabs { display:flex; gap:8px; overflow-x:auto; padding-bottom:14px; margin-bottom:14px; -webkit-overflow-scrolling:touch; }
         .tab {
             white-space:nowrap; flex:none;
-            font-family:'Caveat', cursive; font-weight:700; font-size:1.25rem;
-            padding:8px 22px; border:1px solid var(--line); border-radius:999px;
-            background:transparent; color:var(--dim); cursor:pointer; transition:.25s;
+            font-family:'Inter', sans-serif; font-weight:500; font-size:.86rem;
+            padding:10px 20px; border:none; border-radius:999px;
+            background:var(--glass); color:var(--dim);
+            box-shadow: inset 0 1px 1px rgba(255,255,255,.1), inset 0 0 0 1px var(--line-soft);
+            cursor:pointer; transition:.25s;
         }
-        .tab.active { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+        .tab.active { background:var(--fg); color:hsl(201 100% 10%); box-shadow:none; }
 
-        /* закруглённые карточки-вкладыши с текстом */
         .panel { display:none; }
-        .panel.active { display:block; animation:fade .35s ease; }
-        @keyframes fade { from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:none;} }
+        .panel.active { display:block; animation:fade-rise .35s ease-out; }
 
+        /* шаги — стеклянные карточки */
         .step {
             display:flex; gap:14px; align-items:flex-start;
-            background:var(--bg-2); border:1px solid var(--line);
-            border-radius:22px; padding:16px 18px; margin-bottom:12px;
+            background:var(--glass); border:1px solid var(--line-soft);
+            border-radius:20px; padding:16px 18px; margin-bottom:10px;
         }
         .num {
-            flex:none; width:40px; height:40px; border-radius:50%;
-            border:1px solid var(--line); display:flex; align-items:center; justify-content:center;
-            font-family:'Caveat', cursive; font-weight:700; font-size:1.5rem; color:var(--ink);
+            flex:none; width:38px; height:38px; border-radius:50%;
+            border:1px solid var(--line); background:var(--glass);
+            display:flex; align-items:center; justify-content:center;
+            font-family:var(--serif); font-size:1.15rem; color:var(--fg);
         }
-        .step p { font-family:'Caveat', cursive; font-weight:500; font-size:1.35rem; line-height:1.35; padding-top:4px; }
-        .step b { font-weight:700; color:#fff; }
+        .step p { font-size:.94rem; color:var(--dim); padding-top:7px; }
+        .step b { font-weight:500; color:var(--fg); }
 
-        /* кнопка скачивания Happ */
+        /* кнопка скачивания Happ — «жидкое стекло» */
         .dl-btn {
-            display:block; text-align:center; margin:0 0 16px;
-            font-family:'Caveat', cursive; font-weight:700; font-size:1.45rem;
-            padding:12px 16px; border-radius:16px; text-decoration:none;
-            background:var(--bg); color:var(--ink); border:1px solid var(--line);
+            display:block; text-align:center; margin:0 0 14px;
+            font-family:'Inter', sans-serif; font-weight:500; font-size:.95rem;
+            padding:14px 16px; border-radius:999px; text-decoration:none;
+            color:var(--fg);
+            background:rgba(255,255,255,.01);
+            backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
+            box-shadow: inset 0 1px 1px rgba(255,255,255,.1);
+            position:relative; overflow:hidden;
+        }
+        .dl-btn::before {
+            content:''; position:absolute; inset:0; border-radius:inherit; padding:1.4px;
+            background:linear-gradient(180deg,
+                rgba(255,255,255,.45) 0%, rgba(255,255,255,.15) 20%,
+                rgba(255,255,255,0) 40%, rgba(255,255,255,0) 60%,
+                rgba(255,255,255,.15) 80%, rgba(255,255,255,.45) 100%);
+            -webkit-mask:linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite:xor; mask-composite:exclude;
+            pointer-events:none;
         }
         .dl-btn:active { opacity:.85; }
 
-        .note {
-            font-style:italic; font-size:.95rem; color:var(--dim);
-            text-align:center; margin-top:20px;
-        }
+        .note { font-size:.85rem; color:var(--dim); text-align:center; margin-top:22px; }
     </style>
 </head>
 <body>
-    <div class="eyebrow">Подключение · Happ</div>
-    <h1 class="title hand">IKK VPN</h1>
-    <div class="sub">Выберите своё устройство</div>
-    <div class="rule"></div>
+    <div class="eyebrow rise">Подключение · Happ</div>
+    <h1 class="title rise">IKK VPN</h1>
+    <div class="sub rise-2">Выберите своё устройство</div>
 
-    <div class="tabs">
+    <div class="tabs rise-2">
         <button class="tab active" data-t="ios">iOS</button>
         <button class="tab" data-t="android">Android</button>
         <button class="tab" data-t="windows">Windows</button>
@@ -97,7 +125,7 @@
         <button class="tab" data-t="tv">Android TV</button>
     </div>
 
-    <div id="panels"></div>
+    <div id="panels" class="rise-3"></div>
 
     <div class="note">Нет ссылки-подписки? Купите её в боте — раздел «⭐ Купить подписку».</div>
 
@@ -161,6 +189,9 @@
         if (window.Telegram && Telegram.WebApp) {
             Telegram.WebApp.ready();
             Telegram.WebApp.expand();
+            // цвета webview под тему сайта
+            if (Telegram.WebApp.setHeaderColor) Telegram.WebApp.setHeaderColor('#002b42');
+            if (Telegram.WebApp.setBackgroundColor) Telegram.WebApp.setBackgroundColor('#002b42');
         }
     </script>
 </body>

@@ -1,15 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Аккаунт — IKK VPN{% endblock %}
-{% block body_class %}no-theme{% endblock %}
+{% block hero_eyebrow %}Аккаунт{% endblock %}
+{% block hero_title %}Личный кабинет{% endblock %}
 
 {% block content %}
     <section class="container">
-        <div class="section-head reveal">
-            <div class="eyebrow">Аккаунт</div>
-            <h2 class="section-title hand">Личный кабинет</h2>
-            <div class="rule"></div>
-        </div>
-
         {% with messages = get_flashed_messages() %}
             {% for m in messages %}<div class="flash reveal">{{ m }}</div>{% endfor %}
         {% endwith %}
@@ -143,7 +138,7 @@
         <!-- Смена пароля -->
         <div class="section-head reveal" id="password" style="margin-top:70px;">
             <div class="eyebrow">Безопасность</div>
-            <h2 class="section-title hand">Смена пароля</h2>
+            <h2 class="section-title">Смена <em>пароля</em></h2>
             <div class="rule"></div>
         </div>
 

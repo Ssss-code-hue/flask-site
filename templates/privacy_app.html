@@ -8,37 +8,54 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Playfair+Display&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 
     <style>
+        /* Тема сайта: глубокий тёмно-синий + белый */
         :root {
-            --bg:#0c0c0d; --ink:#ece9e1; --dim:#9a968c;
-            --line:rgba(236,233,225,.16); --line-soft:rgba(236,233,225,.08);
+            --bg: hsl(201 100% 13%);
+            --fg: #ffffff;
+            --dim: #a5a5ad;
+            --line: rgba(255,255,255,.14);
+            --line-soft: rgba(255,255,255,.07);
         }
         * { margin:0; padding:0; box-sizing:border-box; }
         body {
-            font-family:'EB Garamond', Georgia, serif;
+            font-family:'Inter', system-ui, sans-serif;
+            background:var(--bg);
+            color:var(--fg);
+            padding:28px 18px 48px;
+            line-height:1.65;
+            -webkit-font-smoothing:antialiased;
+        }
+        /* отсвет северного сияния — как в живом фоне сайта */
+        body::before {
+            content:''; position:fixed; inset:-20%; z-index:-1; pointer-events:none;
             background:
-                radial-gradient(900px 600px at 50% -10%, #161617, transparent 60%),
-                var(--bg);
-            color:var(--ink);
-            padding:24px 18px 48px;
-            line-height:1.7;
+                radial-gradient(42% 36% at 18% 8%, hsl(197 85% 26% / .5), transparent 70%),
+                radial-gradient(46% 40% at 85% 92%, hsl(232 55% 30% / .45), transparent 70%);
         }
         .eyebrow {
-            text-transform:uppercase; letter-spacing:4px; font-size:.72rem;
-            color:var(--dim); text-align:center; margin-bottom:6px;
+            text-transform:uppercase; letter-spacing:4px; font-size:.66rem;
+            font-weight:500; color:var(--dim); text-align:center; margin-bottom:10px;
         }
-        h1.title { font-family:'Caveat', cursive; font-weight:700; font-size:2.6rem; text-align:center; line-height:1.1; }
-        .rule { width:64px; height:2px; background:var(--line); border-radius:2px; margin:12px auto 26px; }
+        h1.title {
+            font-family:'Instrument Serif','Playfair Display',Georgia,serif;
+            font-weight:400; letter-spacing:-.02em;
+            font-size:clamp(2rem,8vw,2.5rem); text-align:center; line-height:1.05;
+        }
+        .rule { width:56px; height:1px; background:var(--line); margin:16px auto 26px; }
 
-        .intro { font-style:italic; color:var(--dim); margin-bottom:26px; text-align:center; }
-        h3 { font-size:1.1rem; letter-spacing:.5px; margin:24px 0 6px; color:var(--ink); }
-        p { color:var(--dim); margin-bottom:8px; }
-        b { color:var(--ink); }
-        a { color:var(--ink); }
+        .intro { color:var(--dim); margin-bottom:26px; text-align:center; font-size:.95rem; }
+        h3 {
+            font-family:'Instrument Serif','Playfair Display',Georgia,serif;
+            font-weight:400; font-size:1.35rem; margin:26px 0 8px; color:var(--fg);
+        }
+        p { color:var(--dim); margin-bottom:8px; font-size:.92rem; }
+        b { color:var(--fg); font-weight:500; }
+        a { color:var(--fg); }
         .note {
-            margin-top:28px; font-size:.85rem; font-style:italic;
+            margin-top:28px; font-size:.82rem;
             border-top:1px solid var(--line-soft); padding-top:16px; color:var(--dim);
         }
     </style>
@@ -89,6 +106,9 @@
         if (window.Telegram && Telegram.WebApp) {
             Telegram.WebApp.ready();
             Telegram.WebApp.expand();
+            // цвета webview под тему сайта
+            if (Telegram.WebApp.setHeaderColor) Telegram.WebApp.setHeaderColor('#002b42');
+            if (Telegram.WebApp.setBackgroundColor) Telegram.WebApp.setBackgroundColor('#002b42');
         }
     </script>
 </body>

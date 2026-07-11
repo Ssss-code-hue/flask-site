@@ -39,56 +39,59 @@ def is_configured():
 
 
 def _code_email_html(code):
-    """HTML-версия письма с кодом — в винтажном стиле сайта IKK.
+    """HTML-версия письма с кодом — в кинематографичном стиле сайта IKK:
+    глубокий тёмно-синий фон, белый серифный логотип, «стеклянная» рамка кода.
 
     Все стили инлайновые: почтовые клиенты (Gmail, Mail.ru) вырезают
-    внешние CSS-файлы и большинство <style>-блоков.
+    внешние CSS-файлы и большинство <style>-блоков. Веб-шрифты письма
+    не грузят, поэтому вместо Instrument Serif — Georgia.
     """
     return f"""\
 <!DOCTYPE html>
 <html lang="ru">
-<body style="margin:0; padding:0;">
+<body style="margin:0; padding:0; background-color:#002b42;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-         style="padding:40px 12px;">
+         style="padding:44px 12px; background-color:#002b42;">
     <tr><td align="center">
       <table role="presentation" cellpadding="0" cellspacing="0"
-             style="max-width:520px; width:100%; background-color:#111112;
-                    border:1px solid #2e2c28; border-radius:18px;">
+             style="max-width:520px; width:100%; background-color:#04344e;
+                    border:1px solid #1d4a64; border-radius:24px;">
 
         <!-- Шапка: логотип -->
-        <tr><td style="padding:38px 40px 26px; text-align:center;
-                       border-bottom:1px solid rgba(236,233,225,0.10);">
-          <div style="font-family:Georgia,'Times New Roman',serif; font-size:36px;
-                      letter-spacing:8px; color:#ece9e1;">IKK</div>
-          <div style="font-family:Georgia,serif; font-size:11px; letter-spacing:4px;
-                      color:#8d8a82; text-transform:uppercase; margin-top:8px;">
-            VPN-сервис &middot; MMXXVI</div>
+        <tr><td style="padding:40px 40px 26px; text-align:center;
+                       border-bottom:1px solid rgba(255,255,255,0.10);">
+          <div style="font-family:Georgia,'Times New Roman',serif; font-size:34px;
+                      letter-spacing:1px; color:#ffffff;">IKK<sup style="font-size:12px;">&reg;</sup></div>
+          <div style="font-family:Arial,Helvetica,sans-serif; font-size:10px; letter-spacing:4px;
+                      color:#a5a5ad; text-transform:uppercase; margin-top:10px;">
+            VPN-сервис &middot; ikkvpn.com</div>
         </td></tr>
 
         <!-- Тело: код -->
-        <tr><td style="padding:40px 40px 34px; text-align:center;">
-          <div style="font-family:Georgia,serif; font-size:12px; letter-spacing:4px;
-                      color:#8d8a82; text-transform:uppercase; margin-bottom:20px;">
+        <tr><td style="padding:40px 40px 36px; text-align:center;">
+          <div style="font-family:Arial,Helvetica,sans-serif; font-size:11px; letter-spacing:4px;
+                      color:#a5a5ad; text-transform:uppercase; margin-bottom:22px;">
             Подтверждение почты</div>
-          <p style="font-family:Georgia,serif; font-size:16px; line-height:1.6;
-                    color:#ece9e1; margin:0 0 28px;">
+          <p style="font-family:Georgia,serif; font-size:19px; line-height:1.5;
+                    color:#ffffff; margin:0 0 28px;">
             Ваш код для завершения регистрации на&nbsp;сайте:</p>
-          <div style="display:inline-block; border:1px solid rgba(236,233,225,0.25);
-                      border-radius:14px; padding:18px 34px 18px 46px;
+          <div style="display:inline-block; background-color:#0a3d59;
+                      border:1px solid rgba(255,255,255,0.28);
+                      border-radius:999px; padding:18px 34px 18px 46px;
                       font-family:Georgia,serif; font-size:34px;
-                      letter-spacing:12px; color:#ece9e1;">{code}</div>
-          <p style="font-family:Georgia,serif; font-size:13px; line-height:1.6;
-                    color:#8d8a82; margin:28px 0 0;">
+                      letter-spacing:12px; color:#ffffff;">{code}</div>
+          <p style="font-family:Arial,Helvetica,sans-serif; font-size:13px; line-height:1.7;
+                    color:#a5a5ad; margin:30px 0 0;">
             Код действует 15 минут.<br>
             Если вы не регистрировались на IKK VPN — просто удалите это письмо.</p>
         </td></tr>
 
         <!-- Подвал -->
         <tr><td style="padding:22px 40px 26px; text-align:center;
-                       border-top:1px solid rgba(236,233,225,0.10);">
-          <p style="font-family:Georgia,serif; font-size:11px; letter-spacing:3px;
-                    text-transform:uppercase; color:#6d6a63; margin:0;">
-            &copy; MMXXVI &middot; IKK VPN &middot; приватность прежде всего</p>
+                       border-top:1px solid rgba(255,255,255,0.10);">
+          <p style="font-family:Arial,Helvetica,sans-serif; font-size:10px; letter-spacing:3px;
+                    text-transform:uppercase; color:#7e8b96; margin:0;">
+            &copy; 2026 &middot; IKK VPN &middot; приватность прежде всего</p>
         </td></tr>
 
       </table>

@@ -1,15 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Регистрация — IKK VPN{% endblock %}
-{% block body_class %}no-theme{% endblock %}
+{% block hero_eyebrow %}Аккаунт{% endblock %}
+{% block hero_title %}Регистрация{% endblock %}
 
 {% block content %}
     <section class="container">
-        <div class="section-head reveal">
-            <div class="eyebrow">Аккаунт</div>
-            <h2 class="section-title hand">Регистрация</h2>
-            <div class="rule"></div>
-        </div>
-
         {% with messages = get_flashed_messages() %}
             {% for m in messages %}<div class="flash reveal">{{ m }}</div>{% endfor %}
         {% endwith %}

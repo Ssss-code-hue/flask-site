@@ -1,18 +1,23 @@
 {% extends "base.html" %}
 {% block title %}IKK — быстрый и приватный VPN{% endblock %}
 
-{% block content %}
-    <!-- ================= HERO ================= -->
-    <section id="hero" class="hero container">
-        <div class="eyebrow"><span class="fleuron">✦</span>VPN-сервис · MMXXVI<span class="fleuron">✦</span></div>
-        <h1 class="hand">IKK</h1>
-        <p class="subtitle">Быстрый и приватный VPN. Без логов, без слежки, без лишних слов.</p>
-        <div class="hero-actions">
-            <a href="{{ url_for('tariffs') }}" class="btn btn-primary">Выбрать тариф</a>
-            <a href="#why" class="btn">Почему IKK</a>
-        </div>
-    </section>
+{# Главная переопределяет герой целиком: полный экран, крупный заголовок, CTA #}
+{% block hero %}
+    <section class="page-hero hero-full">
+        <video class="hero-video" autoplay loop muted playsinline
+               src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260314_131748_f2ca2a28-fed7-44c8-b9a9-bd9acdd5ec31.mp4"></video>
 
+        <h1 class="animate-fade-rise">Интернет, <em>тихий</em> и свободный —<br>
+            <em>по-настоящему ваш</em>.</h1>
+        <p class="hero-sub animate-fade-rise-delay">IKK — личный VPN без логов и слежки.
+            Быстрые серверы, современное шифрование и живая поддержка —
+            цифровое пространство для спокойной работы и жизни в сети.</p>
+        <a href="{{ url_for('tariffs') }}" class="hero-cta liquid-glass animate-fade-rise-delay-2">Выбрать тариф</a>
+        <p class="hero-hint animate-fade-rise-delay-2">Первые 5 дней — бесплатно</p>
+    </section>
+{% endblock %}
+
+{% block content %}
     <!-- ================= ФАКТЫ ================= -->
     <section id="facts" class="container">
         <div class="stats reveal">
@@ -35,13 +40,11 @@
         </div>
     </section>
 
-    <div class="ornament reveal"><span>✦&nbsp;&nbsp;❖&nbsp;&nbsp;✦</span></div>
-
     <!-- ================= ПОЧЕМУ IKK ================= -->
     <section id="why" class="container">
-        <div class="section-head reveal sync">
+        <div class="section-head reveal">
             <div class="eyebrow"><b>01</b> — Преимущества</div>
-            <h2 class="section-title hand">Почему IKK</h2>
+            <h2 class="section-title">Почему <em>IKK</em></h2>
             <div class="rule"></div>
         </div>
 
@@ -52,38 +55,36 @@
         <div class="cards">
             <div class="card reveal">
                 <span class="index">I</span>
-                <h3 class="hand">Без логов</h3>
+                <h3>Без логов</h3>
                 <p>Я не храню историю подключений — ваш трафик остаётся только вашим.</p>
             </div>
             <div class="card reveal">
                 <span class="index">II</span>
-                <h3 class="hand">Скорость</h3>
+                <h3>Скорость</h3>
                 <p>Быстрые серверы без искусственных ограничений канала и троттлинга.</p>
             </div>
             <div class="card reveal">
                 <span class="index">III</span>
-                <h3 class="hand">Свой IP-адрес</h3>
+                <h3>Свой IP-адрес</h3>
                 <p>Реальный адрес скрыт: сайты видят адрес нашего сервера, а не ваш.</p>
             </div>
             <div class="card reveal">
                 <span class="index">IV</span>
-                <h3 class="hand">Шифрование</h3>
+                <h3>Шифрование</h3>
                 <p>Современные протоколы защищают вас даже в открытых сетях Wi-Fi.</p>
             </div>
             <div class="card reveal">
                 <span class="index">V</span>
-                <h3 class="hand">Telegram-бот</h3>
+                <h3>Telegram-бот</h3>
                 <p>Управление подпиской и ключами прямо в Telegram — удобно и быстро.</p>
             </div>
             <div class="card reveal">
                 <span class="index">VI</span>
-                <h3 class="hand">Личная поддержка</h3>
+                <h3>Личная поддержка</h3>
                 <p>Пишите напрямую владельцу — отвечаю лично и без шаблонных ответов.</p>
             </div>
         </div>
     </section>
-
-    <div class="ornament reveal"><span>✦&nbsp;&nbsp;❖&nbsp;&nbsp;✦</span></div>
 
     <!-- ================= ПРИЛОЖЕНИЕ (витрина) ================= -->
     <section id="app-showcase" class="container">
@@ -91,7 +92,7 @@
             <div class="showcase">
                 <div class="showcase-text">
                     <div class="eyebrow"><b>02</b> — Приложение</div>
-                    <h2 class="hand">Живой интерфейс</h2>
+                    <h2>Живой интерфейс</h2>
                     <p class="lead-left">Одна большая кнопка — подключение в касание.
                         Ключ добавляется по ссылке-подписке, сервер уже внутри,
                         настраивать ничего не нужно. Работает в приложении
@@ -115,7 +116,7 @@
                             <div class="phone-appname">IKK VPN — подписка</div>
                             <div class="srv">
                                 <span class="srv-dot"></span>
-                                <span class="srv-name">Автовыбор ✦</span>
+                                <span class="srv-name">Автовыбор</span>
                                 <span class="srv-tag">быстрый</span>
                             </div>
                             <div class="srv">
@@ -135,13 +136,11 @@
         </div>
     </section>
 
-    <div class="ornament reveal"><span>✦&nbsp;&nbsp;❖&nbsp;&nbsp;✦</span></div>
-
     <!-- ================= ТАРИФЫ (превью) ================= -->
     <section id="plans" class="container">
         <div class="section-head reveal">
             <div class="eyebrow"><b>03</b> — Тарифы</div>
-            <h2 class="section-title hand">Простые тарифы</h2>
+            <h2 class="section-title">Простые <em>тарифы</em></h2>
             <div class="rule"></div>
         </div>
 
@@ -190,7 +189,7 @@
     <section id="contact" class="container">
         <div class="section-head reveal">
             <div class="eyebrow"><b>04</b> — Контакты</div>
-            <h2 class="section-title hand">Связаться</h2>
+            <h2 class="section-title">Связаться</h2>
             <div class="rule"></div>
         </div>
         <div class="contact-box reveal">
