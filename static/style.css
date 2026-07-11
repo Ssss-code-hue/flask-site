@@ -247,8 +247,13 @@ h1 em, h2 em, .display em {
 .page-hero > *:not(.hero-video) { position: relative; z-index: 1; }
 
 /* нижний край героя внутренних страниц — большие плавные волны
-   (clipPath #heroWave задан в base.html; на главной края нет) */
+   (clipPath #heroWave задан в base.html; на главной края нет).
+   Волна и на секции, и на самой картинке: в покое края совпадают,
+   а при прокрутке картинка уезжает вверх вместе со своей волной */
 .page-hero:not(.hero-full) {
+    clip-path: url(#heroWave);
+}
+.page-hero:not(.hero-full) .hero-video {
     clip-path: url(#heroWave);
 }
 
