@@ -258,6 +258,11 @@ h1 em, h2 em, .display em {
 .page-hero .hero-video {
     clip-path: url(#heroWave);
 }
+/* на главной вверху — полная картинка, волна появляется при
+   прокрутке: отдельный clipPath, его форму ведёт script.js */
+.page-hero.hero-full .hero-video {
+    clip-path: url(#heroWaveFull);
+}
 
 /* лёгкая вуаль на героях внутренних страниц — чтобы белый заголовок
    читался на любом кадре видео с цветами (на главной её нет).

@@ -12,6 +12,18 @@ const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').match
 const navbar = document.querySelector('.navbar');
 const heroVideo = document.querySelector('.page-hero .hero-video');
 const heroSection = heroVideo ? heroVideo.closest('.page-hero') : null;
+const heroIsFull = heroSection ? heroSection.classList.contains('hero-full') : false;
+const heroWaveFull = document.querySelector('#heroWaveFull path');
+
+// форма волны для главной: a=0 — ровный низ (полная картинка),
+// a=1 — волна как на внутренних страницах (узлы 0.84, впадины 0.98)
+function wavePathD(a) {
+    const n = (1 - 0.16 * a).toFixed(4);
+    const t = (1 - 0.02 * a).toFixed(4);
+    return `M0,0 L1,0 L1,${n} ` +
+        `C0.875,${n} 0.875,${t} 0.75,${t} C0.625,${t} 0.625,${n} 0.5,${n} ` +
+        `C0.375,${n} 0.375,${t} 0.25,${t} C0.125,${t} 0.125,${n} 0,${n} Z`;
+}
 
 function onScroll() {
     const y = window.scrollY;
@@ -26,6 +38,11 @@ function onScroll() {
         heroVideo.style.transform = `translateY(${shift})`;
         heroVideo.style.opacity = (1 - p * 0.35).toFixed(3);
         heroSection.style.setProperty('--heroShift', shift);
+        // на главной волна вырастает по мере прокрутки
+        // (целиком — к 30% высоты героя)
+        if (heroIsFull && heroWaveFull) {
+            heroWaveFull.setAttribute('d', wavePathD(Math.min(p / 0.3, 1)));
+        }
     }
 }
 window.addEventListener('scroll', onScroll, { passive: true });
