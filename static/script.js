@@ -17,11 +17,15 @@ function onScroll() {
     const y = window.scrollY;
     if (navbar) navbar.classList.toggle('scrolled', y > 16);
 
-    // видео-герой динамично «уезжает» вверх, открывая звёздный фон
+    // видео-герой динамично «уезжает» вверх, открывая звёздный фон;
+    // вуаль (::after) едет вместе с ним через --heroShift, чтобы под
+    // волной оставался чистый фон без полосы другого тона
     if (heroVideo && heroSection && !reduceMotion) {
         const p = Math.min(y / (heroSection.offsetHeight || 1), 1);
-        heroVideo.style.transform = `translateY(${(-p * 36).toFixed(2)}%)`;
-        heroVideo.style.opacity = (1 - p * 0.6).toFixed(3);
+        const shift = (-p * 36).toFixed(2) + '%';
+        heroVideo.style.transform = `translateY(${shift})`;
+        heroVideo.style.opacity = (1 - p * 0.35).toFixed(3);
+        heroSection.style.setProperty('--heroShift', shift);
     }
 }
 window.addEventListener('scroll', onScroll, { passive: true });

@@ -258,7 +258,10 @@ h1 em, h2 em, .display em {
 }
 
 /* лёгкая вуаль на героях внутренних страниц — чтобы белый заголовок
-   читался на любом кадре видео с цветами (на главной её нет) */
+   читался на любом кадре видео с цветами (на главной её нет).
+   Вуаль обрезана той же волной и уезжает вместе с картинкой
+   (--heroShift задаёт script.js) — иначе под волной остаётся
+   полоса другого тона поверх звёздного фона */
 .page-hero:not(.hero-full)::after {
     content: ''; position: absolute; inset: 0; z-index: 0;
     background: linear-gradient(180deg,
@@ -266,6 +269,8 @@ h1 em, h2 em, .display em {
         hsl(var(--background) / 0.2) 55%,
         hsl(var(--background) / 0.55) 100%);
     pointer-events: none;
+    clip-path: url(#heroWave);
+    transform: translateY(var(--heroShift, 0%));
 }
 
 .page-hero .eyebrow { margin-bottom: 18px; }
