@@ -286,6 +286,15 @@ h1 em, h2 em, .display em {
     letter-spacing: -0.025em;
     max-width: 1000px;
 }
+/* ✦-орнамент и под заголовком героя внутренних страниц */
+.page-title::after {
+    content: '───  ✦  ───';
+    display: block;
+    margin-top: 22px;
+    font-size: clamp(0.7rem, 1.2vw, 0.85rem);
+    letter-spacing: 0.2em;
+    color: rgba(255, 255, 255, 0.38);
+}
 
 /* полноэкранный герой главной страницы */
 .page-hero.hero-full { min-height: 100vh; padding: 150px 6% 90px; }
@@ -332,10 +341,16 @@ section { padding: 96px 0; position: relative; }
 .section-head { text-align: center; margin-bottom: 60px; }
 .section-head .eyebrow { margin-bottom: 18px; }
 .section-title { font-size: clamp(2.4rem, 5.5vw, 4rem); }
+/* ✦-орнамент под заголовками секций: чёрточки с искрой
+   (div.rule стоит после каждого .section-title) */
 .rule {
-    width: 56px; height: 1px; background: var(--line);
-    margin: 26px auto 0;
+    margin: 20px auto 0;
+    text-align: center;
+    font-size: 0.8rem;
+    letter-spacing: 0.2em;
+    color: rgba(255, 255, 255, 0.38);
 }
+.rule::before { content: '───  ✦  ───'; }
 
 .lead {
     max-width: 720px; margin: 0 auto 56px; text-align: center;
