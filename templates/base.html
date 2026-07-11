@@ -53,6 +53,7 @@
              собственная SVG-анимация под стиль главной (цветы качаются,
              летят лепестки, мерцают ✦-искры; без внешних хостингов) -->
         <section class="page-hero">
+            {% block hero_media %}
             <svg class="hero-video" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice"
                  xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <style>
@@ -210,6 +211,7 @@
                 <g transform="translate(1340,908) scale(1.1)"><use href="#fh-c1" class="fhSway fs4"/></g>
                 <g transform="translate(1510,908) scale(.95)"><use href="#fh-c2" class="fhSway fs2"/></g>
             </svg>
+            {% endblock %}
             <p class="eyebrow animate-fade-rise">{% block hero_eyebrow %}{% endblock %}</p>
             <h1 class="page-title animate-fade-rise-delay">{% block hero_title %}{% endblock %}</h1>
         </section>
