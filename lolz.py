@@ -31,6 +31,15 @@ def is_configured():
     return bool(TOKEN and MERCHANT_ID and SECRET)
 
 
+def can_invoice():
+    """Достаточно ли настроек для создания и проверки счетов.
+
+    Вебхучный секрет не нужен: бот не принимает callback'и,
+    а сам опрашивает статус счёта через API.
+    """
+    return bool(TOKEN and MERCHANT_ID)
+
+
 def _headers():
     # Токен — только латиница и цифры. Кириллица появляется, если его вставляли
     # в .env через веб-консоль с русской раскладкой: ловим сразу и понятно.
@@ -70,3 +79,23 @@ def check_secret(header_value):
     """Проверка подлинности webhook: x-secret-key должен совпасть с merchant token."""
     from hmac import compare_digest
     return bool(header_value) and compare_digest(str(header_value), SECRET)
+
+
+def get_invoice(payment_id):
+    """Возвращает счёт по нашему payment_id (dict) или None.
+
+    Используется ботом: вебхук Lolz приходит на сайт, а у бота своя
+    база — поэтому бот сам опрашивает статус (status: paid/not_paid).
+    """
+    r = requests.get(
+        f"{BASE}/invoice",
+        headers=_headers(),
+        params={"payment_id": payment_id},
+        timeout=TIMEOUT,
+    )
+    r.raise_for_status()
+    data = r.json()
+    inv = data.get("invoice") or data.get("invoices")
+    if isinstance(inv, list):
+        inv = inv[0] if inv else None
+    return inv

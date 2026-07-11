@@ -30,6 +30,9 @@ PRIVACY_URL = os.environ.get("PRIVACY_URL", "").strip()
 if not PRIVACY_URL.startswith("https://"):
     PRIVACY_URL = "https://ikkvpn.com/privacy-app"
 
+# Публичный адрес сайта — для callback-ссылок счетов Lolz
+SITE_URL = os.environ.get("SITE_URL", "https://ikkvpn.com").rstrip("/")
+
 # Сколько дней бесплатно даёт реферальная ссылка
 REFERRAL_BONUS_DAYS = int(os.environ.get("REFERRAL_BONUS_DAYS", "3"))
 

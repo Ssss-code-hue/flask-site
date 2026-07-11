@@ -65,6 +65,27 @@ def plans_kb():
     return kb.as_markup()
 
 
+def pay_method_kb(code):
+    """Выбор способа оплаты выбранного тарифа."""
+    p = PLANS[code]
+    kb = InlineKeyboardBuilder()
+    kb.button(text=f"⭐ Звёзды Telegram — {p['stars']} ⭐", callback_data=f"paystars:{code}")
+    kb.button(text=f"💳 Карта / СБП — {p['rub']} ₽", callback_data=f"paycard:{code}")
+    kb.button(text="◀ Назад", callback_data="plans")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def card_invoice_kb(pay_url, payment_id):
+    """Счёт Lolz: оплатить и проверить зачисление."""
+    kb = InlineKeyboardBuilder()
+    kb.button(text="💳 Оплатить", url=pay_url)
+    kb.button(text="✅ Я оплатил — проверить", callback_data=f"paycheck:{payment_id}")
+    kb.button(text="◀ Назад к тарифам", callback_data="plans")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
 def devices_kb():
     kb = InlineKeyboardBuilder()
     if WEBAPP_URL.startswith("https://"):

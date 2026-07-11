@@ -45,6 +45,15 @@ def init_db():
                 status      TEXT DEFAULT 'PENDING',-- PENDING/CONFIRMED/CANCELED/CHARGEBACKED
                 created_at  INTEGER
             );
+            CREATE TABLE IF NOT EXISTS bot_invoices (
+                payment_id TEXT PRIMARY KEY,      -- наш uuid (по нему ищем счёт в Lolz)
+                invoice_id TEXT,                  -- id счёта на стороне Lolz
+                user_id    INTEGER,               -- Telegram-пользователь
+                plan       TEXT,
+                amount_rub INTEGER,
+                status     TEXT DEFAULT 'pending',-- pending/paid/expired
+                created_at INTEGER
+            );
             CREATE TABLE IF NOT EXISTS email_codes (
                 email      TEXT PRIMARY KEY,
                 code_hash  TEXT,                   -- sha256 от кода (сам код не храним)
@@ -152,6 +161,48 @@ def record_payment(uid, plan, stars, charge_id):
             "INSERT INTO payments(user_id, plan, stars, charge_id, created_at) VALUES(?,?,?,?,?)",
             (uid, plan, stars, charge_id, int(time.time())),
         )
+
+
+# ===== Счета Lolz в боте (оплата картой/СБП) =====
+
+def create_bot_invoice(payment_id, invoice_id, user_id, plan, amount_rub):
+    with _conn() as c:
+        c.execute(
+            "INSERT OR IGNORE INTO bot_invoices"
+            "(payment_id, invoice_id, user_id, plan, amount_rub, status, created_at) "
+            "VALUES(?,?,?,?,?,'pending',?)",
+            (payment_id, invoice_id, user_id, plan, amount_rub, int(time.time())),
+        )
+
+
+def get_bot_invoice(payment_id):
+    with _conn() as c:
+        return c.execute(
+            "SELECT * FROM bot_invoices WHERE payment_id=?", (payment_id,)
+        ).fetchone()
+
+
+def pending_bot_invoices():
+    """Неоплаченные счета — их фоново опрашивает бот."""
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT * FROM bot_invoices WHERE status='pending' ORDER BY created_at"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def settle_bot_invoice(payment_id, status):
+    """Переводит счёт из pending в конечный статус.
+
+    Возвращает True, только если статус сменили именно сейчас — это
+    защита от двойного зачисления (кнопка «Я оплатил» + фоновый опрос).
+    """
+    with _conn() as c:
+        cur = c.execute(
+            "UPDATE bot_invoices SET status=? WHERE payment_id=? AND status='pending'",
+            (status, payment_id),
+        )
+        return cur.rowcount > 0
 
 
 # ===== Пользователи сайта (регистрация по почте) =====

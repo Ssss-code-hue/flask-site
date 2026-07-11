@@ -1,7 +1,8 @@
-"""IKK VPN — Telegram-бот: оплата звёздами, подписки, рефералы, инструкции."""
+"""IKK VPN — Telegram-бот: оплата звёздами и картой/СБП, подписки, рефералы."""
 import asyncio
 import logging
 import time
+import uuid
 from datetime import datetime
 
 from aiogram import Bot, Dispatcher, F
@@ -17,6 +18,8 @@ from aiogram.types import (
     PreCheckoutQuery,
 )
 
+import lolz
+
 from . import db, texts
 from .config import (
     BOT_TOKEN,
@@ -25,10 +28,12 @@ from .config import (
     OWNER_USERNAME,
     PLANS,
     REFERRAL_BONUS_DAYS,
+    SITE_URL,
     TRIAL_DAYS,
 )
-from .keyboards import (back_kb, devices_kb, docs_kb, main_menu,
-                        offer_consent_kb, plans_kb, trial_consent_kb)
+from .keyboards import (back_kb, card_invoice_kb, devices_kb, docs_kb,
+                        main_menu, offer_consent_kb, pay_method_kb, plans_kb,
+                        trial_consent_kb)
 from .panel import get_subscription_url
 
 logging.basicConfig(level=logging.INFO)
@@ -255,14 +260,8 @@ async def cb_status(cq: CallbackQuery):
     await cq.answer()
 
 
-# ============ Оплата звёздами (XTR) ============
-@dp.callback_query(F.data.startswith("plan:"))
-async def cb_plan(cq: CallbackQuery):
-    code = cq.data.split(":", 1)[1]
-    p = PLANS.get(code)
-    if not p:
-        await cq.answer("Тариф не найден", show_alert=True)
-        return
+# ============ Выбор тарифа и способа оплаты ============
+async def _send_stars_invoice(cq: CallbackQuery, code, p):
     await cq.message.answer_invoice(
         title=f"IKK VPN — {p['title']}",
         description=f"Подписка на {p['title']} ({p['days']} дней). Работает в Happ.",
@@ -272,6 +271,152 @@ async def cb_plan(cq: CallbackQuery):
         prices=[LabeledPrice(label=p["title"], amount=p["stars"])],
     )
     await cq.answer()
+
+
+@dp.callback_query(F.data.startswith("plan:"))
+async def cb_plan(cq: CallbackQuery):
+    code = cq.data.split(":", 1)[1]
+    p = PLANS.get(code)
+    if not p:
+        await cq.answer("Тариф не найден", show_alert=True)
+        return
+    if lolz.can_invoice():
+        # доступны два способа — даём выбрать
+        await cq.message.edit_text(
+            texts.PAY_METHOD.format(title=p["title"], days=p["days"]),
+            reply_markup=pay_method_kb(code),
+        )
+        await cq.answer()
+    else:
+        # карта не настроена — сразу счёт в звёздах, как раньше
+        await _send_stars_invoice(cq, code, p)
+
+
+# ============ Оплата звёздами (XTR) ============
+@dp.callback_query(F.data.startswith("paystars:"))
+async def cb_paystars(cq: CallbackQuery):
+    code = cq.data.split(":", 1)[1]
+    p = PLANS.get(code)
+    if not p:
+        await cq.answer("Тариф не найден", show_alert=True)
+        return
+    await _send_stars_invoice(cq, code, p)
+
+
+# ============ Оплата картой/СБП (Lolz Merchant) ============
+@dp.callback_query(F.data.startswith("paycard:"))
+async def cb_paycard(cq: CallbackQuery):
+    code = cq.data.split(":", 1)[1]
+    p = PLANS.get(code)
+    if not p:
+        await cq.answer("Тариф не найден", show_alert=True)
+        return
+    db.create_user(cq.from_user.id, cq.from_user.username)
+    payment_id = uuid.uuid4().hex
+    try:
+        # requests — блокирующий, уводим в поток, чтобы не тормозить бота
+        invoice_id, pay_url = await asyncio.to_thread(
+            lolz.create_invoice,
+            p["rub"],
+            payment_id,
+            f"IKK VPN — подписка «{p['title']}» (Telegram)",
+            f"https://t.me/{BOT_USERNAME}",       # после оплаты — назад в бот
+            f"{SITE_URL}/pay/callback",           # вебхук уйдёт на сайт; бот опрашивает сам
+        )
+    except Exception:
+        logging.exception("Lolz (бот): не удалось создать счёт (план %s)", code)
+        await cq.answer(texts.CARD_FAIL, show_alert=True)
+        return
+    db.create_bot_invoice(payment_id, str(invoice_id), cq.from_user.id, code, p["rub"])
+    await cq.message.edit_text(
+        texts.CARD_INVOICE.format(rub=p["rub"], title=p["title"]),
+        reply_markup=card_invoice_kb(pay_url, payment_id),
+    )
+    await cq.answer()
+
+
+async def _credit_card_payment(bot, rec):
+    """Зачисляет оплаченный счёт Lolz. True — если зачислили именно сейчас.
+
+    Идемпотентно: статус в базе меняется одним UPDATE'ом со сверкой на
+    pending, поэтому кнопка «Я оплатил» и фоновый опрос не задвоят дни.
+    """
+    if not db.settle_bot_invoice(rec["payment_id"], "paid"):
+        return False
+    p = PLANS.get(rec["plan"], {})
+    days = p.get("days", 30)
+    uid = rec["user_id"]
+    new_until = db.add_days(uid, days)
+    db.record_payment(uid, rec["plan"], 0, f"lolz:{rec['payment_id']}")
+
+    sub_url = get_subscription_url(uid, new_until)
+    if sub_url:
+        text = texts.PAID_WITH_KEY.format(date=fmt_date(new_until), url=sub_url)
+    else:
+        text = texts.PAID_NO_KEY.format(date=fmt_date(new_until), owner=OWNER_USERNAME)
+    try:
+        await bot.send_message(uid, text, reply_markup=devices_kb())
+    except Exception:
+        logging.exception("Lolz (бот): оплату %s зачислили, но сообщение "
+                          "пользователю %s не ушло", rec["payment_id"], uid)
+
+    if OWNER_ID:
+        try:
+            u = db.get_user(uid)
+            who = f"@{u['username']}" if u and u["username"] else f"id{uid}"
+            await bot.send_message(
+                OWNER_ID,
+                f"💳 Оплата картой/СБП: {who} — {p.get('title', rec['plan'])}, "
+                f"{rec['amount_rub']} ₽. Активно до {fmt_date(new_until)}.",
+            )
+        except Exception:
+            pass
+    return True
+
+
+@dp.callback_query(F.data.startswith("paycheck:"))
+async def cb_paycheck(cq: CallbackQuery):
+    payment_id = cq.data.split(":", 1)[1]
+    rec = db.get_bot_invoice(payment_id)
+    if not rec or rec["user_id"] != cq.from_user.id:
+        await cq.answer("Счёт не найден", show_alert=True)
+        return
+    if rec["status"] == "paid":
+        await cq.answer("Оплата уже зачислена ✅", show_alert=True)
+        return
+    try:
+        inv = await asyncio.to_thread(lolz.get_invoice, payment_id)
+    except Exception:
+        logging.exception("Lolz (бот): не удалось проверить счёт %s", payment_id)
+        inv = None
+    if inv and inv.get("status") == "paid":
+        await _credit_card_payment(cq.bot, rec)
+        await cq.answer()
+    else:
+        await cq.answer(texts.CARD_PENDING_ALERT, show_alert=True)
+
+
+CARD_POLL_INTERVAL = 60          # раз в минуту опрашиваем неоплаченные счета
+CARD_INVOICE_TTL = 2 * 3600      # счёт живёт час; ещё час запаса — и бросаем опрос
+
+
+async def poll_card_invoices(bot):
+    """Фоновая проверка счетов: подписка активируется без нажатия кнопки."""
+    while True:
+        await asyncio.sleep(CARD_POLL_INTERVAL)
+        try:
+            for rec in db.pending_bot_invoices():
+                if int(time.time()) - rec["created_at"] > CARD_INVOICE_TTL:
+                    db.settle_bot_invoice(rec["payment_id"], "expired")
+                    continue
+                try:
+                    inv = await asyncio.to_thread(lolz.get_invoice, rec["payment_id"])
+                except Exception:
+                    continue                     # сеть/API упали — вернёмся через минуту
+                if inv and inv.get("status") == "paid":
+                    await _credit_card_payment(bot, rec)
+        except Exception:
+            logging.exception("Lolz (бот): ошибка фоновой проверки счетов")
 
 
 @dp.pre_checkout_query()
@@ -334,6 +479,12 @@ async def main():
     ])
     # кнопка слева показывает список функций (команд)
     await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+
+    if lolz.can_invoice():
+        asyncio.create_task(poll_card_invoices(bot))
+        logging.info("Lolz: оплата картой/СБП включена (фоновая проверка счетов)")
+    else:
+        logging.info("Lolz: LOLZ_TOKEN/LOLZ_MERCHANT_ID не заданы — в боте только звёзды")
 
     logging.info("IKK VPN bot запущен")
     await dp.start_polling(bot)
