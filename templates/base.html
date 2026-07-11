@@ -49,11 +49,167 @@
 
     <main>
         {% block hero %}
-        <!-- Герой внутренних страниц: жёлтые лютики в сумерках на ветру (Pexels #25786067, free license) -->
+        <!-- Герой внутренних страниц: рисованные жёлтые лютики в сумерках —
+             собственная SVG-анимация под стиль главной (цветы качаются,
+             летят лепестки, мерцают ✦-искры; без внешних хостингов) -->
         <section class="page-hero">
-            <video class="hero-video" autoplay loop muted playsinline
-                   poster="https://images.pexels.com/videos/25786067/bloom-blossom-blowing-breeze-25786067.jpeg?auto=compress&cs=tinysrgb&w=1280"
-                   src="https://videos.pexels.com/video-files/25786067/11909544_1280_720_60fps.mp4"></video>
+            <svg class="hero-video" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice"
+                 xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <style>
+                    .fhSway{transform-box:fill-box;transform-origin:50% 100%;animation:fhSway 6s ease-in-out infinite alternate}
+                    .fs2{animation-duration:7.4s;animation-delay:-2.4s}
+                    .fs3{animation-duration:5.2s;animation-delay:-1.2s}
+                    .fs4{animation-duration:8.1s;animation-delay:-3.6s}
+                    .fs5{animation-duration:6.8s;animation-delay:-5s}
+                    @keyframes fhSway{from{transform:rotate(-2.2deg)}to{transform:rotate(2.6deg)}}
+                    .fhTw{animation:fhTw 4s ease-in-out infinite}
+                    .ft2{animation-delay:-1.4s;animation-duration:5.2s}
+                    .ft3{animation-delay:-2.6s;animation-duration:3.4s}
+                    @keyframes fhTw{0%,100%{opacity:.15}50%{opacity:1}}
+                    .fhFly{animation:fhFly linear infinite}
+                    @keyframes fhFly{from{transform:translateX(-160px)}to{transform:translateX(1780px)}}
+                    .fhBob{animation:fhBob ease-in-out infinite alternate}
+                    @keyframes fhBob{from{transform:translateY(-16px) rotate(-18deg)}to{transform:translateY(18px) rotate(24deg)}}
+                    @media (prefers-reduced-motion:reduce){.fhSway,.fhTw,.fhFly,.fhBob{animation:none}}
+                </style>
+                <defs>
+                    <linearGradient id="fhSky" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0" stop-color="#020f1b"/><stop offset=".45" stop-color="#06283c"/>
+                        <stop offset=".75" stop-color="#0b3a52"/><stop offset="1" stop-color="#12506b"/>
+                    </linearGradient>
+                    <radialGradient id="fhGlow" cx=".77" cy=".66" r=".55">
+                        <stop offset="0" stop-color="#ffcf8a" stop-opacity=".5"/>
+                        <stop offset=".45" stop-color="#f29d63" stop-opacity=".18"/>
+                        <stop offset="1" stop-color="#f29d63" stop-opacity="0"/>
+                    </radialGradient>
+                    <linearGradient id="fhMdw" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0" stop-color="#0a2f43"/><stop offset="1" stop-color="#04121d"/>
+                    </linearGradient>
+                    <filter id="fhBlur" x="-60%" y="-60%" width="220%" height="220%">
+                        <feGaussianBlur stdDeviation="16"/>
+                    </filter>
+                    <!-- лепесток, цветок, искра ✦, травинки, ромашка-точка -->
+                    <path id="fh-p" d="M0,0 C-11,-13 -13,-34 0,-42 C13,-34 11,-13 0,0 Z"/>
+                    <g id="fh-b" stroke="#4a3410" stroke-width="3" stroke-linejoin="round">
+                        <use href="#fh-p" fill="#ffd166" transform="rotate(-4)"/>
+                        <use href="#fh-p" fill="#ffc94f" transform="rotate(68) scale(.93)"/>
+                        <use href="#fh-p" fill="#ffd166" transform="rotate(141) scale(1.06)"/>
+                        <use href="#fh-p" fill="#f7bd45" transform="rotate(217) scale(.9)"/>
+                        <use href="#fh-p" fill="#ffd166" transform="rotate(288) scale(.98)"/>
+                        <circle r="10" fill="#c07c22"/>
+                        <circle r="4" cx="2.5" cy="-2" fill="#7d4a12" stroke="none"/>
+                    </g>
+                    <path id="fh-s" d="M0,-11 C1.2,-2.8 2.8,-1.2 11,0 C2.8,1.2 1.2,2.8 0,11 C-1.2,2.8 -2.8,1.2 -11,0 C-2.8,-1.2 -1.2,-2.8 0,-11 Z"/>
+                    <g id="fh-g" stroke="#2b5a40" stroke-width="4" fill="none" stroke-linecap="round">
+                        <path d="M0,0 C4,-32 -5,-56 -1,-82"/>
+                        <path d="M13,0 C19,-26 11,-44 17,-64"/>
+                        <path d="M-12,0 C-16,-22 -10,-38 -14,-52"/>
+                    </g>
+                    <g id="fh-d">
+                        <path d="M0,0 C2,-16 -3,-28 -1,-42" stroke="#2c5a44" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+                        <circle cx="-1" cy="-49" r="7.5" fill="#e3ae45" stroke="#4a3410" stroke-width="2"/>
+                        <circle cx="-1" cy="-49" r="2.6" fill="#7d4a12"/>
+                    </g>
+                    <g id="fh-c1"><!-- куст: два стебля с цветками и листья -->
+                        <path d="M0,0 C7,-60 -9,-106 -3,-168" fill="none" stroke="#2f6045" stroke-width="6" stroke-linecap="round"/>
+                        <path d="M26,0 C30,-44 22,-78 27,-118" fill="none" stroke="#2f6045" stroke-width="5" stroke-linecap="round"/>
+                        <path d="M-2,-86 C-30,-94 -46,-116 -42,-134 C-20,-129 -7,-110 -2,-86 Z" fill="#35704d" stroke="#1d4230" stroke-width="3"/>
+                        <path d="M0,-58 C22,-64 34,-80 32,-94 C15,-89 5,-74 0,-58 Z" fill="#35704d" stroke="#1d4230" stroke-width="3"/>
+                        <use href="#fh-b" transform="translate(-3,-178) scale(1.28) rotate(-7)"/>
+                        <use href="#fh-b" transform="translate(27,-126) scale(.85) rotate(10)"/>
+                    </g>
+                    <g id="fh-c2"><!-- куст: один стебель -->
+                        <path d="M0,0 C-6,-52 8,-96 2,-150" fill="none" stroke="#2f6045" stroke-width="6" stroke-linecap="round"/>
+                        <path d="M1,-72 C26,-80 40,-100 36,-116 C16,-111 5,-94 1,-72 Z" fill="#35704d" stroke="#1d4230" stroke-width="3"/>
+                        <use href="#fh-b" transform="translate(2,-160) scale(1.1) rotate(6)"/>
+                    </g>
+                </defs>
+
+                <!-- небо, тёплое зарево, солнце на закате -->
+                <rect width="1600" height="900" fill="url(#fhSky)"/>
+                <rect width="1600" height="900" fill="url(#fhGlow)"/>
+                <g fill="#cfe3ef">
+                    <circle cx="350" cy="120" r="2" class="fhTw"/><circle cx="520" cy="60" r="1.6" class="fhTw ft2"/>
+                    <circle cx="700" cy="170" r="2.2" class="fhTw ft3"/><circle cx="880" cy="90" r="1.7"/>
+                    <circle cx="1050" cy="140" r="2" class="fhTw ft2"/><circle cx="560" cy="240" r="1.5"/>
+                    <circle cx="1180" cy="60" r="2.1" class="fhTw"/><circle cx="420" cy="320" r="1.6" class="fhTw ft3"/>
+                    <circle cx="760" cy="300" r="1.8"/><circle cx="950" cy="230" r="1.5" class="fhTw ft2"/>
+                </g>
+                <g fill="#ffe9b0">
+                    <use href="#fh-s" transform="translate(470,180) scale(.8)" class="fhTw"/>
+                    <use href="#fh-s" transform="translate(900,120) scale(1.1)" class="fhTw ft2"/>
+                    <use href="#fh-s" transform="translate(1230,260) scale(.7)" class="fhTw ft3"/>
+                    <use href="#fh-s" transform="translate(640,90) scale(.9)" class="fhTw ft2"/>
+                    <use href="#fh-s" transform="translate(180,560) scale(.7)" class="fhTw ft3"/>
+                    <use href="#fh-s" transform="translate(1340,585) scale(.8)" class="fhTw"/>
+                </g>
+                <circle cx="1230" cy="596" r="85" fill="#ffd98a" opacity=".5" filter="url(#fhBlur)"/>
+                <circle cx="1230" cy="596" r="52" fill="none" stroke="#ffd98a" stroke-width="3" opacity=".35"/>
+                <circle cx="1230" cy="596" r="44" fill="#ffe7ae" opacity=".95"/>
+
+                <!-- холмы и луг -->
+                <path d="M0,632 C180,596 380,620 560,604 C760,586 930,622 1120,606 C1300,592 1460,610 1600,596 L1600,900 L0,900 Z" fill="#10394e"/>
+                <path d="M0,712 C230,678 480,706 760,688 C1040,670 1330,706 1600,682 L1600,900 L0,900 Z" fill="#0b2d3f"/>
+                <!-- дальний ряд цветов-точек (за бровкой луга) -->
+                <g opacity=".85">
+                    <g transform="translate(180,782) scale(.8)"><use href="#fh-d" class="fhSway fs3"/></g>
+                    <g transform="translate(390,776) scale(.95)"><use href="#fh-d" class="fhSway fs4"/></g>
+                    <g transform="translate(700,784) scale(.7)"><use href="#fh-d" class="fhSway fs2"/></g>
+                    <g transform="translate(900,774) scale(1)"><use href="#fh-d" class="fhSway fs5"/></g>
+                    <g transform="translate(1100,780) scale(.8)"><use href="#fh-d" class="fhSway"/></g>
+                    <g transform="translate(1290,776) scale(.9)"><use href="#fh-d" class="fhSway fs3"/></g>
+                    <g transform="translate(1460,784) scale(.75)"><use href="#fh-d" class="fhSway fs2"/></g>
+                </g>
+                <path d="M0,790 C260,764 620,780 940,770 C1220,762 1440,774 1600,766 L1600,900 L0,900 Z" fill="url(#fhMdw)"/>
+                <ellipse cx="1230" cy="782" rx="420" ry="60" fill="#f2a45e" opacity=".12"/>
+                <!-- штрихи травы на лугу -->
+                <g stroke="#0e3c54" stroke-width="3" opacity=".55" fill="none" stroke-linecap="round">
+                    <path d="M120,835 C200,830 260,838 340,833"/>
+                    <path d="M520,860 C600,855 660,862 760,858"/>
+                    <path d="M980,842 C1060,837 1120,845 1210,840"/>
+                    <path d="M1330,868 C1390,864 1440,870 1520,866"/>
+                    <path d="M700,815 C760,811 820,817 880,813"/>
+                </g>
+
+                <!-- летящие лепестки -->
+                <g transform="translate(0,618)"><g class="fhFly" style="animation-duration:26s;animation-delay:-6s"><g class="fhBob" style="animation-duration:4.8s">
+                    <use href="#fh-p" fill="#ffd166" opacity=".85" stroke="#4a3410" stroke-width="3" transform="scale(.5) rotate(40)"/></g></g></g>
+                <g transform="translate(0,676)"><g class="fhFly" style="animation-duration:34s;animation-delay:-18s"><g class="fhBob" style="animation-duration:6.2s;animation-delay:-2s">
+                    <use href="#fh-p" fill="#f7bd45" opacity=".75" stroke="#4a3410" stroke-width="3" transform="scale(.42) rotate(-20)"/></g></g></g>
+                <g transform="translate(0,724)"><g class="fhFly" style="animation-duration:22s;animation-delay:-12s"><g class="fhBob" style="animation-duration:4s">
+                    <use href="#fh-p" fill="#ffcf5e" opacity=".8" stroke="#4a3410" stroke-width="3" transform="scale(.58) rotate(70)"/></g></g></g>
+                <g transform="translate(0,588)"><g class="fhFly" style="animation-duration:30s;animation-delay:-25s"><g class="fhBob" style="animation-duration:5.4s;animation-delay:-1.5s">
+                    <use href="#fh-p" fill="#ffd166" opacity=".65" stroke="#4a3410" stroke-width="3" transform="scale(.36) rotate(15)"/></g></g></g>
+
+                <!-- светлячки над лугом -->
+                <g fill="#ffe9a8">
+                    <circle cx="330" cy="720" r="3" class="fhTw ft2"/>
+                    <circle cx="860" cy="690" r="2.5" class="fhTw ft3"/>
+                    <circle cx="1210" cy="740" r="3" class="fhTw"/>
+                </g>
+
+                <!-- передний план: кусты лютиков и травинки -->
+                <g transform="translate(170,906) scale(1.05)"><use href="#fh-g" class="fhSway fs4"/></g>
+                <g transform="translate(350,908) scale(.85)"><use href="#fh-g" class="fhSway fs2"/></g>
+                <g transform="translate(540,906) scale(1.2)"><use href="#fh-g" class="fhSway fs5"/></g>
+                <g transform="translate(710,908) scale(.9)"><use href="#fh-g" class="fhSway"/></g>
+                <g transform="translate(890,906) scale(1.1)"><use href="#fh-g" class="fhSway fs3"/></g>
+                <g transform="translate(1075,908) scale(.8)"><use href="#fh-g" class="fhSway fs2"/></g>
+                <g transform="translate(1250,906) scale(1.15)"><use href="#fh-g" class="fhSway fs4"/></g>
+                <g transform="translate(1425,908) scale(.9)"><use href="#fh-g" class="fhSway fs5"/></g>
+                <g transform="translate(30,908) scale(1)"><use href="#fh-g" class="fhSway fs3"/></g>
+                <g transform="translate(1575,906) scale(1.05)"><use href="#fh-g" class="fhSway"/></g>
+
+                <g transform="translate(95,908) scale(.9)"><use href="#fh-c2" class="fhSway fs3"/></g>
+                <g transform="translate(265,908) scale(1.2)"><use href="#fh-c1" class="fhSway"/></g>
+                <g transform="translate(440,908) scale(.8)"><use href="#fh-c2" class="fhSway fs4"/></g>
+                <g transform="translate(620,908) scale(1.05)"><use href="#fh-c1" class="fhSway fs2"/></g>
+                <g transform="translate(800,908) scale(.75)"><use href="#fh-c2" class="fhSway fs5"/></g>
+                <g transform="translate(985,908) scale(1.15)"><use href="#fh-c1" class="fhSway fs3"/></g>
+                <g transform="translate(1165,908) scale(.85)"><use href="#fh-c2" class="fhSway"/></g>
+                <g transform="translate(1340,908) scale(1.1)"><use href="#fh-c1" class="fhSway fs4"/></g>
+                <g transform="translate(1510,908) scale(.95)"><use href="#fh-c2" class="fhSway fs2"/></g>
+            </svg>
             <p class="eyebrow animate-fade-rise">{% block hero_eyebrow %}{% endblock %}</p>
             <h1 class="page-title animate-fade-rise-delay">{% block hero_title %}{% endblock %}</h1>
         </section>
