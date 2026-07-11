@@ -11,9 +11,23 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Playfair+Display:ital@0;1&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=8">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=9">
 </head>
 <body>
+
+    <!-- Волнистый нижний край героя внутренних страниц: clip-path в долях
+         размера секции (objectBoundingBox), две большие плавные волны -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <defs>
+            <clipPath id="heroWave" clipPathUnits="objectBoundingBox">
+                <path d="M0,0 L1,0 L1,0.84
+                         C0.875,0.84 0.875,0.98 0.75,0.98
+                         C0.625,0.98 0.625,0.84 0.5,0.84
+                         C0.375,0.84 0.375,0.98 0.25,0.98
+                         C0.125,0.98 0.125,0.84 0,0.84 Z"/>
+            </clipPath>
+        </defs>
+    </svg>
 
     <!-- ЖИВОЙ ФОН: звёздное небо + северное сияние.
          Лежит под всем содержимым до самого подвала; звёзды мерцают,
