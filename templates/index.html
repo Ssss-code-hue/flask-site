@@ -4,8 +4,10 @@
 {# Главная переопределяет герой целиком: полный экран, крупный заголовок, CTA #}
 {% block hero %}
     <section class="page-hero hero-full">
+        {# Видео живёт в репозитории (static/video) — раньше грузилось
+           с чужого CloudFront и могло исчезнуть в любой момент #}
         <video class="hero-video" autoplay loop muted playsinline
-               src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260314_131748_f2ca2a28-fed7-44c8-b9a9-bd9acdd5ec31.mp4"></video>
+               src="{{ url_for('static', filename='video/hero-main.mp4') }}"></video>
 
         <h1 class="animate-fade-rise">Интернет, <em>тихий</em> и свободный —<br>
             <em>по-настоящему ваш</em>.</h1>
