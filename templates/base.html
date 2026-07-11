@@ -68,23 +68,37 @@
 
     <main>
         {% block hero %}
-        <!-- Герой внутренних страниц: тёмный верх и одна разделяющая
-             волна внизу (SVG, без внешних хостингов) -->
+        <!-- Герой внутренних страниц: тёмный верх и слоистые волны внизу,
+             две полосы плавно дрейфуют (SVG, без внешних хостингов) -->
         <section class="page-hero">
             {% block hero_media %}
             <svg class="hero-video" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice"
                  xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <style>
+                    /* волны едва заметно дрейфуют по горизонтали; полосы
+                       нарисованы шире кадра (-160..1760), чтобы не было щелей */
+                    .fwDrift{animation:fwDrift 16s ease-in-out infinite alternate}
+                    .fw2{animation-duration:12s;animation-delay:-6s}
+                    @keyframes fwDrift{from{transform:translateX(-30px)}to{transform:translateX(30px)}}
+                    @media (prefers-reduced-motion:reduce){.fwDrift,.fw2{animation:none}}
+                </style>
                 <defs>
                     <linearGradient id="fhSky" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0" stop-color="#020f1b"/>
                         <stop offset="1" stop-color="#07293d"/>
                     </linearGradient>
+                    <linearGradient id="fhMdw" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0" stop-color="#0a2f43"/>
+                        <stop offset="1" stop-color="#04121d"/>
+                    </linearGradient>
                 </defs>
                 <rect width="1600" height="900" fill="url(#fhSky)"/>
-                <!-- одна разделяющая волна: две плавных периода, цвет волны -->
-                <path d="M0,650 C200,650 200,760 400,760 C600,760 600,650 800,650
-                         C1000,650 1000,760 1200,760 C1400,760 1400,650 1600,650
-                         L1600,900 L0,900 Z" fill="#12506b"/>
+                <!-- дальняя волна (цвет волны) -->
+                <g class="fwDrift"><path fill="#12506b" d="M-160,610 C0,610 0,700 160,700 C320,700 320,610 480,610 C640,610 640,700 800,700 C960,700 960,610 1120,610 C1280,610 1280,700 1440,700 C1600,700 1600,610 1760,610 L1760,900 L-160,900 Z"/></g>
+                <!-- средняя волна, в противофазе -->
+                <g class="fwDrift fw2"><path fill="#0d3d57" d="M-160,790 C0,790 0,706 160,706 C320,706 320,790 480,790 C640,790 640,706 800,706 C960,706 960,790 1120,790 C1280,790 1280,706 1440,706 C1600,706 1600,790 1760,790 L1760,900 L-160,900 Z"/></g>
+                <!-- ближняя волна, статичная, темнее к низу -->
+                <path fill="url(#fhMdw)" d="M0,830 C200,830 200,862 400,862 C600,862 600,812 800,812 C1000,812 1000,856 1200,856 C1400,856 1400,820 1600,820 L1600,900 L0,900 Z"/>
             </svg>
             {% endblock %}
             <p class="eyebrow animate-fade-rise">{% block hero_eyebrow %}{% endblock %}</p>
