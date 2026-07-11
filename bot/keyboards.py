@@ -2,6 +2,8 @@
 from aiogram.types import WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+import lolz
+
 from .config import (PLANS, PRIVACY_URL, TERMS_URL, TRIAL_DAYS, WEBAPP_URL,
                      OFFER_URL, OWNER_USERNAME)
 
@@ -58,8 +60,10 @@ def trial_consent_kb():
 
 def plans_kb():
     kb = InlineKeyboardBuilder()
+    card = lolz.can_invoice()   # показываем ₽ только когда карта включена
     for code, p in PLANS.items():
-        kb.button(text=f"{p['title']} — {p['stars']} ⭐", callback_data=f"plan:{code}")
+        price = f"{p['stars']} ⭐ / {p['rub']} ₽" if card else f"{p['stars']} ⭐"
+        kb.button(text=f"{p['title']} — {price}", callback_data=f"plan:{code}")
     kb.button(text="◀ Назад", callback_data="buy")
     kb.adjust(1)
     return kb.as_markup()
