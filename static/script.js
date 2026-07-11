@@ -15,21 +15,13 @@ const heroSection = heroVideo ? heroVideo.closest('.page-hero') : null;
 const heroIsFull = heroSection ? heroSection.classList.contains('hero-full') : false;
 const heroWaveFull = document.querySelector('#heroWaveFull path');
 
-// форма волны для главной: q — прогресс появления (0 — ровный низ).
-// Волна «выезжает» слева: амплитуда каждой точки включается по мере
-// того, как фронт (ширина w) доходит до неё. Волна мельче, чем на
-// внутренних страницах (гребни 0.90, впадины 0.99), чтобы не
-// наезжать на кнопку и подсказку у низа экрана
-function wavePathD(q) {
-    const xs    = [1, 0.75, 0.5, 0.25, 0];
-    // центральный гребень мельче (0.08): под ним подсказка
-    // «Первые 5 дней — бесплатно», её нельзя задевать
-    const depth = [0.10, 0.01, 0.08, 0.01, 0.10];
-    const w = 0.45;
-    const y = xs.map((x, i) => {
-        const e = Math.min(1, Math.max(0, (q * (1 + w) - x) / w));
-        return (1 - depth[i] * e).toFixed(4);
-    });
+// форма волны для главной: a — прогресс появления (0 — ровный низ,
+// 1 — волна целиком). Волна мельче, чем на внутренних страницах,
+// чтобы не наезжать на кнопку и подсказку у низа экрана; центральный
+// гребень ещё мельче (0.08) — под ним подсказка про 5 дней
+function wavePathD(a) {
+    const depth = [0.10, 0.01, 0.08, 0.01, 0.10];   // x = 1, .75, .5, .25, 0
+    const y = depth.map((dp) => (1 - dp * a).toFixed(4));
     return `M0,0 L1,0 L1,${y[0]} ` +
         `C0.875,${y[0]} 0.875,${y[1]} 0.75,${y[1]} ` +
         `C0.625,${y[1]} 0.625,${y[2]} 0.5,${y[2]} ` +
@@ -50,7 +42,7 @@ function onScroll() {
         heroVideo.style.transform = `translateY(${shift})`;
         heroVideo.style.opacity = (1 - p * 0.35).toFixed(3);
         heroSection.style.setProperty('--heroShift', shift);
-        // на главной волна выезжает слева по мере прокрутки
+        // на главной волна появляется по мере прокрутки
         // (целиком — к 16% высоты героя)
         if (heroIsFull && heroWaveFull) {
             heroWaveFull.setAttribute('d', wavePathD(Math.min(p / 0.16, 1)));
