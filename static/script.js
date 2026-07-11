@@ -15,14 +15,26 @@ const heroSection = heroVideo ? heroVideo.closest('.page-hero') : null;
 const heroIsFull = heroSection ? heroSection.classList.contains('hero-full') : false;
 const heroWaveFull = document.querySelector('#heroWaveFull path');
 
-// форма волны для главной: a=0 — ровный низ (полная картинка),
-// a=1 — волна как на внутренних страницах (узлы 0.84, впадины 0.98)
-function wavePathD(a) {
-    const n = (1 - 0.16 * a).toFixed(4);
-    const t = (1 - 0.02 * a).toFixed(4);
-    return `M0,0 L1,0 L1,${n} ` +
-        `C0.875,${n} 0.875,${t} 0.75,${t} C0.625,${t} 0.625,${n} 0.5,${n} ` +
-        `C0.375,${n} 0.375,${t} 0.25,${t} C0.125,${t} 0.125,${n} 0,${n} Z`;
+// форма волны для главной: q — прогресс появления (0 — ровный низ).
+// Волна «выезжает» слева: амплитуда каждой точки включается по мере
+// того, как фронт (ширина w) доходит до неё. Волна мельче, чем на
+// внутренних страницах (гребни 0.90, впадины 0.99), чтобы не
+// наезжать на кнопку и подсказку у низа экрана
+function wavePathD(q) {
+    const xs    = [1, 0.75, 0.5, 0.25, 0];
+    // центральный гребень мельче (0.08): под ним подсказка
+    // «Первые 5 дней — бесплатно», её нельзя задевать
+    const depth = [0.10, 0.01, 0.08, 0.01, 0.10];
+    const w = 0.45;
+    const y = xs.map((x, i) => {
+        const e = Math.min(1, Math.max(0, (q * (1 + w) - x) / w));
+        return (1 - depth[i] * e).toFixed(4);
+    });
+    return `M0,0 L1,0 L1,${y[0]} ` +
+        `C0.875,${y[0]} 0.875,${y[1]} 0.75,${y[1]} ` +
+        `C0.625,${y[1]} 0.625,${y[2]} 0.5,${y[2]} ` +
+        `C0.375,${y[2]} 0.375,${y[3]} 0.25,${y[3]} ` +
+        `C0.125,${y[3]} 0.125,${y[4]} 0,${y[4]} Z`;
 }
 
 function onScroll() {
@@ -38,10 +50,10 @@ function onScroll() {
         heroVideo.style.transform = `translateY(${shift})`;
         heroVideo.style.opacity = (1 - p * 0.35).toFixed(3);
         heroSection.style.setProperty('--heroShift', shift);
-        // на главной волна вырастает по мере прокрутки
-        // (целиком — к 30% высоты героя)
+        // на главной волна выезжает слева по мере прокрутки
+        // (целиком — к 16% высоты героя)
         if (heroIsFull && heroWaveFull) {
-            heroWaveFull.setAttribute('d', wavePathD(Math.min(p / 0.3, 1)));
+            heroWaveFull.setAttribute('d', wavePathD(Math.min(p / 0.16, 1)));
         }
     }
 }
