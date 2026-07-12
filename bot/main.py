@@ -46,24 +46,41 @@ def fmt_date(ts):
     return datetime.fromtimestamp(ts).strftime("%d.%m.%Y")
 
 
-# Баннер приветствия (в стиле сайта). Отправляем файлом один раз,
-# дальше используем file_id из кэша Telegram — быстрее и без загрузки.
+# Баннер приветствия (в стиле сайта). Приветствие — одно сообщение:
+# фото + подпись + кнопки, так картинка и текст одной ширины.
+# Файл загружается один раз, дальше используем file_id из кэша.
 BANNER = Path(__file__).parent / "assets" / "banner.png"
 _banner_file_id = None
 
 
-async def send_banner(message: Message):
+async def send_welcome(message: Message):
     global _banner_file_id
-    if not BANNER.exists():
-        return
-    try:
-        if _banner_file_id:
-            await message.answer_photo(_banner_file_id)
-        else:
-            sent = await message.answer_photo(FSInputFile(BANNER))
-            _banner_file_id = sent.photo[-1].file_id
-    except Exception:
-        logging.exception("Баннер приветствия не отправился")
+    if BANNER.exists():
+        try:
+            photo = _banner_file_id or FSInputFile(BANNER)
+            sent = await message.answer_photo(
+                photo, caption=texts.WELCOME, reply_markup=main_menu()
+            )
+            if not _banner_file_id:
+                _banner_file_id = sent.photo[-1].file_id
+            return
+        except Exception:
+            logging.exception("Баннер приветствия не отправился — шлём текстом")
+    await message.answer(texts.WELCOME, reply_markup=main_menu())
+
+
+async def show_screen(cq: CallbackQuery, text, reply_markup=None, **kwargs):
+    """Меняет содержимое текущего сообщения по нажатию кнопки.
+
+    Новых сообщений не шлём: у приветствия (фото) видоизменяем
+    подпись — баннер остаётся сверху, — у обычного текста сам текст.
+    Все экраны бота умещаются в лимит подписи (1024 символа).
+    """
+    m = cq.message
+    if m.photo:
+        await m.edit_caption(caption=text, reply_markup=reply_markup)
+    else:
+        await m.edit_text(text, reply_markup=reply_markup, **kwargs)
 
 
 def ref_text(uid):
@@ -106,8 +123,7 @@ async def cmd_start(message: Message):
             except Exception:
                 pass
 
-    await send_banner(message)
-    await message.answer(texts.WELCOME, reply_markup=main_menu())
+    await send_welcome(message)
 
 
 # ============ Команды-функции (видны в меню слева от поля ввода) ============
@@ -188,7 +204,7 @@ async def cmd_trial(message: Message):
 @dp.callback_query(F.data == "trial")
 async def cb_trial(cq: CallbackQuery):
     if _trial_available(cq.from_user.id, cq.from_user.username):
-        await cq.message.edit_text(
+        await show_screen(cq, 
             texts.TRIAL_OFFER.format(days=TRIAL_DAYS), reply_markup=trial_consent_kb()
         )
         await cq.answer()
@@ -203,7 +219,7 @@ async def cb_trial(cq: CallbackQuery):
 @dp.callback_query(F.data == "offer_text_trial")
 async def cb_offer_text_trial(cq: CallbackQuery):
     # текстовая оферта (если мини-приложение не настроено), назад — к пробному периоду
-    await cq.message.edit_text(texts.OFFER_TEXT, reply_markup=back_kb("trial"), disable_web_page_preview=True)
+    await show_screen(cq, texts.OFFER_TEXT, reply_markup=back_kb("trial"), disable_web_page_preview=True)
     await cq.answer()
 
 
@@ -211,7 +227,7 @@ async def cb_offer_text_trial(cq: CallbackQuery):
 async def cb_trial_go(cq: CallbackQuery):
     # пользователь нажал «Принимаю» — активируем пробный период
     async def send(text, kb):
-        await cq.message.edit_text(text, reply_markup=kb)
+        await show_screen(cq, text, reply_markup=kb)
     if await _give_trial(cq.from_user.id, cq.from_user.username, send):
         await cq.answer()
         if OWNER_ID:
@@ -232,46 +248,46 @@ async def cb_trial_go(cq: CallbackQuery):
 # ============ Навигация по меню ============
 @dp.callback_query(F.data == "menu")
 async def cb_menu(cq: CallbackQuery):
-    await cq.message.edit_text(texts.WELCOME, reply_markup=main_menu())
+    await show_screen(cq, texts.WELCOME, reply_markup=main_menu())
     await cq.answer()
 
 
 @dp.callback_query(F.data == "buy")
 async def cb_buy(cq: CallbackQuery):
     # перед покупкой — оферта и согласие
-    await cq.message.edit_text(texts.OFFER_INTRO, reply_markup=offer_consent_kb())
+    await show_screen(cq, texts.OFFER_INTRO, reply_markup=offer_consent_kb())
     await cq.answer()
 
 
 @dp.callback_query(F.data == "offer_text")
 async def cb_offer_text(cq: CallbackQuery):
     # текстовая оферта (запасной вариант, если мини-приложение не настроено)
-    await cq.message.edit_text(texts.OFFER_TEXT, reply_markup=back_kb("buy"), disable_web_page_preview=True)
+    await show_screen(cq, texts.OFFER_TEXT, reply_markup=back_kb("buy"), disable_web_page_preview=True)
     await cq.answer()
 
 
 @dp.callback_query(F.data == "plans")
 async def cb_plans(cq: CallbackQuery):
     # пользователь принял оферту — показываем тарифы
-    await cq.message.edit_text(texts.PLANS_INTRO, reply_markup=plans_kb())
+    await show_screen(cq, texts.PLANS_INTRO, reply_markup=plans_kb())
     await cq.answer()
 
 
 @dp.callback_query(F.data == "devices")
 async def cb_devices(cq: CallbackQuery):
-    await cq.message.edit_text(texts.DEVICES_INTRO, reply_markup=devices_kb())
+    await show_screen(cq, texts.DEVICES_INTRO, reply_markup=devices_kb())
     await cq.answer()
 
 
 @dp.callback_query(F.data == "docs")
 async def cb_docs(cq: CallbackQuery):
-    await cq.message.edit_text(texts.DOCS, reply_markup=docs_kb())
+    await show_screen(cq, texts.DOCS, reply_markup=docs_kb())
     await cq.answer()
 
 
 @dp.callback_query(F.data == "ref")
 async def cb_ref(cq: CallbackQuery):
-    await cq.message.edit_text(
+    await show_screen(cq, 
         ref_text(cq.from_user.id), reply_markup=back_kb("menu"), disable_web_page_preview=True
     )
     await cq.answer()
@@ -279,7 +295,7 @@ async def cb_ref(cq: CallbackQuery):
 
 @dp.callback_query(F.data == "status")
 async def cb_status(cq: CallbackQuery):
-    await cq.message.edit_text(status_text(cq.from_user.id), reply_markup=main_menu())
+    await show_screen(cq, status_text(cq.from_user.id), reply_markup=main_menu())
     await cq.answer()
 
 
@@ -305,7 +321,7 @@ async def cb_plan(cq: CallbackQuery):
         return
     if lolz.can_invoice():
         # доступны два способа — даём выбрать
-        await cq.message.edit_text(
+        await show_screen(cq, 
             texts.PAY_METHOD.format(title=p["title"], days=p["days"]),
             reply_markup=pay_method_kb(code),
         )
@@ -351,7 +367,7 @@ async def cb_paycard(cq: CallbackQuery):
         await cq.answer(texts.CARD_FAIL, show_alert=True)
         return
     db.create_bot_invoice(payment_id, str(invoice_id), cq.from_user.id, code, p["rub"])
-    await cq.message.edit_text(
+    await show_screen(cq, 
         texts.CARD_INVOICE.format(rub=p["rub"], title=p["title"]),
         reply_markup=card_invoice_kb(pay_url, payment_id),
     )
