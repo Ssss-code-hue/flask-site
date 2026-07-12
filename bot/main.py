@@ -4,6 +4,7 @@ import logging
 import time
 import uuid
 from datetime import datetime
+from pathlib import Path
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.client.default import DefaultBotProperties
@@ -12,6 +13,7 @@ from aiogram.filters import Command, CommandStart
 from aiogram.types import (
     BotCommand,
     CallbackQuery,
+    FSInputFile,
     LabeledPrice,
     MenuButtonCommands,
     Message,
@@ -42,6 +44,26 @@ dp = Dispatcher()
 
 def fmt_date(ts):
     return datetime.fromtimestamp(ts).strftime("%d.%m.%Y")
+
+
+# Баннер приветствия (в стиле сайта). Отправляем файлом один раз,
+# дальше используем file_id из кэша Telegram — быстрее и без загрузки.
+BANNER = Path(__file__).parent / "assets" / "banner.png"
+_banner_file_id = None
+
+
+async def send_banner(message: Message):
+    global _banner_file_id
+    if not BANNER.exists():
+        return
+    try:
+        if _banner_file_id:
+            await message.answer_photo(_banner_file_id)
+        else:
+            sent = await message.answer_photo(FSInputFile(BANNER))
+            _banner_file_id = sent.photo[-1].file_id
+    except Exception:
+        logging.exception("Баннер приветствия не отправился")
 
 
 def ref_text(uid):
@@ -84,6 +106,7 @@ async def cmd_start(message: Message):
             except Exception:
                 pass
 
+    await send_banner(message)
     await message.answer(texts.WELCOME, reply_markup=main_menu())
 
 
