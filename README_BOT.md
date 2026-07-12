@@ -21,7 +21,7 @@ pip install -r bot/requirements.txt
 |------------|-------|--------|
 | `BOT_TOKEN` | токен от @BotFather (обязательно) | `123456:ABC...` |
 | `BOT_USERNAME` | юзернейм бота (для реф-ссылок) | `IKKvpnpbot` |
-| `OWNER_USERNAME` | для кнопки «Поддержка» | `IKKvpndev` |
+| `SUPPORT_BOT_USERNAME` | бот поддержки — кнопка «Поддержка» и упоминания в текстах | `IKKvpnsupport_bot` |
 | `OWNER_ID` | ID владельца для уведомлений | `123456789` |
 | `WEBAPP_URL` | HTTPS-адрес мини-приложения (инструкция) | `https://ваш-домен/app` |
 | `OFFER_URL` | HTTPS-адрес мини-приложения оферты | `https://ваш-домен/offer-app` |

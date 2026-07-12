@@ -7,6 +7,8 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 # Юзернеймы (без @)
 BOT_USERNAME = os.environ.get("BOT_USERNAME", "IKKvpnpbot")
 OWNER_USERNAME = os.environ.get("OWNER_USERNAME", "IKKvpndev")
+# Бот поддержки — сюда ведут кнопка «Поддержка» и все упоминания в текстах
+SUPPORT_BOT_USERNAME = os.environ.get("SUPPORT_BOT_USERNAME", "IKKvpnsupport_bot")
 
 # ID владельца для уведомлений об оплатах (число). Узнать можно у @userinfobot
 OWNER_ID = int(os.environ.get("OWNER_ID", "0")) or None

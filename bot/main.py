@@ -11,11 +11,10 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandStart
 from aiogram.types import (
-    BotCommand,
     CallbackQuery,
     FSInputFile,
     LabeledPrice,
-    MenuButtonCommands,
+    MenuButtonDefault,
     Message,
     PreCheckoutQuery,
 )
@@ -27,10 +26,10 @@ from .config import (
     BOT_TOKEN,
     BOT_USERNAME,
     OWNER_ID,
-    OWNER_USERNAME,
     PLANS,
     REFERRAL_BONUS_DAYS,
     SITE_URL,
+    SUPPORT_BOT_USERNAME,
     TRIAL_DAYS,
 )
 from .keyboards import (back_kb, card_invoice_kb, devices_kb, docs_kb,
@@ -174,7 +173,7 @@ async def _give_trial(uid, username, send):
         await send(texts.TRIAL_OK.format(date=fmt_date(new_until), url=sub_url), devices_kb())
     else:
         await send(
-            texts.TRIAL_NO_KEY.format(date=fmt_date(new_until), owner=OWNER_USERNAME),
+            texts.TRIAL_NO_KEY.format(date=fmt_date(new_until), owner=SUPPORT_BOT_USERNAME),
             devices_kb(),
         )
     return True
@@ -392,7 +391,7 @@ async def _credit_card_payment(bot, rec):
     if sub_url:
         text = texts.PAID_WITH_KEY.format(date=fmt_date(new_until), url=sub_url)
     else:
-        text = texts.PAID_NO_KEY.format(date=fmt_date(new_until), owner=OWNER_USERNAME)
+        text = texts.PAID_NO_KEY.format(date=fmt_date(new_until), owner=SUPPORT_BOT_USERNAME)
     try:
         await bot.send_message(uid, text, reply_markup=devices_kb())
     except Exception:
@@ -483,7 +482,7 @@ async def on_paid(message: Message):
         )
     else:
         await message.answer(
-            texts.PAID_NO_KEY.format(date=fmt_date(new_until), owner=OWNER_USERNAME),
+            texts.PAID_NO_KEY.format(date=fmt_date(new_until), owner=SUPPORT_BOT_USERNAME),
             reply_markup=devices_kb(),
         )
 
@@ -506,18 +505,10 @@ async def main():
     db.init_db()
     bot = Bot(BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
-    # список функций для кнопки «Меню» слева от поля ввода
-    await bot.set_my_commands([
-        BotCommand(command="start", description="Главное меню"),
-        BotCommand(command="trial", description=f"Попробовать бесплатно ({TRIAL_DAYS} дн.)"),
-        BotCommand(command="buy", description="Купить подписку"),
-        BotCommand(command="devices", description="Инструкция подключения"),
-        BotCommand(command="status", description="Моя подписка"),
-        BotCommand(command="ref", description="Пригласить друга (+3 дня)"),
-        BotCommand(command="help", description="Помощь"),
-    ])
-    # кнопка слева показывает список функций (команд)
-    await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+    # меню команд убрано — вся навигация кнопками в сообщении
+    # (сами команды /buy, /trial и т.д. продолжают работать, если их ввести)
+    await bot.delete_my_commands()
+    await bot.set_chat_menu_button(menu_button=MenuButtonDefault())
 
     if lolz.can_invoice():
         asyncio.create_task(poll_card_invoices(bot))

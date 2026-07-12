@@ -4,8 +4,8 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 import lolz
 
-from .config import (PLANS, PRIVACY_URL, TERMS_URL, TRIAL_DAYS, WEBAPP_URL,
-                     OFFER_URL, OWNER_USERNAME)
+from .config import (PLANS, PRIVACY_URL, SUPPORT_BOT_USERNAME, TERMS_URL,
+                     TRIAL_DAYS, WEBAPP_URL, OFFER_URL)
 
 
 def main_menu():
@@ -16,7 +16,7 @@ def main_menu():
     kb.button(text="📡 Моя подписка", callback_data="status")
     kb.button(text="🎁 Пригласить друга (+3 дня)", callback_data="ref")
     kb.button(text="📄 Документы", callback_data="docs")
-    kb.button(text="💬 Поддержка", url=f"https://t.me/{OWNER_USERNAME}")
+    kb.button(text="💬 Поддержка", url=f"https://t.me/{SUPPORT_BOT_USERNAME}")
     # «Купить» и «Попробовать» на всю ширину, потом по две в ряд
     kb.adjust(1, 1, 2, 1, 2)
     return kb.as_markup()
