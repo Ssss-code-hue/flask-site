@@ -11,10 +11,11 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandStart
 from aiogram.types import (
+    BotCommand,
     CallbackQuery,
     FSInputFile,
     LabeledPrice,
-    MenuButtonDefault,
+    MenuButtonCommands,
     Message,
     PreCheckoutQuery,
 )
@@ -505,10 +506,10 @@ async def main():
     db.init_db()
     bot = Bot(BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
-    # меню команд убрано — вся навигация кнопками в сообщении
-    # (сами команды /buy, /trial и т.д. продолжают работать, если их ввести)
-    await bot.delete_my_commands()
-    await bot.set_chat_menu_button(menu_button=MenuButtonDefault())
+    # в меню слева от поля ввода — только «старт»; остальная навигация
+    # кнопками в сообщении (команды /buy и т.д. работают, если их ввести)
+    await bot.set_my_commands([BotCommand(command="start", description="Главное меню")])
+    await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
 
     if lolz.can_invoice():
         asyncio.create_task(poll_card_invoices(bot))
