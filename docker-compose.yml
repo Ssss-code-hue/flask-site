@@ -25,6 +25,10 @@ services:
       - LOLZ_TOKEN=${LOLZ_TOKEN:-}
       - LOLZ_MERCHANT_ID=${LOLZ_MERCHANT_ID:-}
       - LOLZ_MERCHANT_SECRET=${LOLZ_MERCHANT_SECRET:-}
+      # Platega (platega.io) — касса СБП/картой; активна при заданных ключах
+      - PLATEGA_MERCHANT_ID=${PLATEGA_MERCHANT_ID:-}
+      - PLATEGA_SECRET=${PLATEGA_SECRET:-}
+      - PAY_PROVIDER=${PAY_PROVIDER:-}
       - SITE_URL=${SITE_URL:-https://ikkvpn.com}
     volumes:
       # База лежит в папке data рядом с проектом — не стирается при обновлениях
