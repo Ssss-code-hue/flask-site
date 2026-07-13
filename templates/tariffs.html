@@ -5,7 +5,7 @@
 
 {% block content %}
     <section class="container">
-        {% if not platega_on %}
+        {% if not providers %}
         <div class="notice reveal">
             <strong>Оплата временно недоступна.</strong>
             Касса в разработке — скоро можно будет оплатить прямо здесь.
@@ -13,11 +13,19 @@
         {% endif %}
 
         {% macro pay_button(code) %}
-            {% if platega_on and session.get('uid') %}
-                <form method="post" action="{{ url_for('pay.start', code=code) }}">
-                    <button type="submit" class="btn">Оплатить</button>
+            {% if providers and session.get('uid') %}
+                {# на каждую настроенную кассу — своя кнопка; название
+                   показываем, только когда касс больше одной #}
+                {% for pid, label in providers %}
+                <form method="post" action="{{ url_for('pay.start', code=code) }}"
+                      style="margin-top:8px;">
+                    <input type="hidden" name="provider" value="{{ pid }}">
+                    <button type="submit" class="btn">
+                        {% if providers|length > 1 %}Оплатить через {{ label }}{% else %}Оплатить{% endif %}
+                    </button>
                 </form>
-            {% elif platega_on %}
+                {% endfor %}
+            {% elif providers %}
                 <a class="btn" href="{{ url_for('auth.login') }}">Войти и оплатить</a>
             {% else %}
                 <span class="btn disabled" aria-disabled="true">Оплатить — скоро</span>
@@ -78,8 +86,9 @@
             </div>
         </div>
 
-        {% if platega_on %}
-        <p class="note reveal">Оплата картой или через СБП. Возникли трудности — напишите
+        {% if providers %}
+        <p class="note reveal">Оплата картой или через СБП{% if providers|length > 1 %}
+            — выберите удобную кассу{% endif %}. Возникли трудности — напишите
             <a href="https://t.me/IKKvpnsupport_bot" target="_blank" rel="noopener">@IKKvpnsupport_bot</a>.</p>
         {% else %}
         <p class="note reveal">Пока оплата не подключена — напишите

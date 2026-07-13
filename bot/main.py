@@ -352,13 +352,22 @@ def card_provider():
 
 @dp.callback_query(F.data.startswith("paycard:"))
 async def cb_paycard(cq: CallbackQuery):
-    code = cq.data.split(":", 1)[1]
+    # новый формат paycard:<провайдер>:<тариф>; старые кнопки — paycard:<тариф>
+    parts = cq.data.split(":")
+    if len(parts) == 3:
+        provider, code = parts[1], parts[2]
+    else:
+        provider, code = card_provider(), parts[1]
     p = PLANS.get(code)
     if not p:
         await cq.answer("Тариф не найден", show_alert=True)
         return
+    # если выбранная касса не настроена — берём доступную
+    if provider == "platega" and not platega.is_configured():
+        provider = "lolz"
+    if provider == "lolz" and not lolz.can_invoice():
+        provider = "platega" if platega.is_configured() else "lolz"
     db.create_user(cq.from_user.id, cq.from_user.username)
-    provider = card_provider()
     try:
         # requests — блокирующий, уводим в поток, чтобы не тормозить бота
         if provider == "platega":

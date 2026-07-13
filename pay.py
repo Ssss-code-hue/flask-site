@@ -31,15 +31,31 @@ SITE_URL = os.environ.get("SITE_URL", "https://ikkvpn.com").rstrip("/")
 PAY_PROVIDER = os.environ.get("PAY_PROVIDER", "").strip().lower()
 
 
+# человекочитаемые названия касс для кнопок
+PROVIDER_LABELS = {"platega": "Platega", "lolz": "Lolzteam"}
+
+
+def _is_ready(provider):
+    return platega.is_configured() if provider == "platega" else lolz.is_configured()
+
+
+def available_providers():
+    """Список настроенных касс: [('platega','Platega'), ('lolz','Lolzteam')].
+
+    Если задан PAY_PROVIDER — оставляем только его (принудительный выбор).
+    """
+    order = [PAY_PROVIDER] if PAY_PROVIDER in ("platega", "lolz") else ["platega", "lolz"]
+    return [(p, PROVIDER_LABELS[p]) for p in order if _is_ready(p)]
+
+
 def active_provider():
-    if PAY_PROVIDER in ("platega", "lolz"):
-        return PAY_PROVIDER
-    return "platega" if platega.is_configured() else "lolz"
+    """Провайдер по умолчанию (первый доступный)."""
+    prov = available_providers()
+    return prov[0][0] if prov else "platega"
 
 
 def _payments_available():
-    p = active_provider()
-    return platega.is_configured() if p == "platega" else lolz.is_configured()
+    return bool(available_providers())
 
 
 @pay.route("/pay/<code>", methods=["POST"])
@@ -53,7 +69,11 @@ def start(code):
         flash("Оплата картой пока не подключена. Используйте бота или напишите в поддержку.")
         return redirect(url_for("tariffs"))
 
-    provider = active_provider()
+    # провайдер выбирает пользователь на странице тарифов; если выбранная
+    # касса не настроена — берём первую доступную
+    provider = request.form.get("provider", "")
+    if provider not in ("platega", "lolz") or not _is_ready(provider):
+        provider = active_provider()
     try:
         if provider == "platega":
             tx_id, pay_url = platega.create_payment(

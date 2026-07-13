@@ -76,11 +76,20 @@ def plans_kb():
 
 
 def pay_method_kb(code):
-    """Выбор способа оплаты выбранного тарифа."""
+    """Выбор способа оплаты: звёзды + отдельная кнопка на каждую кассу."""
     p = PLANS[code]
     kb = InlineKeyboardBuilder()
     kb.button(text=f"⭐ Звёзды Telegram — {p['stars']} ⭐", callback_data=f"paystars:{code}")
-    kb.button(text=f"💳 Карта / СБП — {p['rub']} ₽", callback_data=f"paycard:{code}")
+    # обе кассы — если настроены; название показываем, когда касс больше одной
+    cards = []
+    if platega.is_configured():
+        cards.append(("platega", "Platega"))
+    if lolz.can_invoice():
+        cards.append(("lolz", "Lolzteam"))
+    for pid, label in cards:
+        suffix = f" · {label}" if len(cards) > 1 else ""
+        kb.button(text=f"💳 СБП / карта{suffix} — {p['rub']} ₽",
+                  callback_data=f"paycard:{pid}:{code}")
     kb.button(text="◀ Назад", callback_data="plans")
     kb.adjust(1)
     return kb.as_markup()
