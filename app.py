@@ -3,11 +3,11 @@ import os
 from flask import Flask, render_template, session
 from flasgger import Swagger
 
-import lolz
 from api import api as api_blueprint
 from auth import TRIAL_DAYS, auth as auth_blueprint
 from bot import db
 from pay import pay as pay_blueprint
+from pay import _payments_available
 
 app = Flask(__name__)
 # Секретный ключ берём из переменной окружения (для будущей кассы/сессий).
@@ -41,9 +41,10 @@ def home():
 
 @app.route('/tariffs')
 def tariffs():
-    # Страница выбора тарифа; кнопки оплаты активны, когда настроен Lolz
+    # Страница выбора тарифа; кнопки оплаты активны, когда настроена касса
+    # (Platega или Lolz — какой провайдер активен, решает pay.active_provider)
     return render_template('tariffs.html', trial_days=TRIAL_DAYS,
-                           platega_on=lolz.is_configured())
+                           platega_on=_payments_available())
 
 
 @app.route('/advantages')

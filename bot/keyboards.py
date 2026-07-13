@@ -3,9 +3,15 @@ from aiogram.types import WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 import lolz
+import platega
 
 from .config import (PLANS, PRIVACY_URL, SUPPORT_BOT_USERNAME, TERMS_URL,
                      TRIAL_DAYS, WEBAPP_URL, OFFER_URL)
+
+
+def card_available():
+    """Доступна ли оплата картой/СБП (настроена любая из касс)."""
+    return platega.is_configured() or lolz.can_invoice()
 
 
 def main_menu():
@@ -60,7 +66,7 @@ def trial_consent_kb():
 
 def plans_kb():
     kb = InlineKeyboardBuilder()
-    card = lolz.can_invoice()   # показываем ₽ только когда карта включена
+    card = card_available()     # показываем ₽ только когда карта включена
     for code, p in PLANS.items():
         price = f"{p['stars']} ⭐ / {p['rub']} ₽" if card else f"{p['stars']} ⭐"
         kb.button(text=f"{p['title']} — {price}", callback_data=f"plan:{code}")

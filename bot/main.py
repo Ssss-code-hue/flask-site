@@ -1,5 +1,6 @@
 """IKK VPN — Telegram-бот: оплата звёздами и картой/СБП, подписки, рефералы."""
 import asyncio
+import json
 import logging
 import time
 import uuid
@@ -21,6 +22,7 @@ from aiogram.types import (
 )
 
 import lolz
+import platega
 
 from . import db, texts
 from .config import (
@@ -319,7 +321,7 @@ async def cb_plan(cq: CallbackQuery):
     if not p:
         await cq.answer("Тариф не найден", show_alert=True)
         return
-    if lolz.can_invoice():
+    if platega.is_configured() or lolz.can_invoice():
         # доступны два способа — даём выбрать
         await show_screen(cq, 
             texts.PAY_METHOD.format(title=p["title"], days=p["days"]),
@@ -342,7 +344,12 @@ async def cb_paystars(cq: CallbackQuery):
     await _send_stars_invoice(cq, code, p)
 
 
-# ============ Оплата картой/СБП (Lolz Merchant) ============
+# ============ Оплата картой/СБП (Platega или Lolz Merchant) ============
+def card_provider():
+    """Активный провайдер карты/СБП: Platega в приоритете, если настроена."""
+    return "platega" if platega.is_configured() else "lolz"
+
+
 @dp.callback_query(F.data.startswith("paycard:"))
 async def cb_paycard(cq: CallbackQuery):
     code = cq.data.split(":", 1)[1]
@@ -351,27 +358,53 @@ async def cb_paycard(cq: CallbackQuery):
         await cq.answer("Тариф не найден", show_alert=True)
         return
     db.create_user(cq.from_user.id, cq.from_user.username)
-    payment_id = uuid.uuid4().hex
+    provider = card_provider()
     try:
         # requests — блокирующий, уводим в поток, чтобы не тормозить бота
-        invoice_id, pay_url = await asyncio.to_thread(
-            lolz.create_invoice,
-            p["rub"],
-            payment_id,
-            f"IKK VPN — подписка «{p['title']}» (Telegram)",
-            f"https://t.me/{BOT_USERNAME}",       # после оплаты — назад в бот
-            f"{SITE_URL}/pay/callback",           # вебхук уйдёт на сайт; бот опрашивает сам
-        )
+        if provider == "platega":
+            payment_id, pay_url = await asyncio.to_thread(
+                platega.create_payment,
+                p["rub"],
+                f"IKK VPN — подписка «{p['title']}» (Telegram)",
+                f"https://t.me/{BOT_USERNAME}",   # после оплаты — назад в бот
+                f"https://t.me/{BOT_USERNAME}",
+                json.dumps({"tg": cq.from_user.id, "plan": code}),
+            )
+            invoice_id = "platega"
+        else:
+            payment_id = uuid.uuid4().hex
+            invoice_id, pay_url = await asyncio.to_thread(
+                lolz.create_invoice,
+                p["rub"],
+                payment_id,
+                f"IKK VPN — подписка «{p['title']}» (Telegram)",
+                f"https://t.me/{BOT_USERNAME}",   # после оплаты — назад в бот
+                f"{SITE_URL}/pay/callback",       # вебхук уйдёт на сайт; бот опрашивает сам
+            )
     except Exception:
-        logging.exception("Lolz (бот): не удалось создать счёт (план %s)", code)
+        logging.exception("%s (бот): не удалось создать счёт (план %s)", provider, code)
         await cq.answer(texts.CARD_FAIL, show_alert=True)
         return
-    db.create_bot_invoice(payment_id, str(invoice_id), cq.from_user.id, code, p["rub"])
-    await show_screen(cq, 
+    db.create_bot_invoice(str(payment_id), str(invoice_id), cq.from_user.id,
+                          code, p["rub"], provider=provider)
+    await show_screen(cq,
         texts.CARD_INVOICE.format(rub=p["rub"], title=p["title"]),
         reply_markup=card_invoice_kb(pay_url, payment_id),
     )
     await cq.answer()
+
+
+async def _check_card_status(rec):
+    """Статус счёта у провайдера: 'paid' / 'pending' / 'dead'."""
+    if rec["provider"] == "platega":
+        st = await asyncio.to_thread(platega.get_status, rec["payment_id"])
+        if st == platega.CONFIRMED:
+            return "paid"
+        if st in (platega.CANCELED, platega.CHARGEBACKED):
+            return "dead"
+        return "pending"
+    inv = await asyncio.to_thread(lolz.get_invoice, rec["payment_id"])
+    return "paid" if (inv and inv.get("status") == "paid") else "pending"
 
 
 async def _credit_card_payment(bot, rec):
@@ -424,13 +457,16 @@ async def cb_paycheck(cq: CallbackQuery):
         await cq.answer("Оплата уже зачислена ✅", show_alert=True)
         return
     try:
-        inv = await asyncio.to_thread(lolz.get_invoice, payment_id)
+        state = await _check_card_status(rec)
     except Exception:
-        logging.exception("Lolz (бот): не удалось проверить счёт %s", payment_id)
-        inv = None
-    if inv and inv.get("status") == "paid":
+        logging.exception("Бот: не удалось проверить счёт %s", payment_id)
+        state = "pending"
+    if state == "paid":
         await _credit_card_payment(cq.bot, rec)
         await cq.answer()
+    elif state == "dead":
+        db.settle_bot_invoice(rec["payment_id"], "expired")
+        await cq.answer("Платёж отменён или истёк. Создайте новый счёт.", show_alert=True)
     else:
         await cq.answer(texts.CARD_PENDING_ALERT, show_alert=True)
 
@@ -449,13 +485,15 @@ async def poll_card_invoices(bot):
                     db.settle_bot_invoice(rec["payment_id"], "expired")
                     continue
                 try:
-                    inv = await asyncio.to_thread(lolz.get_invoice, rec["payment_id"])
+                    state = await _check_card_status(rec)
                 except Exception:
                     continue                     # сеть/API упали — вернёмся через минуту
-                if inv and inv.get("status") == "paid":
+                if state == "paid":
                     await _credit_card_payment(bot, rec)
+                elif state == "dead":
+                    db.settle_bot_invoice(rec["payment_id"], "expired")
         except Exception:
-            logging.exception("Lolz (бот): ошибка фоновой проверки счетов")
+            logging.exception("Бот: ошибка фоновой проверки счетов")
 
 
 @dp.pre_checkout_query()
@@ -511,11 +549,12 @@ async def main():
     await bot.set_my_commands([BotCommand(command="start", description="Главное меню")])
     await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
 
-    if lolz.can_invoice():
+    if platega.is_configured() or lolz.can_invoice():
         asyncio.create_task(poll_card_invoices(bot))
-        logging.info("Lolz: оплата картой/СБП включена (фоновая проверка счетов)")
+        logging.info("Карта/СБП включена, провайдер: %s (фоновая проверка счетов)",
+                     card_provider())
     else:
-        logging.info("Lolz: LOLZ_TOKEN/LOLZ_MERCHANT_ID не заданы — в боте только звёзды")
+        logging.info("Касса не настроена (Platega/Lolz) — в боте только звёзды")
 
     logging.info("IKK VPN bot запущен")
     await dp.start_polling(bot)

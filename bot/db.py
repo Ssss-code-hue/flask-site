@@ -63,6 +63,10 @@ def init_db():
             );
             """
         )
+        # Миграция: провайдер счёта (lolz/platega) у счетов бота
+        icols = {r["name"] for r in c.execute("PRAGMA table_info(bot_invoices)")}
+        if "provider" not in icols:
+            c.execute("ALTER TABLE bot_invoices ADD COLUMN provider TEXT DEFAULT 'lolz'")
         # Миграция старых баз: пробный период у Telegram-пользователей
         ucols = {r["name"] for r in c.execute("PRAGMA table_info(users)")}
         if "trial_used" not in ucols:
@@ -165,13 +169,13 @@ def record_payment(uid, plan, stars, charge_id):
 
 # ===== Счета Lolz в боте (оплата картой/СБП) =====
 
-def create_bot_invoice(payment_id, invoice_id, user_id, plan, amount_rub):
+def create_bot_invoice(payment_id, invoice_id, user_id, plan, amount_rub, provider="lolz"):
     with _conn() as c:
         c.execute(
             "INSERT OR IGNORE INTO bot_invoices"
-            "(payment_id, invoice_id, user_id, plan, amount_rub, status, created_at) "
-            "VALUES(?,?,?,?,?,'pending',?)",
-            (payment_id, invoice_id, user_id, plan, amount_rub, int(time.time())),
+            "(payment_id, invoice_id, user_id, plan, amount_rub, status, created_at, provider) "
+            "VALUES(?,?,?,?,?,'pending',?,?)",
+            (payment_id, invoice_id, user_id, plan, amount_rub, int(time.time()), provider),
         )
 
 
