@@ -112,8 +112,13 @@
             <div class="card">
                 <div class="index">I</div>
                 <h3>Подписка</h3>
+                {% if vpn_active %}
+                <p>Активна до <b>{{ vpn_until }}</b>.<br>
+                   <a href="{{ url_for('tariffs') }}">Продлить →</a></p>
+                {% else %}
                 <p>Пока не оформлена.<br>
                    <a href="{{ url_for('tariffs') }}">Выбрать тариф →</a></p>
+                {% endif %}
             </div>
             <div class="card">
                 <div class="index">II</div>
