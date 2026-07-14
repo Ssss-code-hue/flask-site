@@ -404,6 +404,18 @@ section { padding: 96px 0; position: relative; }
     opacity: 0.4; cursor: not-allowed; pointer-events: none;
 }
 
+/* страница выбора кассы (checkout): карточка с вариантами оплаты */
+.checkout-card { max-width: 520px; margin: 0 auto; text-align: center; }
+.checkout-plan { font-size: 1.6rem; margin: 14px 0 12px; }
+.checkout-sub { color: hsl(var(--muted-foreground)); margin-bottom: 28px; line-height: 1.7; }
+.pay-options { display: flex; flex-direction: column; gap: 12px; }
+.pay-options form { margin: 0; }
+.pay-options .btn { width: 100%; padding: 14px 24px; }
+.checkout-back {
+    display: inline-block; margin-top: 22px;
+    color: hsl(var(--muted-foreground)); font-size: 0.9rem;
+}
+
 /* ---------- Карточки ---------- */
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
 

@@ -14,17 +14,8 @@
 
         {% macro pay_button(code) %}
             {% if providers and session.get('uid') %}
-                {# на каждую настроенную кассу — своя кнопка; название
-                   показываем, только когда касс больше одной #}
-                {% for pid, label in providers %}
-                <form method="post" action="{{ url_for('pay.start', code=code) }}"
-                      style="margin-top:8px;">
-                    <input type="hidden" name="provider" value="{{ pid }}">
-                    <button type="submit" class="btn">
-                        {% if providers|length > 1 %}Оплатить через {{ label }}{% else %}Оплатить{% endif %}
-                    </button>
-                </form>
-                {% endfor %}
+                {# «Оплатить» ведёт на страницу выбора кассы (/pay/<code>) #}
+                <a class="btn" href="{{ url_for('pay.checkout', code=code) }}">Оплатить</a>
             {% elif providers %}
                 <a class="btn" href="{{ url_for('auth.login') }}">Войти и оплатить</a>
             {% else %}

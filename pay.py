@@ -14,7 +14,8 @@ import logging
 import os
 import uuid
 
-from flask import Blueprint, abort, flash, redirect, request, session, url_for
+from flask import (Blueprint, abort, flash, redirect, render_template, request,
+                   session, url_for)
 
 import lolz
 import platega
@@ -56,6 +57,20 @@ def active_provider():
 
 def _payments_available():
     return bool(available_providers())
+
+
+@pay.route("/pay/<code>", methods=["GET"])
+@login_required
+def checkout(code):
+    """Страница выбора кассы для тарифа (открывается кнопкой «Оплатить»)."""
+    plan = PLANS.get(code)
+    if not plan:
+        abort(404)
+    if not _payments_available():
+        flash("Оплата картой пока не подключена. Используйте бота или напишите в поддержку.")
+        return redirect(url_for("tariffs"))
+    return render_template("checkout.html", plan=plan, code=code,
+                           providers=available_providers())
 
 
 @pay.route("/pay/<code>", methods=["POST"])

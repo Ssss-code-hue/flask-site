@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Оплата — IKK VPN{% endblock %}
+{% block hero_eyebrow %}Оплата{% endblock %}
+{% block hero_title %}Способ <em>оплаты</em>{% endblock %}
+
+{% block content %}
+    <section class="container">
+        <div class="card reveal checkout-card">
+            <div class="eyebrow">Ваш тариф</div>
+            <h3 class="checkout-plan">{{ plan.title }} — {{ plan.rub }} ₽</h3>
+            <p class="checkout-sub">Выберите, где оплатить. Способы одинаковые —
+                карта или СБП, отличается только касса.</p>
+
+            <div class="pay-options">
+                {% for pid, label in providers %}
+                <form method="post" action="{{ url_for('pay.start', code=code) }}">
+                    <input type="hidden" name="provider" value="{{ pid }}">
+                    <button type="submit" class="btn">Оплатить через {{ label }}</button>
+                </form>
+                {% endfor %}
+            </div>
+
+            <a class="checkout-back" href="{{ url_for('tariffs') }}">← Назад к тарифам</a>
+        </div>
+    </section>
+{% endblock %}
