@@ -130,6 +130,7 @@ def verify():
             db.delete_email_code(email)
             user = db.get_web_user_by_email(email)
             session.pop("pending_email", None)
+            session.permanent = True
             session["uid"] = user["id"]
             flash("Почта подтверждена — добро пожаловать!")
             return redirect(url_for("auth.account"))
@@ -172,6 +173,7 @@ def login():
             flash("Почта ещё не подтверждена. Мы отправили новый код.")
             return redirect(url_for("auth.verify"))
         else:
+            session.permanent = True   # держим вход, а не «до закрытия вкладки»
             session["uid"] = user["id"]
             return redirect(url_for("auth.account"))
 

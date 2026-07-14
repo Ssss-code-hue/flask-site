@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 
 from flask import Flask, render_template, session
 from flasgger import Swagger
@@ -11,8 +12,21 @@ from pay import available_providers
 from sub import sub as sub_blueprint
 
 app = Flask(__name__)
-# Секретный ключ берём из переменной окружения (для будущей кассы/сессий).
+# Секретный ключ берём из переменной окружения (для сессий/кассы).
 app.secret_key = os.environ.get('SECRET_KEY', 'change-me-to-a-random-secret')
+
+# Cookie сессии должен переживать возврат с платёжного шлюза (Platega) —
+# это переход с чужого домена, при SameSite=Lax браузер cookie не шлёт и
+# пользователя «выкидывает» на вход. На боевом HTTPS ставим SameSite=None
+# (+ обязателен Secure); локально (HTTP) — Lax, иначе Secure-cookie не
+# отправится и вход сломается при разработке.
+_https = os.environ.get('SITE_URL', '').startswith('https')
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SECURE=_https,
+    SESSION_COOKIE_SAMESITE='None' if _https else 'Lax',
+    PERMANENT_SESSION_LIFETIME=timedelta(days=30),
+)
 
 # REST API + Swagger UI (документация на /apidocs)
 db.init_db()                       # на всякий случай создаём таблицы
