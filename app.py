@@ -8,6 +8,7 @@ from auth import TRIAL_DAYS, auth as auth_blueprint
 from bot import db
 from pay import pay as pay_blueprint
 from pay import available_providers
+from sub import sub as sub_blueprint
 
 app = Flask(__name__)
 # Секретный ключ берём из переменной окружения (для будущей кассы/сессий).
@@ -17,7 +18,8 @@ app.secret_key = os.environ.get('SECRET_KEY', 'change-me-to-a-random-secret')
 db.init_db()                       # на всякий случай создаём таблицы
 app.register_blueprint(api_blueprint)
 app.register_blueprint(auth_blueprint)   # регистрация и вход по почте
-app.register_blueprint(pay_blueprint)    # оплата через Lolz (СБП/карта)
+app.register_blueprint(pay_blueprint)    # оплата (Platega/Lolz)
+app.register_blueprint(sub_blueprint)    # прокси подписок VPN (чистый 443)
 Swagger(app, template={
     "info": {
         "title": "IKK VPN API",
