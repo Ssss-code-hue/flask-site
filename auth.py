@@ -15,6 +15,7 @@ from flask import (Blueprint, flash, redirect, render_template, request,
                    session, url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
 
+import hysteria
 import mailer
 from bot import db
 from bot.panel import get_subscription_url
@@ -195,15 +196,16 @@ def account():
         return redirect(url_for("auth.login"))
     created = time.strftime("%d.%m.%Y", time.localtime(user["created_at"]))
 
-    # VPN-подписка: ссылка уже сохранена в базе, панель на каждый заход не дёргаем
+    # VPN-ключ Hysteria2 (рабочий в РФ): выдаётся, пока подписка активна
     now = int(time.time())
-    vpn_active = bool(user["sub_until"] and user["sub_until"] > now and user["sub_url"])
+    vpn_active = bool(user["sub_until"] and user["sub_until"] > now)
     vpn_until = (time.strftime("%d.%m.%Y", time.localtime(user["sub_until"]))
                  if user["sub_until"] else None)
+    vpn_key = hysteria.link_for(db.web_hy_token(user["id"])) if vpn_active else None
     return render_template(
         "account.html", user=user, created=created,
         vpn_active=vpn_active, vpn_until=vpn_until,
-        sub_url=user["sub_url"], trial_used=bool(user["trial_used"]),
+        vpn_key=vpn_key, trial_used=bool(user["trial_used"]),
         trial_days=TRIAL_DAYS,
     )
 
@@ -226,13 +228,10 @@ def vpn_trial():
         flash("Чтобы активировать пробный период, отметьте согласие с офертой.")
     else:
         new_until = now + TRIAL_DAYS * 86400
-        # имя в панели: ikk_web_<id> — не пересекается с Telegram (ikk_<uid>)
-        url = get_subscription_url(f"web_{user['id']}", new_until)
-        if url:
-            db.web_activate_sub(user["id"], new_until, url, trial=True)
-            flash(f"Готово! Пробный ключ на {TRIAL_DAYS} дн. — ниже, в разделе «VPN-ключ».")
-        else:
-            flash("Не получилось выдать ключ. Попробуйте позже или напишите в поддержку.")
+        # ключ — Hysteria2 (рабочий в РФ); токен выдаётся по подписке,
+        # sub_url больше не нужен (Marzban REALITY в РФ не пробивает)
+        db.web_activate_sub(user["id"], new_until, "hysteria2", trial=True)
+        flash(f"Готово! Пробный ключ на {TRIAL_DAYS} дн. — ниже, в разделе «VPN-ключ».")
     return redirect(url_for("auth.account"))
 
 

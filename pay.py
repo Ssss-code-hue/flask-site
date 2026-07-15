@@ -131,16 +131,15 @@ def fail():
 
 
 def _confirm_web_payment(rec):
-    """Зачисляет подтверждённый платёж: дни + ключ. Общая для обоих провайдеров."""
+    """Зачисляет подтверждённый платёж: продлевает подписку.
+
+    Ключ — Hysteria2, он привязан к токену пользователя и работает,
+    пока активна подписка; отдельно выдавать ничего не нужно.
+    """
     plan = PLANS.get(rec["plan"], {})
     days = plan.get("days", 30)
     new_until = db.web_add_days(rec["web_user_id"], days)
-    sub_url = get_subscription_url(f"web_{rec['web_user_id']}", new_until)
-    if sub_url:
-        db.web_activate_sub(rec["web_user_id"], new_until, sub_url)
-    else:
-        log.error("Оплата %s зачислена, но панель не выдала ключ (web_user %s)",
-                  rec["id"], rec["web_user_id"])
+    db.web_activate_sub(rec["web_user_id"], new_until, "hysteria2")
     db.set_web_payment_status(rec["id"], "CONFIRMED")
     log.info("Оплата подтверждена: %s — web_user %s, план %s (+%s дн.)",
              rec["id"], rec["web_user_id"], rec["plan"], days)

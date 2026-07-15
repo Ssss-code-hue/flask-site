@@ -39,15 +39,15 @@
             <div class="eyebrow">VPN-ключ</div>
             {% if vpn_active %}
                 <h3>Ключ активен до {{ vpn_until }}</h3>
-                <p>Скопируйте ссылку-подписку и добавьте её в приложение <b>Happ</b>:</p>
+                <p>Скопируйте ключ и добавьте его в приложение <b>Happ</b>:</p>
                 <div class="field">
-                    <!-- Ссылка скрыта точками, как пароль: вокруг могут быть чужие глаза -->
-                    <input type="password" id="subUrl" readonly value="{{ sub_url }}">
+                    <!-- Ключ скрыт точками, как пароль: вокруг могут быть чужие глаза -->
+                    <input type="password" id="subUrl" readonly value="{{ vpn_key }}">
                 </div>
                 <div style="display:flex; gap:12px; flex-wrap:wrap;">
-                    <button type="button" class="btn" onclick="copySub(this)">Скопировать ссылку</button>
+                    <button type="button" class="btn" onclick="copySub(this)">Скопировать ключ</button>
                     <button type="button" class="btn" onclick="toggleSub(this)">Показать</button>
-                    <a class="btn" href="happ://add/{{ sub_url }}">Открыть в Happ</a>
+                    <a class="btn" href="happ://add/{{ vpn_key }}">Открыть в Happ</a>
                 </div>
                 <p class="note" style="margin-top:14px;">
                     <a href="{{ url_for('webapp') }}">Как подключить на своём устройстве →</a></p>

@@ -21,6 +21,7 @@ from aiogram.types import (
     PreCheckoutQuery,
 )
 
+import hysteria
 import lolz
 import platega
 
@@ -89,6 +90,13 @@ def ref_text(uid):
     link = f"https://t.me/{BOT_USERNAME}?start=ref_{uid}"
     n = db.count_referrals(uid)
     return texts.REF.format(link=link, days=REFERRAL_BONUS_DAYS, count=n, earned=n * REFERRAL_BONUS_DAYS)
+
+
+def vpn_key(uid):
+    """Ключ Hysteria2 Telegram-пользователя (рабочий в РФ), None — если не настроен."""
+    if not hysteria.is_configured():
+        return None
+    return hysteria.link_for(db.bot_hy_token(uid))
 
 
 def status_text(uid):
@@ -171,7 +179,7 @@ async def _give_trial(uid, username, send):
 
     new_until = db.add_days(uid, TRIAL_DAYS)
     db.mark_trial_used(uid)
-    sub_url = get_subscription_url(uid, new_until)
+    sub_url = vpn_key(uid)
     if sub_url:
         await send(texts.TRIAL_OK.format(date=fmt_date(new_until), url=sub_url), devices_kb())
     else:
@@ -430,7 +438,7 @@ async def _credit_card_payment(bot, rec):
     new_until = db.add_days(uid, days)
     db.record_payment(uid, rec["plan"], 0, f"lolz:{rec['payment_id']}")
 
-    sub_url = get_subscription_url(uid, new_until)
+    sub_url = vpn_key(uid)
     if sub_url:
         text = texts.PAID_WITH_KEY.format(date=fmt_date(new_until), url=sub_url)
     else:
@@ -522,7 +530,7 @@ async def on_paid(message: Message):
     new_until = db.add_days(uid, days)
     db.record_payment(uid, code, sp.total_amount, sp.telegram_payment_charge_id)
 
-    sub_url = get_subscription_url(uid, new_until)
+    sub_url = vpn_key(uid)
     if sub_url:
         await message.answer(
             texts.PAID_WITH_KEY.format(date=fmt_date(new_until), url=sub_url),

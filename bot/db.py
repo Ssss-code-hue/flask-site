@@ -71,6 +71,13 @@ def init_db():
         ucols = {r["name"] for r in c.execute("PRAGMA table_info(users)")}
         if "trial_used" not in ucols:
             c.execute("ALTER TABLE users ADD COLUMN trial_used INTEGER DEFAULT 0")
+        # Токен Hysteria2 (ключ для РФ): по нему сервер спрашивает у сайта,
+        # активна ли подписка. У Telegram- и веб-пользователей — свой.
+        if "hy_token" not in ucols:
+            c.execute("ALTER TABLE users ADD COLUMN hy_token TEXT")
+        wcols0 = {r["name"] for r in c.execute("PRAGMA table_info(web_users)")}
+        if "hy_token" not in wcols0:
+            c.execute("ALTER TABLE web_users ADD COLUMN hy_token TEXT")
         # Миграция старых баз: колонки VPN-подписки у пользователей сайта
         cols = {r["name"] for r in c.execute("PRAGMA table_info(web_users)")}
         if "sub_until" not in cols:
@@ -165,6 +172,56 @@ def record_payment(uid, plan, stars, charge_id):
             "INSERT INTO payments(user_id, plan, stars, charge_id, created_at) VALUES(?,?,?,?,?)",
             (uid, plan, stars, charge_id, int(time.time())),
         )
+
+
+# ===== Hysteria2: токены ключей и проверка подписки =====
+
+def _new_hy_token():
+    import secrets
+    return secrets.token_urlsafe(12)
+
+
+def bot_hy_token(uid):
+    """Токен Hysteria2 Telegram-пользователя (создаётся при первом запросе)."""
+    with _conn() as c:
+        row = c.execute("SELECT hy_token FROM users WHERE user_id=?", (uid,)).fetchone()
+        if row and row["hy_token"]:
+            return row["hy_token"]
+        token = _new_hy_token()
+        c.execute("UPDATE users SET hy_token=? WHERE user_id=?", (token, uid))
+        return token
+
+
+def web_hy_token(web_id):
+    """Токен Hysteria2 пользователя сайта."""
+    with _conn() as c:
+        row = c.execute("SELECT hy_token FROM web_users WHERE id=?", (web_id,)).fetchone()
+        if row and row["hy_token"]:
+            return row["hy_token"]
+        token = _new_hy_token()
+        c.execute("UPDATE web_users SET hy_token=? WHERE id=?", (token, web_id))
+        return token
+
+
+def hy_authorize(token):
+    """Проверка ключа Hysteria2 при подключении.
+
+    Возвращает идентификатор пользователя (для статистики), если токен
+    принадлежит пользователю с активной подпиской, иначе None.
+    """
+    if not token:
+        return None
+    now = int(time.time())
+    with _conn() as c:
+        r = c.execute("SELECT user_id, sub_until FROM users WHERE hy_token=?",
+                      (token,)).fetchone()
+        if r and r["sub_until"] and r["sub_until"] > now:
+            return f"tg_{r['user_id']}"
+        r = c.execute("SELECT id, sub_until FROM web_users WHERE hy_token=?",
+                      (token,)).fetchone()
+        if r and r["sub_until"] and r["sub_until"] > now:
+            return f"web_{r['id']}"
+    return None
 
 
 # ===== Счета Lolz в боте (оплата картой/СБП) =====
