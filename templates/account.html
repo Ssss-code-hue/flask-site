@@ -108,35 +108,35 @@
         </div>
 
         <!-- Сервисы -->
-        <div class="cards reveal">
+        <div class="cards reveal acc-services">
             <div class="card">
                 <div class="index">I</div>
                 <h3>Подписка</h3>
                 {% if vpn_active %}
-                <p>Активна до <b>{{ vpn_until }}</b>.<br>
-                   <a href="{{ url_for('tariffs') }}">Продлить →</a></p>
+                <p>Активна до <b>{{ vpn_until }}</b>.</p>
+                <a class="card-link" href="{{ url_for('tariffs') }}">Продлить →</a>
                 {% else %}
-                <p>Пока не оформлена.<br>
-                   <a href="{{ url_for('tariffs') }}">Выбрать тариф →</a></p>
+                <p>Пока не оформлена.</p>
+                <a class="card-link" href="{{ url_for('tariffs') }}">Выбрать тариф →</a>
                 {% endif %}
             </div>
             <div class="card">
                 <div class="index">II</div>
                 <h3>VPN-ключ</h3>
-                <p>Выдаётся прямо на сайте — или в боте после оплаты.<br>
-                   <a href="#vpn">К моему ключу →</a></p>
+                <p>Выдаётся прямо на сайте — или в боте после оплаты.</p>
+                <a class="card-link" href="#vpn">К моему ключу →</a>
             </div>
             <div class="card">
                 <div class="index">III</div>
                 <h3>Подключение</h3>
-                <p>Инструкции для всех устройств (Happ).<br>
-                   <a href="{{ url_for('webapp') }}">Открыть инструкцию →</a></p>
+                <p>Инструкции для всех устройств (Happ).</p>
+                <a class="card-link" href="{{ url_for('webapp') }}">Открыть инструкцию →</a>
             </div>
             <div class="card">
                 <div class="index">IV</div>
                 <h3>Рефералы</h3>
-                <p>+3 дня за каждого приглашённого друга.<br>
-                   <a href="{{ url_for('bot') }}">Пригласить через бота →</a></p>
+                <p>+3 дня за каждого приглашённого друга.</p>
+                <a class="card-link" href="{{ url_for('bot') }}">Пригласить через бота →</a>
             </div>
         </div>
 

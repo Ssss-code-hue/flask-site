@@ -404,6 +404,11 @@ section { padding: 96px 0; position: relative; }
     opacity: 0.4; cursor: not-allowed; pointer-events: none;
 }
 
+/* карточки «Сервисы» в кабинете: ссылка прижата к низу, чтобы все
+   ссылки в ряду были на одном уровне независимо от длины описания */
+.acc-services .card { display: flex; flex-direction: column; }
+.acc-services .card .card-link { margin-top: auto; padding-top: 16px; }
+
 /* страница выбора кассы (checkout): карточка с вариантами оплаты */
 .checkout-card { max-width: 520px; margin: 0 auto; text-align: center; }
 .checkout-plan { font-size: 1.6rem; margin: 14px 0 12px; }

@@ -202,6 +202,16 @@ def admin_set_bot_until(uid, ts):
         c.execute("UPDATE users SET sub_until=? WHERE user_id=?", (ts, uid))
 
 
+def admin_delete_web_user(web_id):
+    with _conn() as c:
+        c.execute("DELETE FROM web_users WHERE id=?", (web_id,))
+
+
+def admin_delete_bot_user(uid):
+    with _conn() as c:
+        c.execute("DELETE FROM users WHERE user_id=?", (uid,))
+
+
 # ===== Hysteria2: токены ключей и проверка подписки =====
 
 def _new_hy_token():

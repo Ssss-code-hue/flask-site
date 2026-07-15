@@ -79,14 +79,15 @@ def action():
     now = int(time.time())
     getter = db.get_web_user if kind == "web" else db.get_user
     setter = db.admin_set_web_until if kind == "web" else db.admin_set_bot_until
+    deleter = db.admin_delete_web_user if kind == "web" else db.admin_delete_bot_user
     u = getter(uid)
     if not u:
         flash("Пользователь не найден.")
         return redirect(url_for("admin.dashboard"))
 
-    if op == "revoke":
-        setter(uid, 0)
-        flash("Подписка отключена.")
+    if op == "delete":
+        deleter(uid)
+        flash("Пользователь удалён.")
     else:
         days = {"add7": 7, "add30": 30, "add365": 365}.get(op)
         if not days:
