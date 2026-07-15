@@ -174,6 +174,34 @@ def record_payment(uid, plan, stars, charge_id):
         )
 
 
+# ===== Админ-панель: список и управление подписками =====
+
+def list_web_users(limit=1000):
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT id, email, sub_until, trial_used, created_at FROM web_users "
+            "ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+        return [dict(r) for r in rows]
+
+
+def list_bot_users(limit=1000):
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT user_id, username, sub_until, trial_used, created_at FROM users "
+            "ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+        return [dict(r) for r in rows]
+
+
+def admin_set_web_until(web_id, ts):
+    with _conn() as c:
+        c.execute("UPDATE web_users SET sub_until=? WHERE id=?", (ts, web_id))
+
+
+def admin_set_bot_until(uid, ts):
+    with _conn() as c:
+        c.execute("UPDATE users SET sub_until=? WHERE user_id=?", (ts, uid))
+
+
 # ===== Hysteria2: токены ключей и проверка подписки =====
 
 def _new_hy_token():

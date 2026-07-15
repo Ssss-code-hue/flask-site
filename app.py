@@ -11,6 +11,7 @@ from pay import pay as pay_blueprint
 from pay import available_providers
 from sub import sub as sub_blueprint
 from hy2 import hy2 as hy2_blueprint
+from admin import admin as admin_blueprint
 
 app = Flask(__name__)
 # Секретный ключ берём из переменной окружения (для сессий/кассы).
@@ -36,6 +37,14 @@ app.register_blueprint(auth_blueprint)   # регистрация и вход п
 app.register_blueprint(pay_blueprint)    # оплата (Platega/Lolz)
 app.register_blueprint(sub_blueprint)    # прокси подписок VPN (чистый 443)
 app.register_blueprint(hy2_blueprint)    # HTTP-авторизация ключей Hysteria2
+app.register_blueprint(admin_blueprint)  # админ-панель управления подписками
+
+
+@app.template_filter('ts')
+def _fmt_ts(value):
+    """Unix-время → ДД.ММ.ГГГГ для шаблонов админки."""
+    import time as _t
+    return _t.strftime('%d.%m.%Y', _t.localtime(value)) if value else '—'
 Swagger(app, template={
     "info": {
         "title": "IKK VPN API",

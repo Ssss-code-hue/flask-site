@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ — IKK VPN</title>
+    <style>
+        :root { --bg:#002b42; --fg:#fff; --dim:#9fb3c0; --line:rgba(255,255,255,.15); }
+        * { box-sizing:border-box; }
+        body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+               background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,sans-serif; }
+        .box { width:min(360px,90vw); }
+        h1 { font-weight:500; font-size:1.4rem; margin:0 0 20px; }
+        input { width:100%; padding:13px 16px; border-radius:10px; border:1px solid var(--line);
+                background:rgba(255,255,255,.04); color:var(--fg); font-size:1rem; margin-bottom:14px; }
+        button { width:100%; padding:13px; border-radius:999px; border:1px solid var(--line);
+                 background:#fff; color:#04212f; font-size:1rem; font-weight:500; cursor:pointer; }
+        .flash { color:#ffb4a8; font-size:.9rem; margin-bottom:14px; }
+    </style>
+</head>
+<body>
+    <form class="box" method="post">
+        <h1>🔒 Админ-панель IKK VPN</h1>
+        {% with msgs = get_flashed_messages() %}
+          {% for m in msgs %}<div class="flash">{{ m }}</div>{% endfor %}
+        {% endwith %}
+        <input type="password" name="password" placeholder="Пароль администратора" autofocus required>
+        <button type="submit">Войти</button>
+    </form>
+</body>
+</html>

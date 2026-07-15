@@ -34,6 +34,8 @@ services:
       - HY_PORT=${HY_PORT:-443}
       - HY_OBFS_PASSWORD=${HY_OBFS_PASSWORD:-}
       - HY_SNI=${HY_SNI:-}
+      # Пароль админ-панели (/admin)
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       - SITE_URL=${SITE_URL:-https://ikkvpn.com}
     volumes:
       # База лежит в папке data рядом с проектом — не стирается при обновлениях

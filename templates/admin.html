@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ-панель — IKK VPN</title>
+    <style>
+        :root { --bg:#002b42; --fg:#fff; --dim:#9fb3c0; --line:rgba(255,255,255,.14); }
+        * { box-sizing:border-box; }
+        body { margin:0; background:var(--bg); color:var(--fg);
+               font-family:system-ui,-apple-system,sans-serif; padding:24px; }
+        .wrap { max-width:1100px; margin:0 auto; }
+        header { display:flex; justify-content:space-between; align-items:center; margin-bottom:22px; flex-wrap:wrap; gap:12px; }
+        h1 { font-weight:500; font-size:1.5rem; margin:0; }
+        a.logout { color:var(--dim); text-decoration:none; font-size:.9rem; }
+        .stats { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:26px; }
+        .stat { background:rgba(255,255,255,.04); border:1px solid var(--line); border-radius:12px;
+                padding:14px 20px; min-width:150px; }
+        .stat b { display:block; font-size:1.6rem; }
+        .stat span { color:var(--dim); font-size:.85rem; }
+        h2 { font-weight:500; font-size:1.15rem; margin:26px 0 12px; }
+        .tablewrap { overflow-x:auto; border:1px solid var(--line); border-radius:12px; }
+        table { width:100%; border-collapse:collapse; font-size:.9rem; min-width:640px; }
+        th, td { text-align:left; padding:10px 14px; border-bottom:1px solid var(--line); white-space:nowrap; }
+        th { color:var(--dim); font-weight:500; }
+        tr:last-child td { border-bottom:none; }
+        .badge { padding:2px 9px; border-radius:999px; font-size:.8rem; }
+        .on { background:rgba(80,220,140,.15); color:#7fe0a6; }
+        .off { background:rgba(255,255,255,.08); color:var(--dim); }
+        .acts { display:flex; gap:6px; }
+        .acts button { padding:5px 10px; border-radius:8px; border:1px solid var(--line);
+                       background:rgba(255,255,255,.05); color:var(--fg); cursor:pointer; font-size:.8rem; }
+        .acts .rev { color:#ffb4a8; }
+        .flash { background:rgba(80,220,140,.12); border:1px solid var(--line); border-radius:10px;
+                 padding:10px 16px; margin-bottom:18px; }
+        .muted { color:var(--dim); }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <header>
+        <h1>🛡 Админ-панель IKK VPN</h1>
+        <a class="logout" href="{{ url_for('admin.logout') }}">Выйти →</a>
+    </header>
+
+    {% with msgs = get_flashed_messages() %}
+      {% for m in msgs %}<div class="flash">{{ m }}</div>{% endfor %}
+    {% endwith %}
+
+    <div class="stats">
+        <div class="stat"><b>{{ stats.web_active }}</b><span>активных на сайте (из {{ stats.web_total }})</span></div>
+        <div class="stat"><b>{{ stats.bot_active }}</b><span>активных в боте (из {{ stats.bot_total }})</span></div>
+    </div>
+
+    {% macro row(kind, uid, name, sub_until) %}
+        <tr>
+            <td>{{ name }}</td>
+            <td>
+                {% if sub_until and sub_until > now %}
+                    <span class="badge on">до {{ sub_until | ts }}</span>
+                {% else %}
+                    <span class="badge off">нет</span>
+                {% endif %}
+            </td>
+            <td>
+                <form method="post" action="{{ url_for('admin.action') }}" class="acts">
+                    <input type="hidden" name="kind" value="{{ kind }}">
+                    <input type="hidden" name="uid" value="{{ uid }}">
+                    <button name="op" value="add7">+7д</button>
+                    <button name="op" value="add30">+30д</button>
+                    <button name="op" value="add365">+год</button>
+                    <button name="op" value="revoke" class="rev">Отключить</button>
+                </form>
+            </td>
+        </tr>
+    {% endmacro %}
+
+    <h2>Сайт <span class="muted">({{ stats.web_total }})</span></h2>
+    <div class="tablewrap">
+        <table>
+            <thead><tr><th>Почта</th><th>Подписка</th><th>Действия</th></tr></thead>
+            <tbody>
+                {% for u in web %}{{ row('web', u.id, u.email, u.sub_until) }}{% endfor %}
+                {% if not web %}<tr><td colspan="3" class="muted">Пусто</td></tr>{% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <h2>Telegram-бот <span class="muted">({{ stats.bot_total }})</span></h2>
+    <div class="tablewrap">
+        <table>
+            <thead><tr><th>Пользователь</th><th>Подписка</th><th>Действия</th></tr></thead>
+            <tbody>
+                {% for u in bot %}{{ row('bot', u.user_id, (('@' ~ u.username) if u.username else ('id' ~ u.user_id|string)), u.sub_until) }}{% endfor %}
+                {% if not bot %}<tr><td colspan="3" class="muted">Пусто</td></tr>{% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</body>
+</html>
