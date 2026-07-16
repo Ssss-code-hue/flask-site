@@ -102,6 +102,11 @@ def vpn_key(uid):
 def status_text(uid):
     u = db.get_user(uid)
     if u and u["sub_until"] and u["sub_until"] > int(time.time()):
+        key = vpn_key(uid)
+        if key:
+            # показываем ключ повторно — чтобы его можно было скопировать
+            # в «Моя подписка», а не только сразу после покупки
+            return texts.STATUS_ACTIVE_KEY.format(date=fmt_date(u["sub_until"]), url=key)
         return texts.STATUS_ACTIVE.format(date=fmt_date(u["sub_until"]))
     return texts.STATUS_INACTIVE
 
