@@ -34,6 +34,7 @@ services:
       - HY_PORT=${HY_PORT:-443}
       - HY_OBFS_PASSWORD=${HY_OBFS_PASSWORD:-}
       - HY_SNI=${HY_SNI:-}
+      - HY_PIN=${HY_PIN:-}
       # Пароль админ-панели (/admin)
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       - SITE_URL=${SITE_URL:-https://ikkvpn.com}

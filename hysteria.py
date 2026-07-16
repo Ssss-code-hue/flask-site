@@ -19,6 +19,10 @@ HY_HOST = os.environ.get("HY_HOST", "").strip()
 HY_PORT = os.environ.get("HY_PORT", "443").strip()
 HY_OBFS_PASSWORD = os.environ.get("HY_OBFS_PASSWORD", "").strip()
 HY_SNI = os.environ.get("HY_SNI", HY_HOST).strip()
+# Отпечаток (SHA-256) самоподписанного сертификата сервера. Если задан —
+# клиент доверяет серверу по отпечатку (pinSHA256), а не по цепочке CA:
+# убирает «ошибку TLS рукопожатия» и не зависит от продления Let's Encrypt.
+HY_PIN = os.environ.get("HY_PIN", "").strip()
 
 
 def is_configured():
@@ -27,10 +31,11 @@ def is_configured():
 
 def link_for(token):
     """Ссылка-ключ Hysteria2 для Happ. token уходит в поле auth."""
+    pin = f"&pinSHA256={quote(HY_PIN, safe='')}" if HY_PIN else ""
     return (
         f"hysteria2://{quote(token, safe='')}@{HY_HOST}:{HY_PORT}/"
         f"?obfs=salamander&obfs-password={quote(HY_OBFS_PASSWORD, safe='')}"
-        f"&sni={quote(HY_SNI, safe='')}#IKK%20VPN"
+        f"&sni={quote(HY_SNI, safe='')}{pin}#IKK%20VPN"
     )
 
 
