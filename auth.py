@@ -210,8 +210,9 @@ def account():
     vpn_active = bool(user["sub_until"] and user["sub_until"] > now)
     vpn_until = (time.strftime("%d.%m.%Y", time.localtime(user["sub_until"]))
                  if user["sub_until"] else None)
-    vpn_key = hysteria.link_for(db.web_hy_token(user["id"])) if vpn_active else None
-    happ_url = hysteria.happ_link(vpn_key) if vpn_key else None
+    hy_token = db.web_hy_token(user["id"]) if vpn_active else None
+    vpn_key = hysteria.link_for(hy_token) if hy_token else None
+    happ_url = f"/happ/{hy_token}" if hy_token else None   # редирект → happ://add/подписка
     return render_template(
         "account.html", user=user, created=created,
         vpn_active=vpn_active, vpn_until=vpn_until,

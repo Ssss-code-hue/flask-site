@@ -63,12 +63,27 @@ def inject_nav_user():
     return {'nav_user': db.get_web_user(uid) if uid else None}
 
 
+_SITE_URL = os.environ.get('SITE_URL', 'https://ikkvpn.com').rstrip('/')
+
+
+@app.route('/vpnsub/<token>')
+def vpn_subscription(token):
+    """Ссылка-подписка для Happ: отдаёт конфиг (base64, стандартный
+    формат подписки). Happ забирает её и добавляет ключ; при смене
+    сервера подписка обновится у всех сама."""
+    import base64
+    body = base64.b64encode(hysteria.link_for(token).encode()).decode()
+    resp = app.response_class(body, mimetype='text/plain')
+    resp.headers['Profile-Title'] = 'base64:' + base64.b64encode('IKK VPN'.encode()).decode()
+    return resp
+
+
 @app.route('/happ/<token>')
 def happ_open(token):
     """Открыть ключ в Happ одним нажатием. Telegram не пускает схему
     happ:// в ссылках, поэтому даём https-адрес, который редиректит
-    в happ://add/<base64> — браузер запускает Happ."""
-    return redirect(hysteria.happ_link(hysteria.link_for(token)), code=302)
+    в happ://add/<подписка> — Happ добавляет её как подписку."""
+    return redirect(f"happ://add/{_SITE_URL}/vpnsub/{token}", code=302)
 
 
 @app.route('/')
