@@ -202,10 +202,11 @@ def account():
     vpn_until = (time.strftime("%d.%m.%Y", time.localtime(user["sub_until"]))
                  if user["sub_until"] else None)
     vpn_key = hysteria.link_for(db.web_hy_token(user["id"])) if vpn_active else None
+    happ_url = hysteria.happ_link(vpn_key) if vpn_key else None
     return render_template(
         "account.html", user=user, created=created,
         vpn_active=vpn_active, vpn_until=vpn_until,
-        vpn_key=vpn_key, trial_used=bool(user["trial_used"]),
+        vpn_key=vpn_key, happ_url=happ_url, trial_used=bool(user["trial_used"]),
         trial_days=TRIAL_DAYS,
     )
 

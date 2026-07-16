@@ -11,6 +11,7 @@ Hysteria2 на каждое подключение спрашивает разр
   HY_OBFS_PASSWORD — пароль обфускации Salamander (общий, из конфига сервера)
   HY_SNI           — SNI для TLS (обычно = HY_HOST)
 """
+import base64
 import os
 from urllib.parse import quote
 
@@ -31,3 +32,9 @@ def link_for(token):
         f"?obfs=salamander&obfs-password={quote(HY_OBFS_PASSWORD, safe='')}"
         f"&sni={quote(HY_SNI, safe='')}#IKK%20VPN"
     )
+
+
+def happ_link(config):
+    """Deep link «Открыть в Happ»: сам ключ кодируем в base64, иначе
+    символы ?/#/& обрезают конфиг и Happ пишет «не удалось разобрать»."""
+    return "happ://add/" + base64.b64encode(config.encode()).decode()
