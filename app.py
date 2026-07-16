@@ -75,6 +75,10 @@ def vpn_subscription(token):
     body = base64.b64encode(hysteria.link_for(token).encode()).decode()
     resp = app.response_class(body, mimetype='text/plain')
     resp.headers['Profile-Title'] = 'base64:' + base64.b64encode('IKK VPN'.encode()).decode()
+    # подписку НЕЛЬЗЯ кэшировать (динамическая, per-user) — иначе Cloudflare
+    # раздаёт устаревший конфиг (напр. без pinSHA256) и клиенту, и Happ
+    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    resp.headers['CDN-Cache-Control'] = 'no-store'
     return resp
 
 
