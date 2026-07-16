@@ -99,6 +99,14 @@ def vpn_key(uid):
     return hysteria.link_for(db.bot_hy_token(uid))
 
 
+def happ_open_url(uid):
+    """Кликабельная https-ссылка «Открыть в Happ» (редирект на сайте →
+    happ://). Telegram отклоняет схему happ:// в ссылках, https — нет."""
+    if not hysteria.is_configured():
+        return None
+    return f"{SITE_URL}/happ/{db.bot_hy_token(uid)}"
+
+
 def status_text(uid):
     u = db.get_user(uid)
     if u and u["sub_until"] and u["sub_until"] > int(time.time()):
@@ -107,7 +115,7 @@ def status_text(uid):
             # показываем ключ повторно — чтобы его можно было скопировать
             # в «Моя подписка», а не только сразу после покупки
             return texts.STATUS_ACTIVE_KEY.format(
-                date=fmt_date(u["sub_until"]), url=key, happ=hysteria.happ_link(key))
+                date=fmt_date(u["sub_until"]), url=key, happ=happ_open_url(uid))
         return texts.STATUS_ACTIVE.format(date=fmt_date(u["sub_until"]))
     return texts.STATUS_INACTIVE
 
@@ -188,7 +196,7 @@ async def _give_trial(uid, username, send):
     sub_url = vpn_key(uid)
     if sub_url:
         await send(texts.TRIAL_OK.format(date=fmt_date(new_until), url=sub_url,
-                                         happ=hysteria.happ_link(sub_url)), devices_kb())
+                                         happ=happ_open_url(uid)), devices_kb())
     else:
         await send(
             texts.TRIAL_NO_KEY.format(date=fmt_date(new_until), owner=SUPPORT_BOT_USERNAME),
@@ -447,7 +455,7 @@ async def _credit_card_payment(bot, rec):
 
     sub_url = vpn_key(uid)
     if sub_url:
-        text = texts.PAID_WITH_KEY.format(date=fmt_date(new_until), url=sub_url, happ=hysteria.happ_link(sub_url))
+        text = texts.PAID_WITH_KEY.format(date=fmt_date(new_until), url=sub_url, happ=happ_open_url(uid))
     else:
         text = texts.PAID_NO_KEY.format(date=fmt_date(new_until), owner=SUPPORT_BOT_USERNAME)
     try:
@@ -540,7 +548,7 @@ async def on_paid(message: Message):
     sub_url = vpn_key(uid)
     if sub_url:
         await message.answer(
-            texts.PAID_WITH_KEY.format(date=fmt_date(new_until), url=sub_url, happ=hysteria.happ_link(sub_url)),
+            texts.PAID_WITH_KEY.format(date=fmt_date(new_until), url=sub_url, happ=happ_open_url(uid)),
             reply_markup=devices_kb(),
         )
     else:

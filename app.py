@@ -1,8 +1,10 @@
 import os
 from datetime import timedelta
 
-from flask import Flask, render_template, session
+from flask import Flask, redirect, render_template, session
 from flasgger import Swagger
+
+import hysteria
 
 from api import api as api_blueprint
 from auth import TRIAL_DAYS, auth as auth_blueprint
@@ -59,6 +61,14 @@ def inject_nav_user():
     # Пользователь для шапки (аватар возле «Аккаунт»); None, если не вошёл
     uid = session.get('uid')
     return {'nav_user': db.get_web_user(uid) if uid else None}
+
+
+@app.route('/happ/<token>')
+def happ_open(token):
+    """Открыть ключ в Happ одним нажатием. Telegram не пускает схему
+    happ:// в ссылках, поэтому даём https-адрес, который редиректит
+    в happ://add/<base64> — браузер запускает Happ."""
+    return redirect(hysteria.happ_link(hysteria.link_for(token)), code=302)
 
 
 @app.route('/')
