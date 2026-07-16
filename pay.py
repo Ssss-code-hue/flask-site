@@ -113,7 +113,7 @@ def start(code):
         flash("Не получилось создать платёж. Попробуйте позже или напишите в поддержку.")
         return redirect(url_for("tariffs"))
 
-    db.create_web_payment(tx_id, user["id"], code, plan["rub"])
+    db.create_web_payment(tx_id, user["id"], code, plan["rub"], provider=provider)
     return redirect(pay_url)
 
 
@@ -143,6 +143,27 @@ def _confirm_web_payment(rec):
     db.set_web_payment_status(rec["id"], "CONFIRMED")
     log.info("Оплата подтверждена: %s — web_user %s, план %s (+%s дн.)",
              rec["id"], rec["web_user_id"], rec["plan"], days)
+
+
+def reconcile_pending(web_user_id):
+    """Сам сверяет незачисленные оплаты у кассы и зачисляет подтверждённые.
+
+    Подстраховка на случай, когда callback от Platega/Lolz не дошёл
+    (его режет Cloudflare). Вызывается при заходе в кабинет — оплата
+    «самозачисляется», без ручного вмешательства.
+    """
+    for rec in db.pending_web_payments(web_user_id):
+        try:
+            if rec["provider"] == "lolz":
+                inv = lolz.get_invoice(rec["id"])
+                paid = bool(inv and inv.get("status") == "paid")
+            else:
+                paid = platega.get_status(rec["id"]) == platega.CONFIRMED
+        except Exception:
+            log.exception("reconcile: не удалось проверить платёж %s", rec["id"])
+            continue
+        if paid and rec["status"] == "PENDING":
+            _confirm_web_payment(rec)
 
 
 @pay.route("/pay/callback", methods=["POST"])

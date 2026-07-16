@@ -196,6 +196,15 @@ def account():
         return redirect(url_for("auth.login"))
     created = time.strftime("%d.%m.%Y", time.localtime(user["created_at"]))
 
+    # самозачисление: если оплата прошла, но callback не дошёл (режет
+    # Cloudflare) — сверяем незачисленные платежи у кассы прямо сейчас
+    try:
+        import pay
+        pay.reconcile_pending(user["id"])
+        user = db.get_web_user(session["uid"])   # перечитать после возможного зачисления
+    except Exception:
+        pass
+
     # VPN-ключ Hysteria2 (рабочий в РФ): выдаётся, пока подписка активна
     now = int(time.time())
     vpn_active = bool(user["sub_until"] and user["sub_until"] > now)

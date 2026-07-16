@@ -78,6 +78,11 @@ def init_db():
         wcols0 = {r["name"] for r in c.execute("PRAGMA table_info(web_users)")}
         if "hy_token" not in wcols0:
             c.execute("ALTER TABLE web_users ADD COLUMN hy_token TEXT")
+        # Провайдер веб-платежа (platega/lolz) — нужен, чтобы сайт мог сам
+        # сверить незачисленную оплату у нужной кассы (если callback не дошёл)
+        pcols = {r["name"] for r in c.execute("PRAGMA table_info(web_payments)")}
+        if "provider" not in pcols:
+            c.execute("ALTER TABLE web_payments ADD COLUMN provider TEXT DEFAULT 'platega'")
         # Миграция старых баз: колонки VPN-подписки у пользователей сайта
         cols = {r["name"] for r in c.execute("PRAGMA table_info(web_users)")}
         if "sub_until" not in cols:
@@ -346,14 +351,26 @@ def web_add_days(uid, days):
     return new_until
 
 
-def create_web_payment(tx_id, web_user_id, plan, amount_rub):
-    """Запоминает созданный в Platega платёж (до подтверждения — PENDING)."""
+def create_web_payment(tx_id, web_user_id, plan, amount_rub, provider="platega"):
+    """Запоминает созданный платёж (до подтверждения — PENDING)."""
     with _conn() as c:
         c.execute(
-            "INSERT OR IGNORE INTO web_payments(id, web_user_id, plan, amount_rub, status, created_at) "
-            "VALUES(?,?,?,?, 'PENDING', ?)",
-            (tx_id, web_user_id, plan, amount_rub, int(time.time())),
+            "INSERT OR IGNORE INTO web_payments"
+            "(id, web_user_id, plan, amount_rub, status, created_at, provider) "
+            "VALUES(?,?,?,?, 'PENDING', ?, ?)",
+            (tx_id, web_user_id, plan, amount_rub, int(time.time()), provider),
         )
+
+
+def pending_web_payments(web_user_id, max_age=3 * 3600):
+    """Незачисленные (PENDING) платежи пользователя за последние часы —
+    их сайт сам сверяет у кассы, если callback не дошёл."""
+    now = int(time.time())
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT * FROM web_payments WHERE web_user_id=? AND status='PENDING' "
+            "AND created_at > ?", (web_user_id, now - max_age)).fetchall()
+        return [dict(r) for r in rows]
 
 
 def get_web_payment(tx_id):
