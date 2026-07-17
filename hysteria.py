@@ -8,6 +8,7 @@ Hysteria2 на каждое подключение спрашивает разр
 Настройка через переменные окружения:
   HY_HOST          — адрес/домен сервера (совпадает с сертификатом)
   HY_PORT          — UDP-порт (по умолчанию 443)
+  HY_PORTS         — диапазон портов для перескока, напр. "20000-50000"
   HY_OBFS_PASSWORD — пароль обфускации Salamander (общий, из конфига сервера)
   HY_SNI           — SNI для TLS (обычно = HY_HOST)
 """
@@ -23,6 +24,12 @@ HY_SNI = os.environ.get("HY_SNI", HY_HOST).strip()
 # клиент доверяет серверу по отпечатку (pinSHA256), а не по цепочке CA:
 # убирает «ошибку TLS рукопожатия» и не зависит от продления Let's Encrypt.
 HY_PIN = os.environ.get("HY_PIN", "").strip()
+# Перескок портов (port hopping) — против глушения UDP-потока DPI: провайдер
+# пропускает первые пакеты и глушит поток, а клиент, меняя порт каждые
+# ~30 секунд, каждый раз начинает «свежий» поток. Если задан, ссылка
+# получает диапазон вместо порта (host:20000-50000) и mportHopInt=30;
+# на сервере диапазон завёрнут iptables-редиректом на реальный порт 443.
+HY_PORTS = os.environ.get("HY_PORTS", "").strip()
 
 
 def is_configured():
@@ -32,10 +39,12 @@ def is_configured():
 def link_for(token):
     """Ссылка-ключ Hysteria2 для Happ. token уходит в поле auth."""
     pin = f"&pinSHA256={quote(HY_PIN, safe='')}" if HY_PIN else ""
+    ports = HY_PORTS or HY_PORT
+    hop = "&mportHopInt=30" if HY_PORTS else ""
     return (
-        f"hysteria2://{quote(token, safe='')}@{HY_HOST}:{HY_PORT}/"
+        f"hysteria2://{quote(token, safe='')}@{HY_HOST}:{ports}/"
         f"?obfs=salamander&obfs-password={quote(HY_OBFS_PASSWORD, safe='')}"
-        f"&sni={quote(HY_SNI, safe='')}{pin}#IKK%20VPN"
+        f"&sni={quote(HY_SNI, safe='')}{pin}{hop}#IKK%20VPN"
     )
 
 
