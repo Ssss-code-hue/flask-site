@@ -26,8 +26,9 @@ HY_SNI = os.environ.get("HY_SNI", HY_HOST).strip()
 HY_PIN = os.environ.get("HY_PIN", "").strip()
 # Перескок портов (port hopping) — против глушения UDP-потока DPI: провайдер
 # пропускает первые пакеты и глушит поток, а клиент, меняя порт каждые
-# ~30 секунд, каждый раз начинает «свежий» поток. Если задан, ссылка
-# получает диапазон вместо порта (host:20000-50000) и mportHopInt=30;
+# ~30 секунд, каждый раз начинает «свежий» поток. Диапазон передаём
+# параметром mport (в адресе остаётся надёжный 443: клиент без поддержки
+# mport просто продолжит работать по 443, ссылка не ломается);
 # на сервере диапазон завёрнут iptables-редиректом на реальный порт 443.
 HY_PORTS = os.environ.get("HY_PORTS", "").strip()
 
@@ -39,10 +40,9 @@ def is_configured():
 def link_for(token):
     """Ссылка-ключ Hysteria2 для Happ. token уходит в поле auth."""
     pin = f"&pinSHA256={quote(HY_PIN, safe='')}" if HY_PIN else ""
-    ports = HY_PORTS or HY_PORT
-    hop = "&mportHopInt=30" if HY_PORTS else ""
+    hop = f"&mport={quote(HY_PORTS, safe='')}&mportHopInt=30" if HY_PORTS else ""
     return (
-        f"hysteria2://{quote(token, safe='')}@{HY_HOST}:{ports}/"
+        f"hysteria2://{quote(token, safe='')}@{HY_HOST}:{HY_PORT}/"
         f"?obfs=salamander&obfs-password={quote(HY_OBFS_PASSWORD, safe='')}"
         f"&sni={quote(HY_SNI, safe='')}{pin}{hop}#IKK%20VPN"
     )
