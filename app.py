@@ -4,15 +4,12 @@ from datetime import timedelta
 from flask import Flask, redirect, render_template, session
 from flasgger import Swagger
 
-import hysteria
-
 from api import api as api_blueprint
 from auth import TRIAL_DAYS, auth as auth_blueprint
 from bot import db
 from pay import pay as pay_blueprint
 from pay import available_providers
 from sub import sub as sub_blueprint
-from hy2 import hy2 as hy2_blueprint
 from admin import admin as admin_blueprint
 
 app = Flask(__name__)
@@ -38,7 +35,6 @@ app.register_blueprint(api_blueprint)
 app.register_blueprint(auth_blueprint)   # регистрация и вход по почте
 app.register_blueprint(pay_blueprint)    # оплата (Platega/Lolz)
 app.register_blueprint(sub_blueprint)    # прокси подписок VPN (чистый 443)
-app.register_blueprint(hy2_blueprint)    # HTTP-авторизация ключей Hysteria2
 app.register_blueprint(admin_blueprint)  # админ-панель управления подписками
 
 
@@ -68,26 +64,25 @@ _SITE_URL = os.environ.get('SITE_URL', 'https://ikkvpn.com').rstrip('/')
 
 @app.route('/vpnsub/<token>')
 def vpn_subscription(token):
-    """Ссылка-подписка для Happ: отдаёт конфиг (base64, стандартный
-    формат подписки). Happ забирает её и добавляет ключ; при смене
-    сервера подписка обновится у всех сама."""
-    import base64
-    body = base64.b64encode(hysteria.link_for(token).encode()).decode()
-    resp = app.response_class(body, mimetype='text/plain')
-    resp.headers['Profile-Title'] = 'base64:' + base64.b64encode('IKK VPN'.encode()).decode()
-    # подписку НЕЛЬЗЯ кэшировать (динамическая, per-user) — иначе Cloudflare
-    # раздаёт устаревший конфиг (напр. без pinSHA256) и клиенту, и Happ
-    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-    resp.headers['CDN-Cache-Control'] = 'no-store'
-    return resp
+    """Старый адрес подписки. Ведёт на /sub/<токен> — тот же конфиг,
+    но уже с правкой XHTTP-параметров (см. sub.py). Оставлен, чтобы не
+    ломать ссылки, выданные клиентам раньше."""
+    return redirect(f"/sub/{token}", code=302)
+
+
+@app.route('/v2raytun/<token>')
+def v2raytun_open(token):
+    """Открыть ключ в v2RayTun одним нажатием. Telegram не пускает схему
+    v2raytun:// в ссылках, поэтому даём https-адрес, который редиректит
+    в v2raytun://import/<подписка> — приложение добавляет её как подписку."""
+    return redirect(f"v2raytun://import/{_SITE_URL}/sub/{token}", code=302)
 
 
 @app.route('/happ/<token>')
 def happ_open(token):
-    """Открыть ключ в Happ одним нажатием. Telegram не пускает схему
-    happ:// в ссылках, поэтому даём https-адрес, который редиректит
-    в happ://add/<подписка> — Happ добавляет её как подписку."""
-    return redirect(f"happ://add/{_SITE_URL}/vpnsub/{token}", code=302)
+    """Старая ссылка для приложения Happ. Оставлена, чтобы не ломать уже
+    выданные клиентам ссылки; новых пользователей ведём в v2RayTun."""
+    return redirect(f"happ://add/{_SITE_URL}/sub/{token}", code=302)
 
 
 @app.route('/')
@@ -117,7 +112,7 @@ def bot():
 
 @app.route('/app')
 def webapp():
-    # Мини-приложение Telegram с инструкцией подключения (Happ)
+    # Мини-приложение Telegram с инструкцией подключения (v2RayTun)
     return render_template('webapp.html')
 
 

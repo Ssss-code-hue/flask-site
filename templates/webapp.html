@@ -86,7 +86,7 @@
         .step p { font-size:.94rem; color:var(--dim); padding-top:7px; }
         .step b { font-weight:500; color:var(--fg); }
 
-        /* кнопка скачивания Happ — «жидкое стекло» */
+        /* кнопка скачивания приложения — «жидкое стекло» */
         .dl-btn {
             display:block; text-align:center; margin:0 0 14px;
             font-family:'Inter', sans-serif; font-weight:500; font-size:.95rem;
@@ -113,7 +113,7 @@
     </style>
 </head>
 <body>
-    <div class="eyebrow rise">Подключение · Happ</div>
+    <div class="eyebrow rise">Подключение · v2RayTun</div>
     <h1 class="title rise">IKK VPN</h1>
     <div class="sub rise-2">Выберите своё устройство</div>
 
@@ -131,26 +131,26 @@
 
     <script>
         const install = {
-            ios:     'Установите приложение <b>Happ</b> из <b>App Store</b>.',
-            android: 'Установите приложение <b>Happ</b> из <b>Google Play</b>.',
-            windows: 'Скачайте и установите <b>Happ для Windows</b>.',
-            macos:   'Установите <b>Happ</b> из <b>App Store</b> (Mac).',
-            tv:      'Установите <b>Happ</b> из <b>Google Play</b> на телевизоре.',
+            ios:     'Установите приложение <b>v2RayTun</b> из <b>App Store</b>.',
+            android: 'Установите приложение <b>v2RayTun</b> из <b>Google Play</b>.',
+            windows: 'Скачайте <b>v2RayTun для Windows</b> с официального сайта.',
+            macos:   'Установите <b>v2RayTun</b> из <b>App Store</b> (macOS 13 и новее).',
+            tv:      'Установите <b>v2RayTun</b> из <b>Google Play</b> на телевизоре.',
         };
         const add = {
-            ios:     'Откройте Happ → «<b>+</b>» → «<b>Добавить из буфера обмена</b>».',
-            android: 'Откройте Happ → «<b>+</b>» → «<b>Добавить из буфера обмена</b>».',
-            windows: 'В Happ нажмите «<b>Добавить</b>» и вставьте ссылку.',
-            macos:   'Откройте Happ → «<b>+</b>» → «<b>Добавить из буфера обмена</b>».',
-            tv:      'В Happ добавьте подписку по ссылке (или войдите через QR/код).',
+            ios:     'Откройте v2RayTun → «<b>+</b>» вверху справа → «<b>Импорт из буфера обмена</b>».',
+            android: 'Откройте v2RayTun → «<b>+</b>» вверху справа → «<b>Импорт из буфера обмена</b>».',
+            windows: 'В v2RayTun нажмите «<b>+</b>» → «<b>Импорт из буфера обмена</b>».',
+            macos:   'Откройте v2RayTun → «<b>+</b>» вверху справа → «<b>Импорт из буфера обмена</b>».',
+            tv:      'В v2RayTun выберите «<b>+</b>» → «<b>Импорт по QR-коду</b>» и наведите на код из бота.',
         };
-        // официальные ссылки на скачивание Happ
+        // официальные ссылки на скачивание v2RayTun
         const dl = {
-            ios:     'https://apps.apple.com/us/app/happ-proxy-utility/id6504287215',
-            android: 'https://play.google.com/store/apps/details?id=com.happproxy',
-            windows: 'https://github.com/Happ-proxy/happ-desktop/releases',
-            macos:   'https://github.com/Happ-proxy/happ-desktop/releases',
-            tv:      'https://play.google.com/store/apps/details?id=com.happproxy',
+            ios:     'https://apps.apple.com/us/app/v2raytun/id6476628951',
+            android: 'https://play.google.com/store/apps/details?id=com.v2raytun.android',
+            windows: 'https://v2raytun.com',
+            macos:   'https://apps.apple.com/us/app/v2raytun/id6476628951',
+            tv:      'https://play.google.com/store/apps/details?id=com.v2raytun.android',
         };
         const keys = ['ios','android','windows','macos','tv'];
         const panels = document.getElementById('panels');
@@ -159,11 +159,12 @@
             div.className = 'panel' + (i === 0 ? ' active' : '');
             div.dataset.p = k;
             div.innerHTML = `
-                <a class="dl-btn" href="${dl[k]}" target="_blank" rel="noopener">⬇ Скачать Happ</a>
+                <a class="dl-btn" href="${dl[k]}" target="_blank" rel="noopener">⬇ Скачать v2RayTun</a>
                 <div class="step"><div class="num">1</div><p>${install[k]}</p></div>
                 <div class="step"><div class="num">2</div><p>Купите подписку в боте и <b>скопируйте</b> свою ссылку-подписку.</p></div>
                 <div class="step"><div class="num">3</div><p>${add[k]}</p></div>
-                <div class="step"><div class="num">4</div><p>Выберите сервер и нажмите «<b>Подключить</b>». Готово! 🎉</p></div>`;
+                <div class="step"><div class="num">4</div><p>Выберите сервер и нажмите «<b>Подключить</b>». Готово! 🎉</p></div>
+                <div class="step"><div class="num">✓</div><p><b>Ничего настраивать не нужно.</b> Все параметры уже внутри подписки — не меняйте их вручную, иначе связь может перестать работать.</p></div>`;
             panels.appendChild(div);
         });
 

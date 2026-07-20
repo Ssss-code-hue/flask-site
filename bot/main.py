@@ -21,7 +21,6 @@ from aiogram.types import (
     PreCheckoutQuery,
 )
 
-import hysteria
 import lolz
 import platega
 
@@ -39,7 +38,7 @@ from .config import (
 from .keyboards import (back_kb, card_invoice_kb, devices_kb, docs_kb,
                         main_menu, offer_consent_kb, pay_method_kb, plans_kb,
                         trial_consent_kb)
-from .panel import get_subscription_url
+from .panel import get_subscription_url, site_sub_url, sub_token
 
 logging.basicConfig(level=logging.INFO)
 dp = Dispatcher()
@@ -93,18 +92,23 @@ def ref_text(uid):
 
 
 def vpn_key(uid):
-    """Ключ Hysteria2 Telegram-пользователя (рабочий в РФ), None — если не настроен."""
-    if not hysteria.is_configured():
+    """Ссылка-подписка пользователя бота, None — если панель её не дала.
+
+    Отдаём через наш домен: сайт проксирует подписку по 443 и правит
+    XHTTP-параметры (sub.py), без которых ТСПУ рвёт соединение.
+    """
+    u = db.get_user(uid)
+    if not (u and u["sub_until"]):
         return None
-    return hysteria.link_for(db.bot_hy_token(uid))
+    return site_sub_url(get_subscription_url(uid, u["sub_until"]), SITE_URL)
 
 
 def happ_open_url(uid):
-    """Кликабельная https-ссылка «Открыть в Happ» (редирект на сайте →
-    happ://). Telegram отклоняет схему happ:// в ссылках, https — нет."""
-    if not hysteria.is_configured():
-        return None
-    return f"{SITE_URL}/happ/{db.bot_hy_token(uid)}"
+    """Кликабельная https-ссылка «Открыть в v2RayTun» (редирект на сайте →
+    v2raytun://). Telegram отклоняет схему v2raytun:// в ссылках, https — нет."""
+    key = vpn_key(uid)
+    token = sub_token(key)
+    return f"{SITE_URL}/v2raytun/{token}" if token else None
 
 
 def status_text(uid):
@@ -328,7 +332,7 @@ async def cb_status(cq: CallbackQuery):
 async def _send_stars_invoice(cq: CallbackQuery, code, p):
     await cq.message.answer_invoice(
         title=f"IKK VPN — {p['title']}",
-        description=f"Подписка на {p['title']} ({p['days']} дней). Работает в Happ.",
+        description=f"Подписка на {p['title']} ({p['days']} дней). Работает в v2RayTun.",
         payload=f"plan:{code}",
         provider_token="",          # для Telegram Stars токен не нужен
         currency="XTR",             # Telegram Stars

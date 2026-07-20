@@ -22,7 +22,7 @@ import platega
 from auth import login_required
 from bot import db
 from bot.config import PLANS
-from bot.panel import get_subscription_url
+from bot.panel import WEB_PREFIX, get_subscription_url
 
 log = logging.getLogger(__name__)
 pay = Blueprint("pay", __name__)
@@ -131,15 +131,20 @@ def fail():
 
 
 def _confirm_web_payment(rec):
-    """Зачисляет подтверждённый платёж: продлевает подписку.
-
-    Ключ — Hysteria2, он привязан к токену пользователя и работает,
-    пока активна подписка; отдельно выдавать ничего не нужно.
-    """
+    """Зачисляет подтверждённый платёж: продлевает подписку и ключ в панели."""
     plan = PLANS.get(rec["plan"], {})
     days = plan.get("days", 30)
     new_until = db.web_add_days(rec["web_user_id"], days)
-    db.web_activate_sub(rec["web_user_id"], new_until, "hysteria2")
+
+    # Продлеваем пользователя в Marzban на тот же срок. Если панель сейчас
+    # недоступна — платёж всё равно зачисляем (деньги уже списаны), а ключ
+    # подтянется при следующем заходе в кабинет: reconcile_pending() и
+    # выдача идут по одному и тому же sub_until.
+    sub_url = get_subscription_url(rec["web_user_id"], new_until, prefix=WEB_PREFIX)
+    if not sub_url:
+        log.error("Оплата %s зачислена, но панель не выдала ключ (web_user %s)",
+                  rec["id"], rec["web_user_id"])
+    db.web_activate_sub(rec["web_user_id"], new_until, sub_url)
     db.set_web_payment_status(rec["id"], "CONFIRMED")
     log.info("Оплата подтверждена: %s — web_user %s, план %s (+%s дн.)",
              rec["id"], rec["web_user_id"], rec["plan"], days)

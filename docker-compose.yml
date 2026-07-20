@@ -29,13 +29,8 @@ services:
       - PLATEGA_MERCHANT_ID=${PLATEGA_MERCHANT_ID:-}
       - PLATEGA_SECRET=${PLATEGA_SECRET:-}
       - PAY_PROVIDER=${PAY_PROVIDER:-}
-      # Hysteria2 — рабочий в РФ ключ; для генерации ссылок в кабинете
-      - HY_HOST=${HY_HOST:-}
-      - HY_PORT=${HY_PORT:-443}
-      - HY_OBFS_PASSWORD=${HY_OBFS_PASSWORD:-}
-      - HY_SNI=${HY_SNI:-}
-      - HY_PIN=${HY_PIN:-}
-      - HY_PORTS=${HY_PORTS:-}
+      # Префикс имён пользователей сайта в панели (отделяет их от бота)
+      - WEB_USERNAME_PREFIX=${WEB_USERNAME_PREFIX:-web_}
       # Пароль админ-панели (/admin)
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       - SITE_URL=${SITE_URL:-https://ikkvpn.com}

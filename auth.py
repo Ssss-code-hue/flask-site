@@ -15,10 +15,9 @@ from flask import (Blueprint, flash, redirect, render_template, request,
                    session, url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
 
-import hysteria
 import mailer
 from bot import db
-from bot.panel import get_subscription_url
+from bot.panel import WEB_PREFIX, get_subscription_url, site_sub_url, sub_token
 
 auth = Blueprint("auth", __name__)
 
@@ -26,6 +25,7 @@ CODE_TTL = 15 * 60        # код действует 15 минут
 CODE_RESEND_COOLDOWN = 60  # повторная отправка не чаще раза в минуту
 CODE_MAX_ATTEMPTS = 5      # попыток ввода кода
 TRIAL_DAYS = int(os.environ.get("WEB_TRIAL_DAYS", "5"))  # пробный VPN-ключ с сайта
+SITE_URL = os.environ.get("SITE_URL", "https://ikkvpn.com").rstrip("/")
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
@@ -205,18 +205,20 @@ def account():
     except Exception:
         pass
 
-    # VPN-ключ Hysteria2 (рабочий в РФ): выдаётся, пока подписка активна
+    # VPN-ключ — подписка Marzban, выданная при оплате/пробном периоде.
+    # Клиенту отдаём ссылку на НАШ домен: сайт проксирует её по 443 и
+    # попутно правит XHTTP-параметры (sub.py), без которых ТСПУ рвёт связь.
     now = int(time.time())
     vpn_active = bool(user["sub_until"] and user["sub_until"] > now)
     vpn_until = (time.strftime("%d.%m.%Y", time.localtime(user["sub_until"]))
                  if user["sub_until"] else None)
-    hy_token = db.web_hy_token(user["id"]) if vpn_active else None
-    vpn_key = hysteria.link_for(hy_token) if hy_token else None
-    happ_url = f"/happ/{hy_token}" if hy_token else None   # редирект → happ://add/подписка
+    vpn_key = site_sub_url(user["sub_url"], SITE_URL) if vpn_active else None
+    token = sub_token(user["sub_url"]) if vpn_active else None
+    app_url = f"/v2raytun/{token}" if token else None
     return render_template(
         "account.html", user=user, created=created,
         vpn_active=vpn_active, vpn_until=vpn_until,
-        vpn_key=vpn_key, happ_url=happ_url, trial_used=bool(user["trial_used"]),
+        vpn_key=vpn_key, app_url=app_url, trial_used=bool(user["trial_used"]),
         trial_days=TRIAL_DAYS,
     )
 
@@ -239,10 +241,15 @@ def vpn_trial():
         flash("Чтобы активировать пробный период, отметьте согласие с офертой.")
     else:
         new_until = now + TRIAL_DAYS * 86400
-        # ключ — Hysteria2 (рабочий в РФ); токен выдаётся по подписке,
-        # sub_url больше не нужен (Marzban REALITY в РФ не пробивает)
-        db.web_activate_sub(user["id"], new_until, "hysteria2", trial=True)
-        flash(f"Готово! Пробный ключ на {TRIAL_DAYS} дн. — ниже, в разделе «VPN-ключ».")
+        # Пробный период отмечаем использованным ТОЛЬКО если панель реально
+        # выдала подписку — иначе временный сбой панели сжёг бы попытку.
+        sub_url = get_subscription_url(user["id"], new_until, prefix=WEB_PREFIX)
+        if sub_url:
+            db.web_activate_sub(user["id"], new_until, sub_url, trial=True)
+            flash(f"Готово! Пробный ключ на {TRIAL_DAYS} дн. — ниже, в разделе «VPN-ключ».")
+        else:
+            flash("Не удалось выдать ключ — попробуйте через минуту "
+                  "или напишите в поддержку.")
     return redirect(url_for("auth.account"))
 
 

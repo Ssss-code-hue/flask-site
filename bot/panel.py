@@ -2,7 +2,7 @@
 
 Бот вызывает get_subscription_url(user_id, sub_until):
   - создаёт пользователя в Marzban (или продлевает существующего) на срок expire=sub_until;
-  - возвращает его subscription-URL, который пользователь добавляет в Happ.
+  - возвращает его subscription-URL, который пользователь добавляет в v2RayTun.
 
 Настройка через переменные окружения:
   PANEL_URL        — адрес панели, напр. https://panel.example.com
@@ -49,8 +49,33 @@ def _configured():
     return bool(PANEL_URL and PANEL_USERNAME and PANEL_PASSWORD)
 
 
-def _username(user_id):
-    return f"{USERNAME_PREFIX}{user_id}"
+# Пользователи сайта и Telegram-бота нумеруются независимо, поэтому у них
+# пересекаются id. Без разных префиксов они затирали бы подписки друг друга
+# в панели, оказавшись одним и тем же пользователем Marzban.
+WEB_PREFIX = os.environ.get("WEB_USERNAME_PREFIX", "web_")
+
+
+def _username(user_id, prefix=None):
+    return f"{prefix or USERNAME_PREFIX}{user_id}"
+
+
+def sub_token(url):
+    """Токен из subscription-URL панели: .../sub/<токен> → <токен>."""
+    if not url:
+        return None
+    marker = "/sub/"
+    i = url.find(marker)
+    return url[i + len(marker):].strip("/") if i != -1 else None
+
+
+def site_sub_url(url, site_url):
+    """Переписывает ссылку с панели (порт 8000) на наш домен.
+
+    Сайт отдаёт подписку по 443 и попутно правит XHTTP-параметры
+    (см. sub.py) — клиенту нужна именно эта версия, а не панельная.
+    """
+    token = sub_token(url)
+    return f"{site_url.rstrip('/')}/sub/{token}" if token else None
 
 
 def _login():
@@ -95,8 +120,11 @@ def _inbounds(token):
     return _auto_inbounds
 
 
-def get_subscription_url(user_id, sub_until):
-    """Создаёт/продлевает пользователя в Marzban и возвращает subscription-URL."""
+def get_subscription_url(user_id, sub_until, prefix=None):
+    """Создаёт/продлевает пользователя в Marzban и возвращает subscription-URL.
+
+    prefix разделяет пользователей сайта и бота (см. WEB_PREFIX).
+    """
     # Демо-режим, если панель не настроена (бот не упадёт)
     if not _configured():
         base = os.environ.get("SUB_BASE_URL", "").rstrip("/")
@@ -104,7 +132,7 @@ def get_subscription_url(user_id, sub_until):
 
     try:
         token = _login()
-        username = _username(user_id)
+        username = _username(user_id, prefix)
 
         # есть ли уже такой пользователь?
         r = requests.get(
