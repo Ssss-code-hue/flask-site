@@ -213,17 +213,22 @@ def account():
     vpn_until = (time.strftime("%d.%m.%Y", time.localtime(user["sub_until"]))
                  if user["sub_until"] else None)
 
-    token = sub_token(user["sub_url"]) if vpn_active else None
-    if vpn_active and not token:
-        # Подписка активна, но ссылки на панель нет: у пользователей с
-        # Hysteria2 в поле sub_url лежала строка "hysteria2", а не URL.
-        # Выдаём настоящую подписку и запоминаем — иначе клиент получит
-        # ссылку на несуществующий токен и «Подписка не найдена (404)».
+    # Синхронизируем с панелью при каждом заходе. get_subscription_url
+    # идемпотентна: нет пользователя — создаёт, есть — продлевает до
+    # текущего срока. Так чинятся и пустой sub_url (наследие Hysteria2),
+    # и ссылки на пользователя, которого в панели уже нет (удалён/создан
+    # под другим префиксом) — их симптом «Подписка не найдена (404)».
+    token = None
+    if vpn_active:
         fresh = get_subscription_url(user["id"], user["sub_until"],
                                      prefix=WEB_PREFIX)
         if fresh:
-            db.web_set_sub_url(user["id"], fresh)
+            if fresh != user["sub_url"]:
+                db.web_set_sub_url(user["id"], fresh)
             token = sub_token(fresh)
+        else:
+            # панель недоступна — отдаём то, что было, лучше чем ничего
+            token = sub_token(user["sub_url"])
 
     vpn_key = f"{SITE_URL}/sub/{token}" if token else None
     app_url = f"/v2raytun/{token}" if token else None
