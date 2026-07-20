@@ -177,6 +177,22 @@ def get_subscription_url(user_id, sub_until, prefix=None):
         return None
 
 
+def delete_panel_user(user_id, prefix=None):
+    """Удаляет пользователя из Marzban — иначе его ключ работает и после
+    удаления аккаунта. Возвращает True, если пользователя больше нет."""
+    if not _configured():
+        return False
+    try:
+        r = requests.delete(
+            f"{PANEL_URL}/api/user/{_username(user_id, prefix)}",
+            headers=_headers(_login()), timeout=TIMEOUT, verify=VERIFY,
+        )
+        return r.ok or r.status_code == 404   # 404 — его и так нет
+    except Exception:
+        log.exception("Не удалось удалить пользователя в панели Marzban")
+        return False
+
+
 def check():
     """Диагностика подключения к панели. Запуск: python -m bot.panel"""
     if not _configured():

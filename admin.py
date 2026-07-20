@@ -13,6 +13,7 @@ from flask import (Blueprint, flash, redirect, render_template, request,
                    session, url_for)
 
 from bot import db
+from bot.panel import WEB_PREFIX, delete_panel_user, get_subscription_url
 
 admin = Blueprint("admin", __name__)
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "").strip()
@@ -85,8 +86,11 @@ def action():
         flash("Пользователь не найден.")
         return redirect(url_for("admin.dashboard"))
 
+    prefix = WEB_PREFIX if kind == "web" else None
+
     if op == "delete":
         deleter(uid)
+        delete_panel_user(uid, prefix)   # иначе ключ продолжит работать
         flash("Пользователь удалён.")
     else:
         days = {"add7": 7, "add30": 30, "add365": 365}.get(op)
@@ -94,6 +98,13 @@ def action():
             flash("Неизвестное действие.")
             return redirect(url_for("admin.dashboard"))
         base = max(now, u["sub_until"]) if u["sub_until"] else now
-        setter(uid, base + days * 86400)
-        flash(f"Добавлено {days} дн.")
+        new_until = base + days * 86400
+        setter(uid, new_until)
+        # Срок надо довести до панели: она гейтит доступ по своему expire,
+        # и без этого ключ отключился бы по старой дате.
+        if get_subscription_url(uid, new_until, prefix=prefix):
+            flash(f"Добавлено {days} дн.")
+        else:
+            flash(f"Добавлено {days} дн., но панель недоступна — "
+                  f"ключ продлится при следующем обращении пользователя.")
     return redirect(url_for("admin.dashboard"))

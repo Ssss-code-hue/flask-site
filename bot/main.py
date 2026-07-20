@@ -91,35 +91,45 @@ def ref_text(uid):
     return texts.REF.format(link=link, days=REFERRAL_BONUS_DAYS, count=n, earned=n * REFERRAL_BONUS_DAYS)
 
 
-def vpn_key(uid):
+def sync_panel(uid):
+    """Синхронизирует срок подписки с панелью и возвращает её токен.
+
+    Один вызов на все ссылки: обращение к панели идёт с логином, поэтому
+    дёргать её отдельно ради ключа и ради deep link — двойная работа.
+    """
+    u = db.get_user(uid)
+    if not (u and u["sub_until"]):
+        return None
+    return sub_token(get_subscription_url(uid, u["sub_until"]))
+
+
+def vpn_key(uid, token=None):
     """Ссылка-подписка пользователя бота, None — если панель её не дала.
 
     Отдаём через наш домен: сайт проксирует подписку по 443 и правит
     XHTTP-параметры (sub.py), без которых ТСПУ рвёт соединение.
     """
-    u = db.get_user(uid)
-    if not (u and u["sub_until"]):
-        return None
-    return site_sub_url(get_subscription_url(uid, u["sub_until"]), SITE_URL)
+    token = token or sync_panel(uid)
+    return f"{SITE_URL}/sub/{token}" if token else None
 
 
-def happ_open_url(uid):
+def happ_open_url(uid, token=None):
     """Кликабельная https-ссылка «Открыть в v2RayTun» (редирект на сайте →
     v2raytun://). Telegram отклоняет схему v2raytun:// в ссылках, https — нет."""
-    key = vpn_key(uid)
-    token = sub_token(key)
+    token = token or sync_panel(uid)
     return f"{SITE_URL}/v2raytun/{token}" if token else None
 
 
 def status_text(uid):
     u = db.get_user(uid)
     if u and u["sub_until"] and u["sub_until"] > int(time.time()):
-        key = vpn_key(uid)
+        token = sync_panel(uid)
+        key = vpn_key(uid, token)
         if key:
             # показываем ключ повторно — чтобы его можно было скопировать
             # в «Моя подписка», а не только сразу после покупки
             return texts.STATUS_ACTIVE_KEY.format(
-                date=fmt_date(u["sub_until"]), url=key, happ=happ_open_url(uid))
+                date=fmt_date(u["sub_until"]), url=key, happ=happ_open_url(uid, token))
         return texts.STATUS_ACTIVE.format(date=fmt_date(u["sub_until"]))
     return texts.STATUS_INACTIVE
 
@@ -143,6 +153,9 @@ async def cmd_start(message: Message):
         if ref_id and ref_id != uid and db.get_user(ref_id):
             db.set_referred_by(uid, ref_id)
             new_until = db.add_days(ref_id, REFERRAL_BONUS_DAYS)
+            # Бонусные дни надо довести до панели, иначе ключ пригласившего
+            # отключится по старому сроку, хотя бот показывает новый.
+            sync_panel(ref_id)
             try:
                 await message.bot.send_message(
                     ref_id,
@@ -197,10 +210,11 @@ async def _give_trial(uid, username, send):
 
     new_until = db.add_days(uid, TRIAL_DAYS)
     db.mark_trial_used(uid)
-    sub_url = vpn_key(uid)
+    token = sync_panel(uid)
+    sub_url = vpn_key(uid, token)
     if sub_url:
         await send(texts.TRIAL_OK.format(date=fmt_date(new_until), url=sub_url,
-                                         happ=happ_open_url(uid)), devices_kb())
+                                         happ=happ_open_url(uid, token)), devices_kb())
     else:
         await send(
             texts.TRIAL_NO_KEY.format(date=fmt_date(new_until), owner=SUPPORT_BOT_USERNAME),
@@ -457,9 +471,11 @@ async def _credit_card_payment(bot, rec):
     new_until = db.add_days(uid, days)
     db.record_payment(uid, rec["plan"], 0, f"lolz:{rec['payment_id']}")
 
-    sub_url = vpn_key(uid)
+    token = sync_panel(uid)
+    sub_url = vpn_key(uid, token)
     if sub_url:
-        text = texts.PAID_WITH_KEY.format(date=fmt_date(new_until), url=sub_url, happ=happ_open_url(uid))
+        text = texts.PAID_WITH_KEY.format(date=fmt_date(new_until), url=sub_url,
+                                          happ=happ_open_url(uid, token))
     else:
         text = texts.PAID_NO_KEY.format(date=fmt_date(new_until), owner=SUPPORT_BOT_USERNAME)
     try:
@@ -549,10 +565,12 @@ async def on_paid(message: Message):
     new_until = db.add_days(uid, days)
     db.record_payment(uid, code, sp.total_amount, sp.telegram_payment_charge_id)
 
-    sub_url = vpn_key(uid)
+    token = sync_panel(uid)
+    sub_url = vpn_key(uid, token)
     if sub_url:
         await message.answer(
-            texts.PAID_WITH_KEY.format(date=fmt_date(new_until), url=sub_url, happ=happ_open_url(uid)),
+            texts.PAID_WITH_KEY.format(date=fmt_date(new_until), url=sub_url,
+                                       happ=happ_open_url(uid, token)),
             reply_markup=devices_kb(),
         )
     else:
