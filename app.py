@@ -1,4 +1,5 @@
 import os
+import time
 from datetime import timedelta
 
 from flask import Flask, redirect, render_template, session
@@ -7,6 +8,7 @@ from flasgger import Swagger
 from api import api as api_blueprint
 from auth import TRIAL_DAYS, auth as auth_blueprint
 from bot import db
+from bot.panel import WEB_PREFIX, get_subscription_url, sub_token
 from pay import pay as pay_blueprint
 from pay import available_providers
 from sub import sub as sub_blueprint
@@ -64,10 +66,39 @@ _SITE_URL = os.environ.get('SITE_URL', 'https://ikkvpn.com').rstrip('/')
 
 @app.route('/vpnsub/<token>')
 def vpn_subscription(token):
-    """Старый адрес подписки. Ведёт на /sub/<токен> — тот же конфиг,
-    но уже с правкой XHTTP-параметров (см. sub.py). Оставлен, чтобы не
-    ломать ссылки, выданные клиентам раньше."""
+    """Старый адрес подписки — ссылки этого вида уже разосланы клиентам.
+
+    Раньше здесь был токен Hysteria2, теперь подписки живут в Marzban под
+    другими токенами. Поэтому старый токен сопоставляем с владельцем и
+    отдаём его настоящую подписку; иначе клиент видит «Подписка не найдена».
+    """
+    found = db.find_by_hy_token(token)
+    if found:
+        kind, uid, sub_until = found
+        if sub_until and sub_until > int(time.time()):
+            prefix = WEB_PREFIX if kind == 'web' else None
+            fresh = sub_token(get_subscription_url(uid, sub_until, prefix=prefix))
+            if fresh:
+                if kind == 'web':
+                    db.web_set_sub_url(uid, fresh)
+                return redirect(f"/sub/{fresh}", code=302)
+    # Не наш токен (или подписка истекла) — вдруг это уже токен Marzban
     return redirect(f"/sub/{token}", code=302)
+
+
+def _actual_token(token):
+    """Токен действующей подписки: старые Hysteria2-токены меняем на текущие."""
+    found = db.find_by_hy_token(token)
+    if not found:
+        return token
+    kind, uid, sub_until = found
+    if not (sub_until and sub_until > int(time.time())):
+        return token
+    prefix = WEB_PREFIX if kind == 'web' else None
+    fresh = sub_token(get_subscription_url(uid, sub_until, prefix=prefix))
+    if fresh and kind == 'web':
+        db.web_set_sub_url(uid, fresh)
+    return fresh or token
 
 
 @app.route('/v2raytun/<token>')
@@ -75,14 +106,15 @@ def v2raytun_open(token):
     """Открыть ключ в v2RayTun одним нажатием. Telegram не пускает схему
     v2raytun:// в ссылках, поэтому даём https-адрес, который редиректит
     в v2raytun://import/<подписка> — приложение добавляет её как подписку."""
-    return redirect(f"v2raytun://import/{_SITE_URL}/sub/{token}", code=302)
+    return redirect(f"v2raytun://import/{_SITE_URL}/sub/{_actual_token(token)}",
+                    code=302)
 
 
 @app.route('/happ/<token>')
 def happ_open(token):
     """Старая ссылка для приложения Happ. Оставлена, чтобы не ломать уже
     выданные клиентам ссылки; новых пользователей ведём в v2RayTun."""
-    return redirect(f"happ://add/{_SITE_URL}/sub/{token}", code=302)
+    return redirect(f"happ://add/{_SITE_URL}/sub/{_actual_token(token)}", code=302)
 
 
 @app.route('/')

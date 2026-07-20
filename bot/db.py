@@ -333,6 +333,37 @@ def set_web_payment_status(tx_id, status):
         c.execute("UPDATE web_payments SET status=? WHERE id=?", (status, tx_id))
 
 
+def find_by_hy_token(token):
+    """Ищет владельца старого Hysteria2-токена из ранее выданных ссылок.
+
+    Возвращает (kind, id, sub_until): kind — "web" или "bot", либо None.
+    Нужно, чтобы ссылки вида /vpnsub/<токен>, уже разосланные клиентам,
+    продолжали работать после перехода на подписки Marzban.
+    """
+    if not token:
+        return None
+    with _conn() as c:
+        r = c.execute("SELECT id, sub_until FROM web_users WHERE hy_token=?",
+                      (token,)).fetchone()
+        if r:
+            return ("web", r["id"], r["sub_until"])
+        r = c.execute("SELECT user_id, sub_until FROM users WHERE hy_token=?",
+                      (token,)).fetchone()
+        if r:
+            return ("bot", r["user_id"], r["sub_until"])
+    return None
+
+
+def web_set_sub_url(uid, sub_url):
+    """Обновляет только ссылку-подписку, не трогая срок.
+
+    Нужно, чтобы «вылечить» пользователей, у которых в sub_url осталось
+    наследие Hysteria2 вместо адреса подписки Marzban.
+    """
+    with _conn() as c:
+        c.execute("UPDATE web_users SET sub_url=? WHERE id=?", (sub_url, uid))
+
+
 def web_activate_sub(uid, sub_until, sub_url, trial=False):
     """Сохраняет подписку пользователя сайта после успешной выдачи ключа панелью.
 

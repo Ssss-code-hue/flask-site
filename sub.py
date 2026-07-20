@@ -186,5 +186,16 @@ def proxy(subpath):
             log.exception("Подписка: правка не удалась, отдаю оригинал")
             body = r.content
 
-    headers = [(k, v) for k, v in r.headers.items() if k.lower() not in _HOP]
+    # Панель подставляет свой адрес с портом 8000, а он у части провайдеров
+    # режется — клиент не смог бы обновить подписку и остался бы без
+    # серверов. Заменяем на наш домен, по которому он её и получил.
+    site = request.url_root.rstrip("/")
+    headers = []
+    for k, v in r.headers.items():
+        if k.lower() in _HOP:
+            continue
+        if k.lower() == "profile-web-page-url":
+            v = f"{site}/sub/{subpath}"
+        headers.append((k, v))
+
     return Response(body, status=r.status_code, headers=headers)
