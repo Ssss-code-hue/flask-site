@@ -13,15 +13,19 @@
         <div class="acc-top reveal">
             <div class="card acc-profile">
                 <div class="acc-head">
-                    <div class="acc-avatar">{{ user['email'][0]|upper }}</div>
+                    <div class="acc-avatar">{{ display_name[0]|upper }}</div>
                     <div>
-                        <div class="acc-name">{{ user['email'] }}</div>
+                        <div class="acc-name">{{ display_name }}</div>
                         <div class="acc-meta">С нами с {{ created }}</div>
                     </div>
                 </div>
-                <p class="acc-status">Аккаунт в полном порядке — почта подтверждена ✓,
-                   ограничений нет.</p>
-                <a class="btn acc-btn" href="#password">Сменить пароль</a>
+                {% if is_telegram %}
+                    <p class="acc-status">Вход через Telegram ✓ — подписка общая с ботом.</p>
+                {% else %}
+                    <p class="acc-status">Аккаунт в полном порядке — почта подтверждена ✓,
+                       ограничений нет.</p>
+                    <a class="btn acc-btn" href="#password">Сменить пароль</a>
+                {% endif %}
             </div>
 
             <div class="acc-links">
@@ -147,6 +151,7 @@
             </div>
         </div>
 
+        {% if not is_telegram %}
         <!-- Смена пароля -->
         <div class="section-head reveal" id="password" style="margin-top:70px;">
             <div class="eyebrow">Безопасность</div>
@@ -172,6 +177,7 @@
             </div>
             <button type="submit" class="btn">Обновить пароль</button>
         </form>
+        {% endif %}
 
         <p class="note reveal"><a href="{{ url_for('auth.logout') }}">Выйти из аккаунта</a></p>
     </section>

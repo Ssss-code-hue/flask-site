@@ -786,3 +786,36 @@ section { padding: 96px 0; position: relative; }
     }
     .reveal { opacity: 1; transform: none; }
 }
+
+/* ── Кнопка входа через Telegram (login/register) ────────────────── */
+.tg-login {
+    margin: 26px auto 0;
+    max-width: 420px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+.tg-or {
+    position: relative;
+    display: block;
+    width: 100%;
+    color: var(--dim, #8a8f98);
+    font-size: .85rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+.tg-or::before,
+.tg-or::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 38%;
+    height: 1px;
+    background: currentColor;
+    opacity: .25;
+}
+.tg-or::before { left: 0; }
+.tg-or::after { right: 0; }
+.tg-login .note { margin: 0; }

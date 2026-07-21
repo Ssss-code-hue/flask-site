@@ -91,6 +91,14 @@ def init_db():
             c.execute("ALTER TABLE web_users ADD COLUMN trial_used INTEGER DEFAULT 0")
         if "sub_url" not in cols:
             c.execute("ALTER TABLE web_users ADD COLUMN sub_url TEXT")
+        # Связка аккаунта сайта с Telegram-ботом: у связанного веб-аккаунта
+        # тут лежит user_id из таблицы users. Тогда подписка и ключ берутся
+        # из бот-идентичности (один пользователь Marzban на человека), а не
+        # заводится отдельная веб-подписка. NULL = обычный email-аккаунт.
+        if "telegram_id" not in cols:
+            c.execute("ALTER TABLE web_users ADD COLUMN telegram_id INTEGER")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_web_users_tg "
+                      "ON web_users(telegram_id)")
 
 
 def get_user(uid):
@@ -278,6 +286,31 @@ def create_web_user(email, password_hash):
             "INSERT INTO web_users(email, password_hash, verified, created_at) VALUES(?,?,0,?)",
             (email, password_hash, int(time.time())),
         )
+
+
+def get_web_user_by_tg(tg_id):
+    """Веб-аккаунт, связанный с этим Telegram-пользователем, или None."""
+    with _conn() as c:
+        return c.execute(
+            "SELECT * FROM web_users WHERE telegram_id=?", (tg_id,)
+        ).fetchone()
+
+
+def get_or_create_web_user_by_tg(tg_id):
+    """Возвращает id веб-аккаунта для входа через Telegram, создавая при
+    необходимости. Email — синтетический плейсхолдер (вход только через
+    Telegram), пароль пустой. Подписка у такого аккаунта берётся из
+    бот-идентичности по telegram_id."""
+    row = get_web_user_by_tg(tg_id)
+    if row:
+        return row["id"]
+    with _conn() as c:
+        cur = c.execute(
+            "INSERT INTO web_users(email, password_hash, verified, created_at, "
+            "telegram_id) VALUES(?,?,1,?,?)",
+            (f"tg{tg_id}@telegram.user", "", int(time.time()), tg_id),
+        )
+        return cur.lastrowid
 
 
 def set_web_user_password(email, password_hash):

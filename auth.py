@@ -4,6 +4,7 @@
 Пока код не введён — аккаунт считается неподтверждённым.
 """
 import hashlib
+import hmac
 import os
 import random
 import re
@@ -17,6 +18,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 import mailer
 from bot import db
+from bot.config import BOT_TOKEN, BOT_USERNAME
 from bot.panel import WEB_PREFIX, get_subscription_url, site_sub_url, sub_token
 
 auth = Blueprint("auth", __name__)
@@ -27,6 +29,7 @@ CODE_MAX_ATTEMPTS = 5      # попыток ввода кода
 TRIAL_DAYS = int(os.environ.get("WEB_TRIAL_DAYS", "5"))  # пробный VPN-ключ с сайта
 SITE_URL = os.environ.get("SITE_URL", "https://ikkvpn.com").rstrip("/")
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+TG_AUTH_TTL = 24 * 3600   # данные Telegram-виджета годны сутки
 
 
 def _hash_code(code):
@@ -105,7 +108,8 @@ def register():
                 return redirect(url_for("auth.verify"))
             flash("Не получилось отправить письмо. Попробуйте ещё раз чуть позже.")
 
-    return render_template("register.html", captcha_question=_new_captcha())
+    return render_template("register.html", captcha_question=_new_captcha(),
+                           **_tg_widget_ctx())
 
 
 @auth.route("/verify", methods=["GET", "POST"])
@@ -178,7 +182,65 @@ def login():
             session["uid"] = user["id"]
             return redirect(url_for("auth.account"))
 
-    return render_template("login.html")
+    return render_template("login.html", **_tg_widget_ctx())
+
+
+def _tg_widget_ctx():
+    """Переменные для кнопки Telegram Login Widget в шаблонах.
+
+    Виджет показываем, только если задан токен бота. data-auth-url должен
+    быть абсолютным https-адресом того же домена, что привязан к боту в
+    @BotFather (/setdomain), иначе Telegram откажется отдавать данные.
+    """
+    if not (BOT_TOKEN and BOT_USERNAME):
+        return {}
+    return {"tg_bot": BOT_USERNAME, "tg_auth_url": f"{SITE_URL}/auth/telegram"}
+
+
+def _verify_telegram_auth(data):
+    """Проверяет подпись данных Telegram Login Widget.
+
+    Алгоритм из документации Telegram: секрет = SHA256(bot_token), затем
+    HMAC-SHA256 по строке "key=value\\n..." (поля кроме hash, отсортированы).
+    Возвращает True, только если подпись верна и данные не старше суток —
+    иначе кто угодно мог бы войти под любым Telegram ID.
+    """
+    if not BOT_TOKEN:
+        return False
+    received = data.get("hash", "")
+    try:
+        auth_date = int(data.get("auth_date", 0))
+    except (TypeError, ValueError):
+        return False
+    if not received or abs(time.time() - auth_date) > TG_AUTH_TTL:
+        return False
+    check = "\n".join(f"{k}={data[k]}" for k in sorted(data) if k != "hash")
+    secret = hashlib.sha256(BOT_TOKEN.encode()).digest()
+    calc = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
+    return hmac.compare_digest(calc, received)
+
+
+@auth.route("/auth/telegram")
+def telegram_login():
+    """Вход через Telegram Login Widget.
+
+    Виджет редиректит сюда с параметрами id/first_name/username/auth_date/hash.
+    Проверяем подпись, находим (или создаём) веб-аккаунт, связанный с этим
+    Telegram-пользователем, и логиним. Подписка у него — общая с ботом.
+    """
+    data = {k: v for k, v in request.args.items()}
+    if not _verify_telegram_auth(data):
+        flash("Не удалось подтвердить вход через Telegram. Попробуйте ещё раз.")
+        return redirect(url_for("auth.login"))
+
+    tg_id = int(data["id"])
+    # Заводим запись в users, если человека ещё нет в базе бота — тогда его
+    # подписка (пока пустая) будет жить там же, где у бот-пользователей.
+    if not db.get_user(tg_id):
+        db.create_user(tg_id, data.get("username") or data.get("first_name"))
+    web_id = db.get_or_create_web_user_by_tg(tg_id)
+    session["uid"] = web_id
+    return redirect(url_for("auth.account"))
 
 
 @auth.route("/logout")
@@ -205,13 +267,24 @@ def account():
     except Exception:
         pass
 
-    # VPN-ключ — подписка Marzban, выданная при оплате/пробном периоде.
-    # Клиенту отдаём ссылку на НАШ домен: сайт проксирует её по 443 и
-    # попутно правит XHTTP-параметры (sub.py), без которых ТСПУ рвёт связь.
+    # Для аккаунта, связанного с Telegram, источник правды — бот-идентичность:
+    # подписка из users.sub_until и один пользователь Marzban (ikk_<tg_id>).
+    # Так у человека единый ключ и срок, а не отдельная веб-подписка.
     now = int(time.time())
-    vpn_active = bool(user["sub_until"] and user["sub_until"] > now)
-    vpn_until = (time.strftime("%d.%m.%Y", time.localtime(user["sub_until"]))
-                 if user["sub_until"] else None)
+    linked = user["telegram_id"]
+    if linked:
+        bot_user = db.get_user(linked)
+        sub_until = bot_user["sub_until"] if bot_user else 0
+        panel_id, panel_prefix = linked, None      # ikk_<tg_id>
+        stored_sub = None
+    else:
+        sub_until = user["sub_until"]
+        panel_id, panel_prefix = user["id"], WEB_PREFIX  # web_<id>
+        stored_sub = user["sub_url"]
+
+    vpn_active = bool(sub_until and sub_until > now)
+    vpn_until = (time.strftime("%d.%m.%Y", time.localtime(sub_until))
+                 if sub_until else None)
 
     # Синхронизируем с панелью при каждом заходе. get_subscription_url
     # идемпотентна: нет пользователя — создаёт, есть — продлевает до
@@ -220,23 +293,33 @@ def account():
     # под другим префиксом) — их симптом «Подписка не найдена (404)».
     token = None
     if vpn_active:
-        fresh = get_subscription_url(user["id"], user["sub_until"],
-                                     prefix=WEB_PREFIX)
+        fresh = get_subscription_url(panel_id, sub_until, prefix=panel_prefix)
         if fresh:
-            if fresh != user["sub_url"]:
+            if not linked and fresh != stored_sub:
                 db.web_set_sub_url(user["id"], fresh)
             token = sub_token(fresh)
-        else:
+        elif stored_sub:
             # панель недоступна — отдаём то, что было, лучше чем ничего
-            token = sub_token(user["sub_url"])
+            token = sub_token(stored_sub)
 
     vpn_key = f"{SITE_URL}/sub/{token}" if token else None
     app_url = f"/v2raytun/{token}" if token else None
+
+    # У Telegram-аккаунта email синтетический, а пароля нет — показываем
+    # имя из бота и прячем смену пароля.
+    if linked:
+        display_name = (bot_user["username"] if bot_user and bot_user["username"]
+                        else f"Telegram {linked}")
+        trial_used = bool(bot_user["trial_used"]) if bot_user else False
+    else:
+        display_name = user["email"]
+        trial_used = bool(user["trial_used"])
+
     return render_template(
         "account.html", user=user, created=created,
         vpn_active=vpn_active, vpn_until=vpn_until,
-        vpn_key=vpn_key, app_url=app_url, trial_used=bool(user["trial_used"]),
-        trial_days=TRIAL_DAYS,
+        vpn_key=vpn_key, app_url=app_url, trial_used=trial_used,
+        trial_days=TRIAL_DAYS, is_telegram=bool(linked), display_name=display_name,
     )
 
 
@@ -250,9 +333,17 @@ def vpn_trial():
         return redirect(url_for("auth.login"))
 
     now = int(time.time())
-    if user["trial_used"]:
+    # Для связанного с Telegram аккаунта триал общий с ботом: и признак
+    # использования, и подписка живут в бот-идентичности — иначе человек
+    # получил бы пробный период дважды (на сайте и в боте).
+    linked = user["telegram_id"]
+    bot_user = db.get_user(linked) if linked else None
+    trial_used = bot_user["trial_used"] if linked else user["trial_used"]
+    sub_until = (bot_user["sub_until"] if bot_user else 0) if linked else user["sub_until"]
+
+    if trial_used:
         flash("Пробный ключ уже был использован на этом аккаунте.")
-    elif user["sub_until"] and user["sub_until"] > now:
+    elif sub_until and sub_until > now:
         flash("Подписка уже активна — ключ ниже.")
     elif not request.form.get("accept_offer"):
         flash("Чтобы активировать пробный период, отметьте согласие с офертой.")
@@ -260,9 +351,16 @@ def vpn_trial():
         new_until = now + TRIAL_DAYS * 86400
         # Пробный период отмечаем использованным ТОЛЬКО если панель реально
         # выдала подписку — иначе временный сбой панели сжёг бы попытку.
-        sub_url = get_subscription_url(user["id"], new_until, prefix=WEB_PREFIX)
+        if linked:
+            sub_url = get_subscription_url(linked, new_until)   # ikk_<tg_id>
+            if sub_url:
+                db.add_days(linked, TRIAL_DAYS)   # пишет users.sub_until от now
+                db.mark_trial_used(linked)
+        else:
+            sub_url = get_subscription_url(user["id"], new_until, prefix=WEB_PREFIX)
+            if sub_url:
+                db.web_activate_sub(user["id"], new_until, sub_url, trial=True)
         if sub_url:
-            db.web_activate_sub(user["id"], new_until, sub_url, trial=True)
             flash(f"Готово! Пробный ключ на {TRIAL_DAYS} дн. — ниже, в разделе «VPN-ключ».")
         else:
             flash("Не удалось выдать ключ — попробуйте через минуту "
