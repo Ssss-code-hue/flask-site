@@ -31,6 +31,10 @@ services:
       - PAY_PROVIDER=${PAY_PROVIDER:-}
       # Префикс имён пользователей сайта в панели (отделяет их от бота)
       - WEB_USERNAME_PREFIX=${WEB_USERNAME_PREFIX:-web_}
+      # Токен и имя бота — нужны сайту для входа через Telegram Login Widget
+      # (проверка подписи виджета) и построения ссылки на бота.
+      - BOT_TOKEN=${BOT_TOKEN:-}
+      - BOT_USERNAME=${BOT_USERNAME:-IKKvpnpbot}
       # Пароль админ-панели (/admin)
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       - SITE_URL=${SITE_URL:-https://ikkvpn.com}
