@@ -80,7 +80,8 @@
                 <h3>Срок ключа истёк</h3>
                 <p>Продлить подписку пока можно в Telegram-боте —
                    оплата картой прямо на сайте появится совсем скоро.</p>
-                <a class="btn" href="{{ url_for('bot') }}">Продлить в боте</a>
+                <a class="btn" href="{{ url_for('bot') }}"
+                   style="display:inline-block; margin-top:22px;">Продлить в боте</a>
             {% endif %}
         </div>
         {% if vpn_active %}
