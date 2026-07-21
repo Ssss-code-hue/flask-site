@@ -31,6 +31,8 @@ services:
       - PAY_PROVIDER=${PAY_PROVIDER:-}
       # Префикс имён пользователей сайта в панели (отделяет их от бота)
       - WEB_USERNAME_PREFIX=${WEB_USERNAME_PREFIX:-web_}
+      # Месячный лимит трафика на подписку, ГБ (против шаринга ключа; 0=безлимит)
+      - DATA_LIMIT_GB=${DATA_LIMIT_GB:-200}
       # Токен и имя бота — нужны сайту для входа через Telegram Login Widget
       # (проверка подписи виджета) и построения ссылки на бота.
       - BOT_TOKEN=${BOT_TOKEN:-}

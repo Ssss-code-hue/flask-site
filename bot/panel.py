@@ -32,6 +32,13 @@ VERIFY = os.environ.get("PANEL_VERIFY_SSL", "1") != "0"
 USERNAME_PREFIX = os.environ.get("USERNAME_PREFIX", "ikk_")
 TIMEOUT = 15
 
+# Месячный лимит трафика на подписку (ГБ). Щедрый для одного человека, но
+# компания из нескольких устройств упрётся — так сдерживаем шаринг ключа.
+# 0 = безлимит. Сброс раз в месяц (data_limit_reset_strategy=month).
+DATA_LIMIT_GB = int(os.environ.get("DATA_LIMIT_GB", "200"))
+DATA_LIMIT_BYTES = DATA_LIMIT_GB * 1024 ** 3
+DATA_LIMIT_RESET = "month" if DATA_LIMIT_GB else "no_reset"
+
 _DEFAULT_PROXIES = '{"vless": {"flow": "xtls-rprx-vision"}}'
 try:
     PROXIES = json.loads(os.environ.get("PANEL_PROXIES", _DEFAULT_PROXIES))
@@ -147,8 +154,8 @@ def get_subscription_url(user_id, sub_until, prefix=None):
                 "proxies": PROXIES,
                 "inbounds": _inbounds(token),
                 "expire": int(sub_until),
-                "data_limit": 0,
-                "data_limit_reset_strategy": "no_reset",
+                "data_limit": DATA_LIMIT_BYTES,
+                "data_limit_reset_strategy": DATA_LIMIT_RESET,
                 "status": "active",
             }
             r = requests.post(
@@ -157,8 +164,8 @@ def get_subscription_url(user_id, sub_until, prefix=None):
             )
         else:
             r.raise_for_status()
-            # продлеваем существующего; inbounds шлём тоже —
-            # это чинит пользователей, созданных ранее без инбаундов
+            # продлеваем существующего; inbounds и лимит шлём тоже —
+            # это чинит пользователей, созданных ранее без инбаундов/лимита
             r = requests.put(
                 f"{PANEL_URL}/api/user/{username}",
                 headers=_headers(token),
@@ -166,6 +173,8 @@ def get_subscription_url(user_id, sub_until, prefix=None):
                     "expire": int(sub_until),
                     "status": "active",
                     "inbounds": _inbounds(token),
+                    "data_limit": DATA_LIMIT_BYTES,
+                    "data_limit_reset_strategy": DATA_LIMIT_RESET,
                 },
                 timeout=TIMEOUT, verify=VERIFY,
             )
