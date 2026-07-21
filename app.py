@@ -54,6 +54,18 @@ Swagger(app, template={
 })
 
 
+@app.before_request
+def _canonical_host():
+    # Уводим www.* на голый домен. Telegram Login Widget привязан в BotFather
+    # к одному домену (ikkvpn.com); если страница открыта как www.ikkvpn.com,
+    # виджет выдаёт «Bot domain invalid». Редиректим только GET, чтобы не
+    # терять тело POST-колбэков платёжек, если те придут на www.
+    from flask import request
+    host = request.host.split(':')[0]
+    if host.startswith('www.') and request.method == 'GET':
+        return redirect(request.url.replace('://www.', '://', 1), code=301)
+
+
 @app.context_processor
 def inject_nav_user():
     # Пользователь для шапки (аватар возле «Аккаунт»); None, если не вошёл
