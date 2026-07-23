@@ -147,6 +147,15 @@ def mark_trial_used(uid):
         c.execute("UPDATE users SET trial_used=1, trial_reminded=0 WHERE user_id=?", (uid,))
 
 
+def active_users(now):
+    """Все пользователи с активной подпиской — для разовой рассылки."""
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT user_id, sub_until FROM users WHERE sub_until>?", (now,)
+        ).fetchall()
+        return [(r["user_id"], r["sub_until"]) for r in rows]
+
+
 def trial_reminder_candidates(now, within_seconds):
     """Пользователи с активным триалом, у кого до конца осталось не больше
     within_seconds, и кому ещё не напоминали. Для авторассылки «триал

@@ -186,6 +186,30 @@ def get_subscription_url(user_id, sub_until, prefix=None):
         return None
 
 
+def user_connected(user_id, prefix=None):
+    """Подключался ли пользователь к VPN хоть раз.
+
+    True  — был онлайн или прошёл трафик;
+    False — ни разу не подключался;
+    None  — не удалось проверить (панель недоступна) — вызывающий пропустит.
+    """
+    if not _configured():
+        return None
+    try:
+        r = requests.get(
+            f"{PANEL_URL}/api/user/{_username(user_id, prefix)}",
+            headers=_headers(_login()), timeout=TIMEOUT, verify=VERIFY,
+        )
+        if r.status_code == 404:
+            return False
+        r.raise_for_status()
+        u = r.json()
+        return bool(u.get("online_at")) or (u.get("used_traffic") or 0) > 0
+    except Exception:
+        log.exception("panel: не удалось проверить подключение пользователя")
+        return None
+
+
 def delete_panel_user(user_id, prefix=None):
     """Удаляет пользователя из Marzban — иначе его ключ работает и после
     удаления аккаунта. Возвращает True, если пользователя больше нет."""

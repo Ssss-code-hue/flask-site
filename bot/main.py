@@ -39,7 +39,8 @@ from .config import (
 from .keyboards import (back_kb, card_invoice_kb, connect_kb, devices_kb,
                         docs_kb, main_menu, offer_consent_kb, pay_method_kb,
                         plans_kb, trial_consent_kb)
-from .panel import get_subscription_url, site_sub_url, sub_token
+from .panel import (get_subscription_url, site_sub_url, sub_token,
+                    user_connected)
 
 logging.basicConfig(level=logging.INFO)
 dp = Dispatcher()
@@ -619,17 +620,22 @@ async def remind_trial_ending(bot):
         try:
             now = int(time.time())
             for uid, sub_until in db.trial_reminder_candidates(now, within):
+                token = sync_panel(uid)
+                connected = await asyncio.to_thread(user_connected, uid)
+                if connected is None:
+                    continue                      # панель недоступна — повторим позже
+                if connected:
+                    db.mark_trial_reminded(uid)   # уже пользуется — не беспокоим
+                    continue
                 days = max(1, round((sub_until - now) / 86400))
                 text = texts.TRIAL_ENDING.format(
                     ending="ся" if days == 1 else "ось",
                     days=days, word=_plural_days(days))
-                token = sync_panel(uid)
                 try:
                     await bot.send_message(uid, text, reply_markup=connect_kb(token))
-                    db.mark_trial_reminded(uid)
                 except Exception:
-                    # заблокировал бота / удалил чат — помечаем, чтобы не долбить
-                    db.mark_trial_reminded(uid)
+                    pass                          # заблокировал бота / удалил чат
+                db.mark_trial_reminded(uid)
         except Exception:
             logging.exception("Ошибка авторассылки напоминаний о триале")
 
