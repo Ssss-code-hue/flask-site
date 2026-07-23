@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Открываем v2RayTun…</title>
+    <style>
+        :root {
+            --bg: hsl(201 100% 13%);
+            --fg: #ffffff;
+            --dim: #a7b0bd;
+            --glass: rgba(255,255,255,.05);
+            --line: rgba(255,255,255,.14);
+            --accent: hsl(184 72% 55%);
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family:'Inter', system-ui, sans-serif; background:var(--bg); color:var(--fg);
+            min-height:100vh; display:flex; align-items:center; justify-content:center;
+            padding:24px; text-align:center; -webkit-font-smoothing:antialiased;
+        }
+        body::before {
+            content:''; position:fixed; inset:-25%; z-index:-1;
+            background:
+                radial-gradient(40% 34% at 16% 6%, hsl(184 80% 30% / .4), transparent 70%),
+                radial-gradient(50% 46% at 82% 96%, hsl(232 60% 32% / .45), transparent 72%);
+        }
+        .box { max-width:380px; width:100%; }
+        h1 { font-size:1.35rem; font-weight:600; margin-bottom:10px; }
+        p  { color:var(--dim); font-size:.95rem; margin-bottom:22px; line-height:1.55; }
+        .btn {
+            display:flex; align-items:center; justify-content:center; gap:8px;
+            width:100%; padding:15px; border-radius:16px; text-decoration:none;
+            font-weight:600; font-size:1rem; margin-bottom:12px; cursor:pointer; border:none;
+        }
+        .btn-accent {
+            color:hsl(201 100% 8%);
+            background:linear-gradient(180deg, hsl(184 78% 62%), hsl(184 72% 50%));
+            box-shadow:0 8px 22px -8px hsl(184 72% 50% / .8);
+        }
+        .btn-glass { color:var(--fg); background:var(--glass); border:1px solid var(--line); }
+        .sub { font-size:.8rem; color:var(--dim); word-break:break-all; margin-top:16px;
+               background:var(--glass); border:1px solid var(--line); border-radius:12px; padding:12px; }
+        .toast {
+            position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(20px);
+            background:var(--fg); color:hsl(201 100% 10%); font-weight:600; font-size:.86rem;
+            padding:11px 20px; border-radius:999px; opacity:0; pointer-events:none; transition:.3s;
+        }
+        .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>Открываем v2RayTun</h1>
+        <p>Приложение должно открыться само и добавить подписку.<br>Если нет — нажмите кнопку ниже.</p>
+
+        <a class="btn btn-accent" id="openBtn" href="{{ deeplink }}">🚀 Открыть v2RayTun</a>
+        <button class="btn btn-glass" id="copyBtn">📋 Скопировать ссылку вручную</button>
+
+        <div class="sub" id="sub">{{ sub_url }}</div>
+    </div>
+
+    <div class="toast" id="toast">Ссылка скопирована ✓</div>
+
+    <script>
+        const DEEPLINK = {{ deeplink|tojson }};
+        const SUB_URL  = {{ sub_url|tojson }};
+
+        // авто-попытка открыть приложение сразу при загрузке
+        setTimeout(() => { try { window.location.href = DEEPLINK; } catch(e){} }, 300);
+
+        document.getElementById('copyBtn').addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(SUB_URL);
+                const t = document.getElementById('toast');
+                t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1800);
+            } catch(e) {
+                // если clipboard недоступен — выделяем текст ссылки
+                const r = document.createRange(); r.selectNode(document.getElementById('sub'));
+                getSelection().removeAllRanges(); getSelection().addRange(r);
+            }
+        });
+    </script>
+</body>
+</html>

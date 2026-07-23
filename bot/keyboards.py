@@ -18,13 +18,24 @@ def main_menu():
     kb = InlineKeyboardBuilder()
     kb.button(text="⭐ Купить подписку", callback_data="buy")
     kb.button(text=f"🆓 Попробовать бесплатно ({TRIAL_DAYS} дн.)", callback_data="trial")
-    kb.button(text="📲 Инструкция", callback_data="devices")
     kb.button(text="📡 Моя подписка", callback_data="status")
     kb.button(text="🎁 Пригласить друга (+3 дня)", callback_data="ref")
     kb.button(text="📄 Документы", callback_data="docs")
     kb.button(text="💬 Поддержка", url=f"https://t.me/{SUPPORT_BOT_USERNAME}")
     # «Купить» и «Попробовать» на всю ширину, потом по две в ряд
-    kb.adjust(1, 1, 2, 1, 2)
+    kb.adjust(1, 1, 2, 2)
+    return kb.as_markup()
+
+
+def connect_kb(sub_token=None):
+    """Клавиатура при активной подписке: одна большая кнопка на страницу
+    подключения (с токеном она импортирует ключ) + возврат в меню."""
+    kb = InlineKeyboardBuilder()
+    if sub_token and WEBAPP_URL.startswith("https://"):
+        kb.button(text="🚀 ПОДКЛЮЧИТЬСЯ СЕЙЧАС!",
+                  web_app=WebAppInfo(url=f"{WEBAPP_URL}?t={sub_token}"))
+    kb.button(text="◀ Назад", callback_data="menu")
+    kb.adjust(1)
     return kb.as_markup()
 
 

@@ -116,11 +116,15 @@ def _actual_token(token):
 
 @app.route('/v2raytun/<token>')
 def v2raytun_open(token):
-    """Открыть ключ в v2RayTun одним нажатием. Telegram не пускает схему
-    v2raytun:// в ссылках, поэтому даём https-адрес, который редиректит
-    в v2raytun://import/<подписка> — приложение добавляет её как подписку."""
-    return redirect(f"v2raytun://import/{_SITE_URL}/sub/{_actual_token(token)}",
-                    code=302)
+    """Открыть ключ в v2RayTun. Раньше отдавали 302 на v2raytun://import,
+    но браузеры часто не следуют редиректу на кастомную схему (и внутри
+    Telegram это молча не работало). Поэтому отдаём landing-страницу: она
+    сама пытается открыть приложение, показывает кнопку-ссылку для ручного
+    открытия и ссылку-подписку для копирования — надёжно на всех платформах."""
+    tok = _actual_token(token)
+    sub_url = f"{_SITE_URL}/sub/{tok}"
+    return render_template('open_app.html',
+                           deeplink=f"v2raytun://import/{sub_url}", sub_url=sub_url)
 
 
 @app.route('/happ/<token>')

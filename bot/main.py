@@ -35,9 +35,9 @@ from .config import (
     SUPPORT_BOT_USERNAME,
     TRIAL_DAYS,
 )
-from .keyboards import (back_kb, card_invoice_kb, devices_kb, docs_kb,
-                        main_menu, offer_consent_kb, pay_method_kb, plans_kb,
-                        trial_consent_kb)
+from .keyboards import (back_kb, card_invoice_kb, connect_kb, devices_kb,
+                        docs_kb, main_menu, offer_consent_kb, pay_method_kb,
+                        plans_kb, trial_consent_kb)
 from .panel import get_subscription_url, site_sub_url, sub_token
 
 logging.basicConfig(level=logging.INFO)
@@ -123,17 +123,17 @@ def happ_open_url(uid, token=None):
 def status_text(uid):
     u = db.get_user(uid)
     if u and u["sub_until"] and u["sub_until"] > int(time.time()):
-        token = sync_panel(uid)
-        key = vpn_key(uid, token)
-        if key:
-            # показываем ключ повторно — чтобы его можно было скопировать
-            # в «Моя подписка», а не только сразу после покупки
-            guide = f"{SITE_URL}/app?t={token}" if token else f"{SITE_URL}/app"
-            return texts.STATUS_ACTIVE_KEY.format(
-                date=fmt_date(u["sub_until"]), url=key,
-                happ=happ_open_url(uid, token), guide=guide)
-        return texts.STATUS_ACTIVE.format(date=fmt_date(u["sub_until"]))
+        return texts.STATUS_ACTIVE_KEY.format(date=fmt_date(u["sub_until"]))
     return texts.STATUS_INACTIVE
+
+
+def status_kb(uid):
+    """Клавиатура «Моя подписка»: при активной подписке — кнопка
+    «Подключиться сейчас» с токеном; иначе обычное меню."""
+    u = db.get_user(uid)
+    if u and u["sub_until"] and u["sub_until"] > int(time.time()):
+        return connect_kb(sync_panel(uid))
+    return main_menu()
 
 
 # ============ /start (+ рефералы) ============
@@ -190,7 +190,8 @@ async def cmd_ref(message: Message):
 
 @dp.message(Command("status"))
 async def cmd_status(message: Message):
-    await message.answer(status_text(message.from_user.id), reply_markup=main_menu())
+    await message.answer(status_text(message.from_user.id),
+                         reply_markup=status_kb(message.from_user.id))
 
 
 @dp.message(Command("help"))
@@ -215,12 +216,11 @@ async def _give_trial(uid, username, send):
     token = sync_panel(uid)
     sub_url = vpn_key(uid, token)
     if sub_url:
-        await send(texts.TRIAL_OK.format(date=fmt_date(new_until), url=sub_url,
-                                         happ=happ_open_url(uid, token)), devices_kb(token))
+        await send(texts.TRIAL_OK.format(date=fmt_date(new_until)), connect_kb(token))
     else:
         await send(
             texts.TRIAL_NO_KEY.format(date=fmt_date(new_until), owner=SUPPORT_BOT_USERNAME),
-            devices_kb(),
+            main_menu(),
         )
     return True
 
@@ -340,7 +340,8 @@ async def cb_ref(cq: CallbackQuery):
 
 @dp.callback_query(F.data == "status")
 async def cb_status(cq: CallbackQuery):
-    await show_screen(cq, status_text(cq.from_user.id), reply_markup=main_menu())
+    await show_screen(cq, status_text(cq.from_user.id),
+                      reply_markup=status_kb(cq.from_user.id))
     await cq.answer()
 
 
@@ -476,12 +477,12 @@ async def _credit_card_payment(bot, rec):
     token = sync_panel(uid)
     sub_url = vpn_key(uid, token)
     if sub_url:
-        text = texts.PAID_WITH_KEY.format(date=fmt_date(new_until), url=sub_url,
-                                          happ=happ_open_url(uid, token))
+        text = texts.PAID_WITH_KEY.format(date=fmt_date(new_until))
     else:
         text = texts.PAID_NO_KEY.format(date=fmt_date(new_until), owner=SUPPORT_BOT_USERNAME)
     try:
-        await bot.send_message(uid, text, reply_markup=devices_kb(token if sub_url else None))
+        kb = connect_kb(token) if sub_url else main_menu()
+        await bot.send_message(uid, text, reply_markup=kb)
     except Exception:
         logging.exception("Lolz (бот): оплату %s зачислили, но сообщение "
                           "пользователю %s не ушло", rec["payment_id"], uid)
@@ -571,14 +572,13 @@ async def on_paid(message: Message):
     sub_url = vpn_key(uid, token)
     if sub_url:
         await message.answer(
-            texts.PAID_WITH_KEY.format(date=fmt_date(new_until), url=sub_url,
-                                       happ=happ_open_url(uid, token)),
-            reply_markup=devices_kb(token),
+            texts.PAID_WITH_KEY.format(date=fmt_date(new_until)),
+            reply_markup=connect_kb(token),
         )
     else:
         await message.answer(
             texts.PAID_NO_KEY.format(date=fmt_date(new_until), owner=SUPPORT_BOT_USERNAME),
-            reply_markup=devices_kb(),
+            reply_markup=main_menu(),
         )
 
     # уведомление владельцу
