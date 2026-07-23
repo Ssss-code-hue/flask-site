@@ -29,11 +29,14 @@ def main_menu():
 
 def connect_kb(sub_token=None):
     """Клавиатура при активной подписке: одна большая кнопка на страницу
-    подключения (с токеном она импортирует ключ) + возврат в меню."""
+    подключения + возврат в меню.
+
+    Ссылку открываем обычной URL-кнопкой (в браузере), а НЕ web_app: внутри
+    мини-приложения Telegram кастомная схема v2raytun:// не открывается, а
+    в браузере — работает."""
     kb = InlineKeyboardBuilder()
     if sub_token and WEBAPP_URL.startswith("https://"):
-        kb.button(text="🚀 ПОДКЛЮЧИТЬСЯ СЕЙЧАС!",
-                  web_app=WebAppInfo(url=f"{WEBAPP_URL}?t={sub_token}"))
+        kb.button(text="🚀 ПОДКЛЮЧИТЬСЯ СЕЙЧАС!", url=f"{WEBAPP_URL}?t={sub_token}")
     kb.button(text="◀ Назад", callback_data="menu")
     kb.adjust(1)
     return kb.as_markup()

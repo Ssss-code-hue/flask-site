@@ -306,19 +306,11 @@
         catch(e){ toast('Скопируйте ссылку из бота'); }
     }
 
-    // главная кнопка: открыть v2RayTun с импортом подписки
-    if (DEEPLINK) {
-        $('addBtn').addEventListener('click', () => {
-            const inTelegram = window.Telegram && Telegram.WebApp && Telegram.WebApp.openLink;
-            if (inTelegram && REDIRECT) {
-                // Telegram openLink работает только с http(s): ведём на наш
-                // https-редирект, он уже уводит в приложение через внешний браузер.
-                Telegram.WebApp.openLink(REDIRECT, { try_instant_view: false });
-            } else {
-                // Обычный браузер вне Telegram — прямой deep-link в приложение.
-                window.location.href = DEEPLINK;
-            }
-        });
+    // главная кнопка: страница /app открывается в браузере (URL-кнопка бота),
+    // поэтому ведём на landing /v2raytun/<token> — она сама открывает
+    // приложение, а если не вышло, даёт кнопку и копирование ссылки.
+    if (REDIRECT) {
+        $('addBtn').addEventListener('click', () => { window.location.href = REDIRECT; });
     }
     $('copyLink')?.addEventListener('click', copySub);
     $('copyFallback')?.addEventListener('click', (e) => { e.preventDefault(); copySub(); });
