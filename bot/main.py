@@ -128,8 +128,10 @@ def status_text(uid):
         if key:
             # показываем ключ повторно — чтобы его можно было скопировать
             # в «Моя подписка», а не только сразу после покупки
+            guide = f"{SITE_URL}/app?t={token}" if token else f"{SITE_URL}/app"
             return texts.STATUS_ACTIVE_KEY.format(
-                date=fmt_date(u["sub_until"]), url=key, happ=happ_open_url(uid, token))
+                date=fmt_date(u["sub_until"]), url=key,
+                happ=happ_open_url(uid, token), guide=guide)
         return texts.STATUS_ACTIVE.format(date=fmt_date(u["sub_until"]))
     return texts.STATUS_INACTIVE
 
