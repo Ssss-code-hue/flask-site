@@ -230,7 +230,12 @@
 
 <script>
     const SUB_URL = {{ sub_url|tojson }};   // персональная ссылка-подписка (или null)
+    const TOKEN   = {{ sub_token|tojson }}; // токен подписки (или null)
     const DEEPLINK = SUB_URL ? 'v2raytun://import/' + SUB_URL : null;
+    // https-редирект на нашем домене: он уводит в v2raytun://import.
+    // Внутри Telegram openLink умеет только http(s), поэтому кнопку ведём
+    // сюда — Telegram открывает во внешнем браузере, а тот уже в приложение.
+    const REDIRECT = TOKEN ? location.origin + '/v2raytun/' + TOKEN : null;
 
     const install = {
         ios:     'Установите <b>v2RayTun</b> из App Store.',
@@ -304,9 +309,13 @@
     // главная кнопка: открыть v2RayTun с импортом подписки
     if (DEEPLINK) {
         $('addBtn').addEventListener('click', () => {
-            if (window.Telegram && Telegram.WebApp && Telegram.WebApp.openLink) {
-                Telegram.WebApp.openLink(DEEPLINK);
+            const inTelegram = window.Telegram && Telegram.WebApp && Telegram.WebApp.openLink;
+            if (inTelegram && REDIRECT) {
+                // Telegram openLink работает только с http(s): ведём на наш
+                // https-редирект, он уже уводит в приложение через внешний браузер.
+                Telegram.WebApp.openLink(REDIRECT, { try_instant_view: false });
             } else {
+                // Обычный браузер вне Telegram — прямой deep-link в приложение.
                 window.location.href = DEEPLINK;
             }
         });
