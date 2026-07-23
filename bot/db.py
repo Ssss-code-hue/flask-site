@@ -75,6 +75,10 @@ def init_db():
         # SQLite не умеет удалять колонки без пересоздания таблицы.
         if "hy_token" not in ucols:
             c.execute("ALTER TABLE users ADD COLUMN hy_token TEXT")
+        # Флаг: слали ли напоминание «триал заканчивается» (чтобы не спамить).
+        # Сбрасывается при новой активации триала/подписки.
+        if "trial_reminded" not in ucols:
+            c.execute("ALTER TABLE users ADD COLUMN trial_reminded INTEGER DEFAULT 0")
         wcols0 = {r["name"] for r in c.execute("PRAGMA table_info(web_users)")}
         if "hy_token" not in wcols0:
             c.execute("ALTER TABLE web_users ADD COLUMN hy_token TEXT")
@@ -139,7 +143,27 @@ def is_active(uid):
 
 def mark_trial_used(uid):
     with _conn() as c:
-        c.execute("UPDATE users SET trial_used=1 WHERE user_id=?", (uid,))
+        # новый триал — сбрасываем флаг напоминания, чтобы напомнить и о нём
+        c.execute("UPDATE users SET trial_used=1, trial_reminded=0 WHERE user_id=?", (uid,))
+
+
+def trial_reminder_candidates(now, within_seconds):
+    """Пользователи с активным триалом, у кого до конца осталось не больше
+    within_seconds, и кому ещё не напоминали. Для авторассылки «триал
+    заканчивается»."""
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT user_id, sub_until FROM users "
+            "WHERE trial_used=1 AND trial_reminded=0 "
+            "AND sub_until>? AND sub_until<=?",
+            (now, now + within_seconds),
+        ).fetchall()
+        return [(r["user_id"], r["sub_until"]) for r in rows]
+
+
+def mark_trial_reminded(uid):
+    with _conn() as c:
+        c.execute("UPDATE users SET trial_reminded=1 WHERE user_id=?", (uid,))
 
 
 def set_referred_by(uid, ref_id):

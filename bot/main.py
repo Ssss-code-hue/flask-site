@@ -2,6 +2,7 @@
 import asyncio
 import json
 import logging
+import os
 import time
 import uuid
 from datetime import datetime
@@ -594,6 +595,45 @@ async def on_paid(message: Message):
             pass
 
 
+TRIAL_REMIND_BEFORE_DAYS = int(os.environ.get("TRIAL_REMIND_BEFORE_DAYS", "3"))
+TRIAL_REMIND_INTERVAL = 3 * 3600   # как часто проверяем (раз в 3 часа)
+
+
+def _plural_days(n):
+    """день / дня / дней по числу."""
+    if 11 <= n % 100 <= 14:
+        return "дней"
+    d = n % 10
+    return "день" if d == 1 else ("дня" if 2 <= d <= 4 else "дней")
+
+
+async def remind_trial_ending(bot):
+    """Авторассылка «пробный период заканчивается» с кнопкой подключения.
+
+    Шлётся один раз каждому, у кого до конца триала осталось не больше
+    TRIAL_REMIND_BEFORE_DAYS дней. Возвращает мёртвые триалы и подталкивает
+    подключиться, пока доступ ещё бесплатный."""
+    within = TRIAL_REMIND_BEFORE_DAYS * 86400
+    while True:
+        await asyncio.sleep(TRIAL_REMIND_INTERVAL)
+        try:
+            now = int(time.time())
+            for uid, sub_until in db.trial_reminder_candidates(now, within):
+                days = max(1, round((sub_until - now) / 86400))
+                text = texts.TRIAL_ENDING.format(
+                    ending="ся" if days == 1 else "ось",
+                    days=days, word=_plural_days(days))
+                token = sync_panel(uid)
+                try:
+                    await bot.send_message(uid, text, reply_markup=connect_kb(token))
+                    db.mark_trial_reminded(uid)
+                except Exception:
+                    # заблокировал бота / удалил чат — помечаем, чтобы не долбить
+                    db.mark_trial_reminded(uid)
+        except Exception:
+            logging.exception("Ошибка авторассылки напоминаний о триале")
+
+
 async def main():
     if not BOT_TOKEN:
         raise SystemExit("Ошибка: задайте переменную окружения BOT_TOKEN (токен от @BotFather).")
@@ -611,6 +651,10 @@ async def main():
                      card_provider())
     else:
         logging.info("Касса не настроена (Platega/Lolz) — в боте только звёзды")
+
+    asyncio.create_task(remind_trial_ending(bot))
+    logging.info("Авторассылка напоминаний о триале включена (за %s дн.)",
+                 TRIAL_REMIND_BEFORE_DAYS)
 
     logging.info("IKK VPN bot запущен")
     await dp.start_polling(bot)
