@@ -201,6 +201,35 @@ async def cmd_help(message: Message):
     await message.answer(texts.HELP.format(trial=TRIAL_DAYS), reply_markup=main_menu())
 
 
+@dp.message(Command("broadcast_nc"))
+async def cmd_broadcast_nc(message: Message):
+    """Разовая рассылка «вы ещё не подключились» — всем активным, кто ни разу
+    не выходил в сеть. Только для владельца (OWNER_ID). Работает внутри бота,
+    поэтому все настройки (панель, база) уже на месте."""
+    if not OWNER_ID or message.from_user.id != OWNER_ID:
+        return
+    now = int(time.time())
+    users = db.active_users(now)
+    await message.answer(f"⏳ Проверяю {len(users)} активных подписок…")
+    sent = skipped = failed = 0
+    for uid, sub_until in users:
+        connected = await asyncio.to_thread(user_connected, uid)
+        if connected is None or connected:
+            skipped += 1                       # уже пользуется / панель молчит
+            continue
+        token = sync_panel(uid)
+        text = texts.NOT_CONNECTED_NUDGE.format(date=fmt_date(sub_until))
+        try:
+            await message.bot.send_message(uid, text, reply_markup=connect_kb(token))
+            sent += 1
+        except Exception:
+            failed += 1                        # заблокировал бота / удалил чат
+        await asyncio.sleep(0.1)
+    await message.answer(
+        f"✅ Готово.\nОтправлено: {sent}\nПропущено (подключены/недоступны): "
+        f"{skipped}\nОшибок: {failed}")
+
+
 # ============ Пробный период ============
 async def _give_trial(uid, username, send):
     """Общая логика «Попробовать бесплатно» для команды и кнопки.
