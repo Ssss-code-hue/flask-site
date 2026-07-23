@@ -3,22 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>IKK VPN — инструкция</title>
+    <title>IKK VPN — подключение</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Playfair+Display&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Playfair+Display&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 
     <style>
         /* Тема сайта: глубокий тёмно-синий + белый + «жидкое стекло» */
         :root {
             --bg: hsl(201 100% 13%);
             --fg: #ffffff;
-            --dim: #a5a5ad;
+            --dim: #a7b0bd;
             --line: rgba(255,255,255,.14);
             --line-soft: rgba(255,255,255,.07);
             --glass: rgba(255,255,255,.04);
+            --accent: hsl(184 72% 55%);
+            --accent-soft: hsl(184 72% 55% / .16);
             --serif: 'Instrument Serif', 'Playfair Display', Georgia, serif;
         }
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -26,98 +28,145 @@
             font-family:'Inter', system-ui, sans-serif;
             background: var(--bg);
             color: var(--fg);
-            padding:28px 16px 48px;
+            padding:26px 16px 52px;
             line-height:1.55;
             -webkit-font-smoothing: antialiased;
+            min-height:100vh;
         }
-        /* отсвет северного сияния — как в живом фоне сайта */
+        /* живое северное сияние — как фон всех страниц сайта */
         body::before {
-            content:''; position:fixed; inset:-20%; z-index:-1; pointer-events:none;
+            content:''; position:fixed; inset:-25%; z-index:-1; pointer-events:none;
             background:
-                radial-gradient(42% 36% at 18% 8%, hsl(197 85% 26% / .5), transparent 70%),
-                radial-gradient(46% 40% at 85% 92%, hsl(232 55% 30% / .45), transparent 70%);
+                radial-gradient(40% 34% at 16% 6%,  hsl(184 80% 30% / .45), transparent 70%),
+                radial-gradient(44% 40% at 88% 14%, hsl(197 85% 26% / .40), transparent 72%),
+                radial-gradient(50% 46% at 82% 96%, hsl(232 60% 32% / .48), transparent 72%);
+            animation: aurora 18s ease-in-out infinite alternate;
+        }
+        @keyframes aurora {
+            from { transform: translate3d(0,0,0) scale(1); }
+            to   { transform: translate3d(0,-2%,0) scale(1.06); }
         }
 
         @keyframes fade-rise {
-            from { opacity:0; transform:translateY(18px); }
+            from { opacity:0; transform:translateY(16px); }
             to   { opacity:1; transform:translateY(0); }
         }
         .rise   { animation: fade-rise .7s ease-out both; }
-        .rise-2 { animation: fade-rise .7s ease-out .15s both; }
-        .rise-3 { animation: fade-rise .7s ease-out .3s both; }
+        .rise-2 { animation: fade-rise .7s ease-out .12s both; }
+        .rise-3 { animation: fade-rise .7s ease-out .24s both; }
 
-        .eyebrow {
-            text-transform:uppercase; letter-spacing:4px; font-size:.66rem;
-            font-weight:500; color:var(--dim); text-align:center; margin-bottom:10px;
-        }
-        h1.title {
-            font-family:var(--serif); font-weight:400; letter-spacing:-.02em;
-            font-size:clamp(2.6rem,11vw,3.4rem); text-align:center; line-height:1;
-        }
-        .sub { font-size:.95rem; color:var(--dim); text-align:center; margin:10px 0 26px; }
+        .wrap { max-width: 560px; margin: 0 auto; }
 
-        /* вкладки устройств — стеклянные таблетки */
-        .tabs { display:flex; gap:8px; overflow-x:auto; padding-bottom:14px; margin-bottom:14px; -webkit-overflow-scrolling:touch; }
+        /* ── шапка ── */
+        .topbar { display:flex; align-items:center; gap:12px; margin-bottom:26px; }
+        .logo { font-size:1.7rem; line-height:1; }
+        .brand { font-family:var(--serif); font-weight:400; font-size:1.7rem; letter-spacing:-.01em; }
+        .topbar .spacer { flex:1; }
+        .icon-btn {
+            width:42px; height:42px; border-radius:14px; flex:none;
+            display:flex; align-items:center; justify-content:center;
+            background:var(--glass); border:1px solid var(--line-soft);
+            color:var(--fg); cursor:pointer; transition:.2s; text-decoration:none;
+        }
+        .icon-btn:active { transform:scale(.94); }
+        .icon-btn svg { width:19px; height:19px; }
+
+        /* ── селектор устройства ── */
+        .tabs { display:flex; gap:8px; overflow-x:auto; padding-bottom:16px; margin-bottom:18px; -webkit-overflow-scrolling:touch; }
+        .tabs::-webkit-scrollbar { display:none; }
         .tab {
-            white-space:nowrap; flex:none;
-            font-family:'Inter', sans-serif; font-weight:500; font-size:.86rem;
-            padding:10px 20px; border:none; border-radius:999px;
+            white-space:nowrap; flex:none; font-weight:500; font-size:.86rem;
+            padding:9px 18px; border:none; border-radius:999px;
             background:var(--glass); color:var(--dim);
             box-shadow: inset 0 1px 1px rgba(255,255,255,.1), inset 0 0 0 1px var(--line-soft);
-            cursor:pointer; transition:.25s;
+            cursor:pointer; transition:.22s;
         }
         .tab.active { background:var(--fg); color:hsl(201 100% 10%); box-shadow:none; }
 
-        .panel { display:none; }
-        .panel.active { display:block; animation:fade-rise .35s ease-out; }
-
-        /* шаги — стеклянные карточки */
-        .step {
-            display:flex; gap:14px; align-items:flex-start;
-            background:var(--glass); border:1px solid var(--line-soft);
-            border-radius:20px; padding:16px 18px; margin-bottom:10px;
+        /* ── карточка-таймлайн ── */
+        .card {
+            background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+            border:1px solid var(--line-soft); border-radius:26px;
+            padding:26px 22px 22px;
+            box-shadow: 0 30px 60px -30px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.08);
         }
-        .num {
-            flex:none; width:38px; height:38px; border-radius:50%;
-            border:1px solid var(--line); background:var(--glass);
+        .card-head { font-family:var(--serif); font-size:1.5rem; margin-bottom:22px; }
+
+        .tl-step { position:relative; display:flex; gap:16px; padding-bottom:26px; }
+        .tl-step:last-child { padding-bottom:0; }
+        /* соединительная линия между кружками */
+        .tl-step:not(:last-child)::before {
+            content:''; position:absolute; left:21px; top:44px; bottom:2px; width:2px;
+            background:linear-gradient(var(--accent), var(--line-soft));
+            opacity:.5;
+        }
+        .tl-ico {
+            position:relative; z-index:1; flex:none;
+            width:44px; height:44px; border-radius:50%;
             display:flex; align-items:center; justify-content:center;
-            font-family:var(--serif); font-size:1.15rem; color:var(--fg);
+            background:var(--accent-soft); border:1px solid hsl(184 72% 55% / .35);
+            color:var(--accent);
         }
-        .step p { font-size:.94rem; color:var(--dim); padding-top:7px; }
-        .step b { font-weight:500; color:var(--fg); }
+        .tl-ico svg { width:20px; height:20px; }
+        .tl-ico.done { background:hsl(184 72% 55% / .22); }
+        .tl-body { flex:1; padding-top:2px; }
+        .tl-title { font-weight:600; font-size:1.02rem; margin-bottom:5px; }
+        .tl-desc { font-size:.9rem; color:var(--dim); }
+        .tl-desc b { color:var(--fg); font-weight:500; }
 
-        /* кнопка скачивания приложения — «жидкое стекло» */
-        .dl-btn {
-            display:block; text-align:center; margin:0 0 14px;
-            font-family:'Inter', sans-serif; font-weight:500; font-size:.95rem;
-            padding:14px 16px; border-radius:999px; text-decoration:none;
-            color:var(--fg);
-            background:rgba(255,255,255,.01);
-            backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
-            box-shadow: inset 0 1px 1px rgba(255,255,255,.1);
-            position:relative; overflow:hidden;
+        /* кнопки внутри шагов */
+        .btn {
+            display:inline-flex; align-items:center; gap:8px; margin-top:14px;
+            font-weight:600; font-size:.92rem; padding:12px 20px;
+            border-radius:14px; text-decoration:none; cursor:pointer; border:none;
+            transition:.2s;
         }
-        .dl-btn::before {
-            content:''; position:absolute; inset:0; border-radius:inherit; padding:1.4px;
-            background:linear-gradient(180deg,
-                rgba(255,255,255,.45) 0%, rgba(255,255,255,.15) 20%,
-                rgba(255,255,255,0) 40%, rgba(255,255,255,0) 60%,
-                rgba(255,255,255,.15) 80%, rgba(255,255,255,.45) 100%);
-            -webkit-mask:linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite:xor; mask-composite:exclude;
-            pointer-events:none;
+        .btn svg { width:17px; height:17px; }
+        .btn:active { transform:scale(.97); }
+        /* главная — акцентная */
+        .btn-accent {
+            color:hsl(201 100% 8%);
+            background:linear-gradient(180deg, hsl(184 78% 62%), hsl(184 72% 50%));
+            box-shadow:0 8px 22px -8px hsl(184 72% 50% / .8);
+            width:100%; justify-content:center;
         }
-        .dl-btn:active { opacity:.85; }
+        /* вторичная — стеклянная */
+        .btn-glass {
+            color:var(--fg); background:var(--glass);
+            border:1px solid var(--line); backdrop-filter:blur(4px);
+        }
 
-        .note { font-size:.85rem; color:var(--dim); text-align:center; margin-top:22px; }
+        .foot { text-align:center; margin-top:22px; }
+        .foot .hint { font-size:.84rem; color:var(--dim); }
+        .foot a { color:var(--accent); text-decoration:none; }
+
+        /* всплывающее «скопировано» */
+        .toast {
+            position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(20px);
+            background:var(--fg); color:hsl(201 100% 10%); font-weight:600; font-size:.86rem;
+            padding:11px 20px; border-radius:999px; opacity:0; pointer-events:none;
+            transition:.3s; z-index:10; box-shadow:0 12px 30px -8px rgba(0,0,0,.5);
+        }
+        .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
     </style>
 </head>
 <body>
-    <div class="eyebrow rise">Подключение · v2RayTun</div>
-    <h1 class="title rise">IKK VPN</h1>
-    <div class="sub rise-2">Выберите своё устройство</div>
+<div class="wrap">
+    <div class="topbar rise">
+        <span class="logo">🐱</span>
+        <span class="brand">IKK VPN</span>
+        <span class="spacer"></span>
+        {% if sub_token %}
+        <button class="icon-btn" id="copyLink" title="Скопировать ссылку">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </button>
+        {% endif %}
+        <a class="icon-btn" href="https://t.me/{{ support_bot }}" target="_blank" rel="noopener" title="Поддержка">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>
+        </a>
+    </div>
 
-    <div class="tabs rise-2">
+    <div class="tabs rise-2" id="tabs">
         <button class="tab active" data-t="ios">iOS</button>
         <button class="tab" data-t="android">Android</button>
         <button class="tab" data-t="windows">Windows</button>
@@ -125,75 +174,160 @@
         <button class="tab" data-t="tv">Android TV</button>
     </div>
 
-    <div id="panels" class="rise-3"></div>
+    <div class="card rise-3">
+        <div class="card-head">Подключение за 3 шага</div>
 
-    <div class="note">Нет ссылки-подписки? Купите её в боте — раздел «⭐ Купить подписку».</div>
+        <div class="tl-step">
+            <div class="tl-ico">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </div>
+            <div class="tl-body">
+                <div class="tl-title">Установите приложение</div>
+                <div class="tl-desc" id="installDesc"></div>
+                <a class="btn btn-glass" id="dlBtn" target="_blank" rel="noopener">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <span id="dlLabel">Скачать v2RayTun</span>
+                </a>
+            </div>
+        </div>
 
-    <script>
-        const install = {
-            ios:     'Установите приложение <b>v2RayTun</b> из <b>App Store</b>.',
-            android: 'Установите приложение <b>v2RayTun</b> из <b>Google Play</b>.',
-            windows: 'Скачайте <b>v2RayTun для Windows</b> с официального сайта.',
-            macos:   'Установите <b>v2RayTun</b> из <b>App Store</b> (macOS 13 и новее).',
-            tv:      'Установите <b>v2RayTun</b> из <b>Google Play</b> на телевизоре.',
-        };
-        const add = {
-            ios:     'Откройте v2RayTun → «<b>+</b>» вверху справа → «<b>Импорт из буфера обмена</b>».',
-            android: 'Откройте v2RayTun → «<b>+</b>» вверху справа → «<b>Импорт из буфера обмена</b>».',
-            windows: 'В v2RayTun нажмите «<b>+</b>» → «<b>Импорт из буфера обмена</b>».',
-            macos:   'Откройте v2RayTun → «<b>+</b>» вверху справа → «<b>Импорт из буфера обмена</b>».',
-            tv:      'В v2RayTun выберите «<b>+</b>» → «<b>Импорт по QR-коду</b>» и наведите на код из бота.',
-        };
-        // официальные ссылки на скачивание v2RayTun
-        const dl = {
-            ios:     'https://apps.apple.com/us/app/v2raytun/id6476628951',
-            android: 'https://play.google.com/store/apps/details?id=com.v2raytun.android',
-            windows: 'https://v2raytun.com',
-            macos:   'https://apps.apple.com/us/app/v2raytun/id6476628951',
-            tv:      'https://play.google.com/store/apps/details?id=com.v2raytun.android',
-        };
-        const keys = ['ios','android','windows','macos','tv'];
-        const panels = document.getElementById('panels');
-        keys.forEach((k, i) => {
-            const div = document.createElement('div');
-            div.className = 'panel' + (i === 0 ? ' active' : '');
-            div.dataset.p = k;
-            div.innerHTML = `
-                <a class="dl-btn" href="${dl[k]}" target="_blank" rel="noopener">⬇ Скачать v2RayTun</a>
-                <div class="step"><div class="num">1</div><p>${install[k]}</p></div>
-                <div class="step"><div class="num">2</div><p>Купите подписку в боте и <b>скопируйте</b> свою ссылку-подписку.</p></div>
-                <div class="step"><div class="num">3</div><p>${add[k]}</p></div>
-                <div class="step"><div class="num">4</div><p>Выберите сервер и нажмите «<b>Подключить</b>». Готово! 🎉</p></div>
-                <div class="step"><div class="num">✓</div><p><b>Ничего настраивать не нужно.</b> Все параметры уже внутри подписки — не меняйте их вручную, иначе связь может перестать работать.</p></div>`;
-            panels.appendChild(div);
+        <div class="tl-step">
+            <div class="tl-ico">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+            </div>
+            <div class="tl-body">
+                <div class="tl-title">Добавьте подписку</div>
+                <div class="tl-desc" id="addDesc"></div>
+                {% if sub_token %}
+                <a class="btn btn-accent" id="addBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Добавить подписку
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="tl-step">
+            <div class="tl-ico done">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div class="tl-body">
+                <div class="tl-title">Подключитесь</div>
+                <div class="tl-desc">Выберите сервер <b>🇫🇮 Finland</b> и нажмите большую кнопку включения в центре. Готово — VPN работает 🎉<br><br>Ничего настраивать вручную не нужно: все параметры уже внутри подписки.</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="foot rise-3">
+        {% if not sub_token %}
+        <div class="hint">Нет ссылки-подписки? Оформите её в боте — раздел «⭐ Купить подписку».</div>
+        {% else %}
+        <div class="hint">Кнопка не сработала? <a href="#" id="copyFallback">Скопировать ссылку вручную</a></div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="toast" id="toast">Ссылка скопирована ✓</div>
+
+<script>
+    const SUB_URL = {{ sub_url|tojson }};   // персональная ссылка-подписка (или null)
+    const DEEPLINK = SUB_URL ? 'v2raytun://import/' + SUB_URL : null;
+
+    const install = {
+        ios:     'Установите <b>v2RayTun</b> из App Store.',
+        android: 'Установите <b>v2RayTun</b> из Google Play.',
+        windows: 'Скачайте <b>v2RayTun для Windows</b> с официального сайта.',
+        macos:   'Установите <b>v2RayTun</b> из App Store (macOS 13+).',
+        tv:      'Установите <b>v2RayTun</b> из Google Play на телевизоре.',
+    };
+    const addManual = {
+        ios:     'Нажмите кнопку ниже — приложение откроется, и подписка добавится сама.',
+        android: 'Нажмите кнопку ниже — приложение откроется, и подписка добавится сама.',
+        windows: 'Нажмите кнопку ниже — приложение откроется, и подписка добавится сама.',
+        macos:   'Нажмите кнопку ниже — приложение откроется, и подписка добавится сама.',
+        tv:      'На ТВ откройте v2RayTun → «+» → «Импорт по QR-коду» и наведите на код из бота.',
+    };
+    const noToken = {
+        ios:     'Оформите подписку в боте, скопируйте ссылку и добавьте её в v2RayTun (кнопка «+» → «Импорт из буфера»).',
+        android: 'Оформите подписку в боте, скопируйте ссылку и добавьте её в v2RayTun (кнопка «+» → «Импорт из буфера»).',
+        windows: 'Оформите подписку в боте, скопируйте ссылку и добавьте её в v2RayTun (кнопка «+» → «Импорт из буфера»).',
+        macos:   'Оформите подписку в боте, скопируйте ссылку и добавьте её в v2RayTun (кнопка «+» → «Импорт из буфера»).',
+        tv:      'Оформите подписку в боте и импортируйте её в v2RayTun по QR-коду.',
+    };
+    const dl = {
+        ios:     'https://apps.apple.com/us/app/v2raytun/id6476628951',
+        android: 'https://play.google.com/store/apps/details?id=com.v2raytun.android',
+        windows: 'https://v2raytun.com',
+        macos:   'https://apps.apple.com/us/app/v2raytun/id6476628951',
+        tv:      'https://play.google.com/store/apps/details?id=com.v2raytun.android',
+    };
+
+    let current = 'ios';
+    const $ = id => document.getElementById(id);
+
+    function render(k) {
+        current = k;
+        $('installDesc').innerHTML = install[k];
+        $('addDesc').innerHTML = SUB_URL ? addManual[k] : noToken[k];
+        $('dlBtn').href = dl[k];
+    }
+
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            render(tab.dataset.t);
         });
+    });
 
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-                tab.classList.add('active');
-                document.querySelector(`.panel[data-p="${tab.dataset.t}"]`).classList.add('active');
-            });
+    // авто-выбор устройства по User-Agent
+    (function autopick(){
+        const ua = navigator.userAgent.toLowerCase();
+        let k = 'ios';
+        if (/android/.test(ua)) k = 'android';
+        else if (/iphone|ipad|ipod/.test(ua)) k = 'ios';
+        else if (/windows/.test(ua)) k = 'windows';
+        else if (/mac/.test(ua)) k = 'macos';
+        document.querySelector(`.tab[data-t="${k}"]`)?.click();
+        if (k === 'ios') render('ios');
+    })();
+
+    function toast(msg){
+        const t = $('toast'); t.textContent = msg; t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 1800);
+    }
+    async function copySub(){
+        if (!SUB_URL) return;
+        try { await navigator.clipboard.writeText(SUB_URL); toast('Ссылка скопирована ✓'); }
+        catch(e){ toast('Скопируйте ссылку из бота'); }
+    }
+
+    // главная кнопка: открыть v2RayTun с импортом подписки
+    if (DEEPLINK) {
+        $('addBtn').addEventListener('click', () => {
+            if (window.Telegram && Telegram.WebApp && Telegram.WebApp.openLink) {
+                Telegram.WebApp.openLink(DEEPLINK);
+            } else {
+                window.location.href = DEEPLINK;
+            }
         });
+    }
+    $('copyLink')?.addEventListener('click', copySub);
+    $('copyFallback')?.addEventListener('click', (e) => { e.preventDefault(); copySub(); });
 
-        // ссылки на магазины открываем во внешнем браузере (корректно в Telegram-webview)
-        document.querySelectorAll('.dl-btn').forEach(b => {
-            b.addEventListener('click', (e) => {
-                if (window.Telegram && Telegram.WebApp && Telegram.WebApp.openLink) {
-                    e.preventDefault();
-                    Telegram.WebApp.openLink(b.href);
-                }
-            });
-        });
-
-        if (window.Telegram && Telegram.WebApp) {
-            Telegram.WebApp.ready();
-            Telegram.WebApp.expand();
-            // цвета webview под тему сайта
-            if (Telegram.WebApp.setHeaderColor) Telegram.WebApp.setHeaderColor('#002b42');
-            if (Telegram.WebApp.setBackgroundColor) Telegram.WebApp.setBackgroundColor('#002b42');
+    // ссылки на магазины — во внешнем браузере (корректно внутри Telegram)
+    $('dlBtn').addEventListener('click', (e) => {
+        if (window.Telegram && Telegram.WebApp && Telegram.WebApp.openLink) {
+            e.preventDefault(); Telegram.WebApp.openLink($('dlBtn').href);
         }
-    </script>
+    });
+
+    if (window.Telegram && Telegram.WebApp) {
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
+        if (Telegram.WebApp.setHeaderColor) Telegram.WebApp.setHeaderColor('#002b42');
+        if (Telegram.WebApp.setBackgroundColor) Telegram.WebApp.setBackgroundColor('#002b42');
+    }
+</script>
 </body>
 </html>

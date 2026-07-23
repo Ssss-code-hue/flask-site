@@ -105,10 +105,15 @@ def card_invoice_kb(pay_url, payment_id):
     return kb.as_markup()
 
 
-def devices_kb():
+def devices_kb(sub_token=None):
+    """Клавиатура под ключом. Если передан токен подписки — открываем
+    персональную страницу-подключайку (кнопка «Добавить подписку» там
+    импортирует ключ в одно нажатие); иначе — общую инструкцию."""
     kb = InlineKeyboardBuilder()
     if WEBAPP_URL.startswith("https://"):
-        kb.button(text="📱 Открыть инструкцию", web_app=WebAppInfo(url=WEBAPP_URL))
+        url = f"{WEBAPP_URL}?t={sub_token}" if sub_token else WEBAPP_URL
+        text = "🚀 Подключить" if sub_token else "📱 Открыть инструкцию"
+        kb.button(text=text, web_app=WebAppInfo(url=url))
     kb.button(text="◀ Назад", callback_data="menu")
     kb.adjust(1)
     return kb.as_markup()

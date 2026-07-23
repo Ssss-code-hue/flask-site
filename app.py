@@ -74,6 +74,7 @@ def inject_nav_user():
 
 
 _SITE_URL = os.environ.get('SITE_URL', 'https://ikkvpn.com').rstrip('/')
+SUPPORT_BOT_USERNAME = os.environ.get('SUPPORT_BOT_USERNAME', 'IKKvpnsupport_bot')
 
 
 @app.route('/vpnsub/<token>')
@@ -156,8 +157,17 @@ def bot():
 
 @app.route('/app')
 def webapp():
-    # Мини-приложение Telegram с инструкцией подключения (v2RayTun)
-    return render_template('webapp.html')
+    # Страница-подключайка (v2RayTun). Если передан токен подписки (?t=…),
+    # кнопка «Добавить подписку» импортирует ключ в одно нажатие; иначе —
+    # общая инструкция. Старый токен Hysteria2 подменяем на актуальный.
+    from flask import request
+    token = request.args.get('t')
+    sub_url = None
+    if token:
+        token = _actual_token(token)
+        sub_url = f"{_SITE_URL}/sub/{token}"
+    return render_template('webapp.html', sub_token=token, sub_url=sub_url,
+                           support_bot=SUPPORT_BOT_USERNAME)
 
 
 @app.route('/offer')

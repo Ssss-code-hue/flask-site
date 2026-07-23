@@ -214,7 +214,7 @@ async def _give_trial(uid, username, send):
     sub_url = vpn_key(uid, token)
     if sub_url:
         await send(texts.TRIAL_OK.format(date=fmt_date(new_until), url=sub_url,
-                                         happ=happ_open_url(uid, token)), devices_kb())
+                                         happ=happ_open_url(uid, token)), devices_kb(token))
     else:
         await send(
             texts.TRIAL_NO_KEY.format(date=fmt_date(new_until), owner=SUPPORT_BOT_USERNAME),
@@ -479,7 +479,7 @@ async def _credit_card_payment(bot, rec):
     else:
         text = texts.PAID_NO_KEY.format(date=fmt_date(new_until), owner=SUPPORT_BOT_USERNAME)
     try:
-        await bot.send_message(uid, text, reply_markup=devices_kb())
+        await bot.send_message(uid, text, reply_markup=devices_kb(token if sub_url else None))
     except Exception:
         logging.exception("Lolz (бот): оплату %s зачислили, но сообщение "
                           "пользователю %s не ушло", rec["payment_id"], uid)
@@ -571,7 +571,7 @@ async def on_paid(message: Message):
         await message.answer(
             texts.PAID_WITH_KEY.format(date=fmt_date(new_until), url=sub_url,
                                        happ=happ_open_url(uid, token)),
-            reply_markup=devices_kb(),
+            reply_markup=devices_kb(token),
         )
     else:
         await message.answer(
