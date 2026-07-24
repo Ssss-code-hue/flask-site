@@ -57,20 +57,25 @@ BANNER = Path(__file__).parent / "assets" / "banner.png"
 _banner_file_id = None
 
 
-async def send_welcome(message: Message):
+async def send_banner(message: Message, text, reply_markup=None):
+    """Отправляет НОВОЕ сообщение с баннером IKK VPN сверху (фото + подпись).
+    Так выглядят все экраны бота; используем для ответов на текстовый ввод."""
     global _banner_file_id
     if BANNER.exists():
         try:
             photo = _banner_file_id or FSInputFile(BANNER)
-            sent = await message.answer_photo(
-                photo, caption=texts.WELCOME, reply_markup=main_menu()
-            )
+            sent = await message.answer_photo(photo, caption=text,
+                                              reply_markup=reply_markup)
             if not _banner_file_id:
                 _banner_file_id = sent.photo[-1].file_id
             return
         except Exception:
-            logging.exception("Баннер приветствия не отправился — шлём текстом")
-    await message.answer(texts.WELCOME, reply_markup=main_menu())
+            logging.exception("Баннер не отправился — шлём текстом")
+    await message.answer(text, reply_markup=reply_markup)
+
+
+async def send_welcome(message: Message):
+    await send_banner(message, texts.WELCOME, main_menu())
 
 
 async def show_screen(cq: CallbackQuery, text, reply_markup=None, **kwargs):
@@ -389,23 +394,23 @@ async def on_promo_text(message: Message):
     code = (message.text or "").strip()
     # явно не промокод (фраза с пробелами или слишком длинно) — вернём в меню
     if not code or " " in code or len(code) > 32:
-        await message.answer(texts.UNKNOWN_INPUT, reply_markup=main_menu())
+        await send_banner(message, texts.UNKNOWN_INPUT, main_menu())
         return
     uid = message.from_user.id
     db.create_user(uid, message.from_user.username)   # на случай без /start
     bonus, err = db.redeem_promo(code, uid)
     if err == "not_found":
-        await message.answer(texts.PROMO_NOT_FOUND, reply_markup=main_menu())
+        await send_banner(message, texts.PROMO_NOT_FOUND, main_menu())
     elif err == "already":
-        await message.answer(texts.PROMO_ALREADY)
+        await send_banner(message, texts.PROMO_ALREADY, main_menu())
     elif err == "exhausted":
-        await message.answer(texts.PROMO_EXHAUSTED)
+        await send_banner(message, texts.PROMO_EXHAUSTED, main_menu())
     else:
         new_until = db.add_days(uid, bonus)
         token = sync_panel(uid)
-        await message.answer(
+        await send_banner(message,
             texts.PROMO_OK.format(days=bonus, date=fmt_date(new_until)),
-            reply_markup=connect_kb(token))
+            connect_kb(token))
 
 
 # ============ Выбор тарифа и способа оплаты ============
