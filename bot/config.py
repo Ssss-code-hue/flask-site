@@ -39,7 +39,7 @@ SITE_URL = os.environ.get("SITE_URL", "https://ikkvpn.com").rstrip("/")
 REFERRAL_BONUS_DAYS = int(os.environ.get("REFERRAL_BONUS_DAYS", "3"))
 
 # Пробный период «Попробовать бесплатно» (дней, раз на пользователя)
-TRIAL_DAYS = int(os.environ.get("TRIAL_DAYS", "5"))
+TRIAL_DAYS = int(os.environ.get("TRIAL_DAYS", "15"))
 
 # Путь к базе SQLite
 DB_PATH = os.environ.get("DB_PATH", "ikk_bot.db")
