@@ -376,6 +376,38 @@ async def cb_status(cq: CallbackQuery):
     await cq.answer()
 
 
+# ============ Промокоды ============
+@dp.callback_query(F.data == "promo")
+async def cb_promo(cq: CallbackQuery):
+    await show_screen(cq, texts.PROMO_ENTER, reply_markup=back_kb())
+    await cq.answer()
+
+
+@dp.message(F.text & ~F.text.startswith("/"))
+async def on_promo_text(message: Message):
+    """Любой обычный текст трактуем как попытку ввести промокод."""
+    code = (message.text or "").strip()
+    # явно не промокод (фраза с пробелами или слишком длинно) — вернём в меню
+    if not code or " " in code or len(code) > 32:
+        await message.answer(texts.UNKNOWN_INPUT, reply_markup=main_menu())
+        return
+    uid = message.from_user.id
+    db.create_user(uid, message.from_user.username)   # на случай без /start
+    bonus, err = db.redeem_promo(code, uid)
+    if err == "not_found":
+        await message.answer(texts.PROMO_NOT_FOUND, reply_markup=main_menu())
+    elif err == "already":
+        await message.answer(texts.PROMO_ALREADY)
+    elif err == "exhausted":
+        await message.answer(texts.PROMO_EXHAUSTED)
+    else:
+        new_until = db.add_days(uid, bonus)
+        token = sync_panel(uid)
+        await message.answer(
+            texts.PROMO_OK.format(days=bonus, date=fmt_date(new_until)),
+            reply_markup=connect_kb(token))
+
+
 # ============ Выбор тарифа и способа оплаты ============
 async def _send_stars_invoice(cq: CallbackQuery, code, p):
     await cq.message.answer_invoice(
@@ -628,6 +660,11 @@ async def on_paid(message: Message):
 TRIAL_REMIND_BEFORE_DAYS = int(os.environ.get("TRIAL_REMIND_BEFORE_DAYS", "3"))
 TRIAL_REMIND_INTERVAL = 3 * 3600   # как часто проверяем (раз в 3 часа)
 
+# Рекламный промокод, создаётся автоматически при старте бота.
+PROMO_CODE = os.environ.get("PROMO_CODE", "START7").upper()
+PROMO_DAYS = int(os.environ.get("PROMO_DAYS", "7"))
+PROMO_MAX_USES = int(os.environ.get("PROMO_MAX_USES", "0"))   # 0 = без лимита
+
 
 def _plural_days(n):
     """день / дня / дней по числу."""
@@ -686,6 +723,9 @@ async def main():
                      card_provider())
     else:
         logging.info("Касса не настроена (Platega/Lolz) — в боте только звёзды")
+
+    db.create_promo(PROMO_CODE, PROMO_DAYS, PROMO_MAX_USES)
+    logging.info("Промокод %s (+%s дн.) готов", PROMO_CODE, PROMO_DAYS)
 
     asyncio.create_task(remind_trial_ending(bot))
     logging.info("Авторассылка напоминаний о триале включена (за %s дн.)",

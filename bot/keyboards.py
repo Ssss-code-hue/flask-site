@@ -18,12 +18,13 @@ def main_menu():
     kb = InlineKeyboardBuilder()
     kb.button(text="⭐ Купить подписку", callback_data="buy")
     kb.button(text=f"🆓 Попробовать бесплатно ({TRIAL_DAYS} дн.)", callback_data="trial")
+    kb.button(text="🎁 Промокод", callback_data="promo")
     kb.button(text="📡 Моя подписка", callback_data="status")
     kb.button(text="🎁 Пригласить друга (+3 дня)", callback_data="ref")
     kb.button(text="📄 Документы", callback_data="docs")
     kb.button(text="💬 Поддержка", url=f"https://t.me/{SUPPORT_BOT_USERNAME}")
-    # «Купить» и «Попробовать» на всю ширину, потом по две в ряд
-    kb.adjust(1, 1, 2, 2)
+    # «Купить» и «Попробовать» на всю ширину, «Промокод»+«Моя подписка» в ряд, дальше по две
+    kb.adjust(1, 1, 2, 2, 2)
     return kb.as_markup()
 
 

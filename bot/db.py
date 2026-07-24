@@ -61,6 +61,20 @@ def init_db():
                 attempts   INTEGER DEFAULT 0,      -- сколько раз вводили неверный код
                 sent_at    INTEGER                 -- когда отправлен (для повторной отправки)
             );
+            CREATE TABLE IF NOT EXISTS promo_codes (
+                code       TEXT PRIMARY KEY,        -- код в ВЕРХНЕМ регистре
+                bonus_days INTEGER NOT NULL,        -- сколько дней даёт
+                max_uses   INTEGER DEFAULT 0,       -- лимит активаций (0 = без лимита)
+                used_count INTEGER DEFAULT 0,       -- сколько раз уже активировали
+                active     INTEGER DEFAULT 1,       -- 1 = действует
+                created_at INTEGER
+            );
+            CREATE TABLE IF NOT EXISTS promo_uses (
+                code    TEXT,
+                user_id INTEGER,
+                used_at INTEGER,
+                PRIMARY KEY (code, user_id)         -- один код — один раз на человека
+            );
             """
         )
         # Миграция: провайдер счёта (lolz/platega) у счетов бота
@@ -123,6 +137,46 @@ def create_user(uid, username, referred_by=None):
 def update_username(uid, username):
     with _conn() as c:
         c.execute("UPDATE users SET username=? WHERE user_id=?", (username, uid))
+
+
+# ===== Промокоды =====
+
+def create_promo(code, bonus_days, max_uses=0):
+    """Создаёт/обновляет промокод, сохраняя уже накопленные активации."""
+    code = code.strip().upper()
+    with _conn() as c:
+        used = c.execute("SELECT used_count FROM promo_codes WHERE code=?",
+                         (code,)).fetchone()
+        c.execute(
+            "INSERT OR REPLACE INTO promo_codes"
+            "(code, bonus_days, max_uses, used_count, active, created_at) "
+            "VALUES(?,?,?,?,1,?)",
+            (code, bonus_days, max_uses, used["used_count"] if used else 0,
+             int(time.time())),
+        )
+
+
+def redeem_promo(code, uid):
+    """Пробует активировать промокод. Возвращает (bonus_days, None) при успехе
+    или (None, причина): not_found / exhausted / already."""
+    code = (code or "").strip().upper()
+    now = int(time.time())
+    with _conn() as c:
+        p = c.execute(
+            "SELECT bonus_days, max_uses, used_count FROM promo_codes "
+            "WHERE code=? AND active=1", (code,)).fetchone()
+        if not p:
+            return (None, "not_found")
+        if p["max_uses"] and p["used_count"] >= p["max_uses"]:
+            return (None, "exhausted")
+        if c.execute("SELECT 1 FROM promo_uses WHERE code=? AND user_id=?",
+                     (code, uid)).fetchone():
+            return (None, "already")
+        c.execute("INSERT INTO promo_uses(code, user_id, used_at) VALUES(?,?,?)",
+                  (code, uid, now))
+        c.execute("UPDATE promo_codes SET used_count=used_count+1 WHERE code=?",
+                  (code,))
+        return (p["bonus_days"], None)
 
 
 def add_days(uid, days):
