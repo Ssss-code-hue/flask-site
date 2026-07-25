@@ -38,7 +38,7 @@ from .config import (
 )
 from .keyboards import (back_kb, card_invoice_kb, connect_kb, devices_kb,
                         docs_kb, main_menu, offer_consent_kb, pay_method_kb,
-                        plans_kb, trial_consent_kb)
+                        plans_kb, promo_offer_kb, trial_consent_kb)
 from .panel import (get_subscription_url, site_sub_url, sub_token,
                     user_connected)
 
@@ -57,21 +57,24 @@ BANNER = Path(__file__).parent / "assets" / "banner.png"
 _banner_file_id = None
 
 
-async def send_banner(message: Message, text, reply_markup=None):
-    """Отправляет НОВОЕ сообщение с баннером IKK VPN сверху (фото + подпись).
-    Так выглядят все экраны бота; используем для ответов на текстовый ввод."""
+async def send_banner_to(bot, chat_id, text, reply_markup=None):
+    """Отправляет в чат НОВОЕ сообщение с баннером IKK VPN сверху."""
     global _banner_file_id
     if BANNER.exists():
         try:
             photo = _banner_file_id or FSInputFile(BANNER)
-            sent = await message.answer_photo(photo, caption=text,
-                                              reply_markup=reply_markup)
+            sent = await bot.send_photo(chat_id, photo, caption=text,
+                                        reply_markup=reply_markup)
             if not _banner_file_id:
                 _banner_file_id = sent.photo[-1].file_id
             return
         except Exception:
             logging.exception("Баннер не отправился — шлём текстом")
-    await message.answer(text, reply_markup=reply_markup)
+    await bot.send_message(chat_id, text, reply_markup=reply_markup)
+
+
+async def send_banner(message: Message, text, reply_markup=None):
+    await send_banner_to(message.bot, message.chat.id, text, reply_markup)
 
 
 async def send_welcome(message: Message):
@@ -235,6 +238,27 @@ async def cmd_broadcast_nc(message: Message):
         f"{skipped}\nОшибок: {failed}")
 
 
+@dp.message(Command("broadcast_promo"))
+async def cmd_broadcast_promo(message: Message):
+    """Рассылка про промокод ВСЕМ пользователям бота (owner-only).
+    Каждому — баннер, текст и кнопка активации в одно нажатие."""
+    if not OWNER_ID or message.from_user.id != OWNER_ID:
+        return
+    users = db.all_user_ids()
+    await message.answer(f"⏳ Рассылаю промокод {PROMO_CODE} по {len(users)} пользователям…")
+    text = texts.PROMO_BROADCAST.format(code=PROMO_CODE, days=PROMO_DAYS)
+    kb = promo_offer_kb(PROMO_CODE, PROMO_DAYS)
+    sent = failed = 0
+    for uid in users:
+        try:
+            await send_banner_to(message.bot, uid, text, kb)
+            sent += 1
+        except Exception:
+            failed += 1                        # заблокировал бота / удалил чат
+        await asyncio.sleep(0.1)
+    await message.answer(f"✅ Готово.\nОтправлено: {sent}\nОшибок: {failed}")
+
+
 # ============ Пробный период ============
 async def _give_trial(uid, username, send):
     """Общая логика «Попробовать бесплатно» для команды и кнопки.
@@ -386,6 +410,25 @@ async def cb_status(cq: CallbackQuery):
 async def cb_promo(cq: CallbackQuery):
     await show_screen(cq, texts.PROMO_ENTER, reply_markup=back_kb())
     await cq.answer()
+
+
+@dp.callback_query(F.data.startswith("promo_go:"))
+async def cb_promo_go(cq: CallbackQuery):
+    """Активация промокода по кнопке (из рассылки) — в одно нажатие."""
+    code = cq.data.split(":", 1)[1]
+    uid = cq.from_user.id
+    db.create_user(uid, cq.from_user.username)
+    bonus, err = db.redeem_promo(code, uid)
+    if err == "already":
+        await cq.answer("Вы уже активировали этот промокод ☝️", show_alert=True)
+    elif err in ("not_found", "exhausted"):
+        await cq.answer("Промокод больше недоступен 😔", show_alert=True)
+    else:
+        new_until = db.add_days(uid, bonus)
+        token = sync_panel(uid)
+        await show_screen(cq, texts.PROMO_OK.format(days=bonus, date=fmt_date(new_until)),
+                          reply_markup=connect_kb(token))
+        await cq.answer(f"+{bonus} дней! 🎉")
 
 
 @dp.message(F.text & ~F.text.startswith("/"))

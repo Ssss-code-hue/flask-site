@@ -28,6 +28,15 @@ def main_menu():
     return kb.as_markup()
 
 
+def promo_offer_kb(code, bonus_days):
+    """Кнопка активации промокода в одно нажатие (для рассылки)."""
+    kb = InlineKeyboardBuilder()
+    kb.button(text=f"🎁 Получить +{bonus_days} дней", callback_data=f"promo_go:{code}")
+    kb.button(text="◀ Меню", callback_data="menu")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
 def connect_kb(sub_token=None):
     """Клавиатура при активной подписке: одна большая кнопка на страницу
     подключения + возврат в меню.

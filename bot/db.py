@@ -210,6 +210,12 @@ def active_users(now):
         return [(r["user_id"], r["sub_until"]) for r in rows]
 
 
+def all_user_ids():
+    """Все, кто запускал бота — для общей рассылки."""
+    with _conn() as c:
+        return [r["user_id"] for r in c.execute("SELECT user_id FROM users")]
+
+
 def trial_reminder_candidates(now, within_seconds):
     """Пользователи с активным триалом, у кого до конца осталось не больше
     within_seconds, и кому ещё не напоминали. Для авторассылки «триал
