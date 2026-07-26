@@ -38,7 +38,8 @@ from .config import (
 )
 from .keyboards import (back_kb, card_invoice_kb, connect_kb, devices_kb,
                         docs_kb, main_menu, offer_consent_kb, pay_method_kb,
-                        plans_kb, promo_offer_kb, trial_consent_kb)
+                        plans_kb, promo_offer_kb, ref_share_kb,
+                        trial_consent_kb)
 from .panel import (get_subscription_url, site_sub_url, sub_token,
                     user_connected)
 
@@ -253,6 +254,29 @@ async def cmd_broadcast_promo(message: Message):
     for uid in users:
         try:
             await send_banner_to(message.bot, uid, text, kb)
+            sent += 1
+        except Exception:
+            failed += 1                        # заблокировал бота / удалил чат
+        await asyncio.sleep(0.1)
+    await message.answer(f"✅ Готово.\nОтправлено: {sent}\nОшибок: {failed}")
+
+
+@dp.message(Command("broadcast_ref"))
+async def cmd_broadcast_ref(message: Message):
+    """Рассылка про реферальную программу ВСЕМ пользователям (owner-only).
+    Ссылка у каждого своя, поэтому текст и кнопки собираем на каждого."""
+    if not OWNER_ID or message.from_user.id != OWNER_ID:
+        return
+    users = db.all_user_ids()
+    await message.answer(
+        f"⏳ Рассылаю про рефералы (+{REFERRAL_BONUS_DAYS} дн.) "
+        f"по {len(users)} пользователям…")
+    sent = failed = 0
+    for uid in users:
+        link = f"https://t.me/{BOT_USERNAME}?start=ref_{uid}"
+        text = texts.REF_BROADCAST.format(days=REFERRAL_BONUS_DAYS, link=link)
+        try:
+            await send_banner_to(message.bot, uid, text, ref_share_kb(link))
             sent += 1
         except Exception:
             failed += 1                        # заблокировал бота / удалил чат

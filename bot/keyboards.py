@@ -1,6 +1,13 @@
 """Клавиатуры (инлайн-кнопки) бота."""
+from urllib.parse import quote
+
 from aiogram.types import WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+try:                                    # нативная кнопка «копировать» (Bot API 7.11+)
+    from aiogram.types import CopyTextButton
+except ImportError:                     # на старой aiogram — обойдёмся без неё
+    CopyTextButton = None
 
 import lolz
 import platega
@@ -33,6 +40,25 @@ def promo_offer_kb(code, bonus_days):
     """Кнопка активации промокода в одно нажатие (для рассылки)."""
     kb = InlineKeyboardBuilder()
     kb.button(text=f"🎁 Получить +{bonus_days} дней", callback_data=f"promo_go:{code}")
+    kb.button(text="◀ Меню", callback_data="menu")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def ref_share_kb(link, bonus_days=REFERRAL_BONUS_DAYS):
+    """Клавиатура под рассылкой про рефералов: скопировать личную ссылку
+    и отправить её другу.
+
+    «Скопировать» — нативная кнопка Telegram (копирует в буфер без открытия
+    чего-либо). На старых версиях aiogram её нет, тогда остаётся «Отправить
+    другу» — ссылка всё равно есть в тексте сообщения тегом <code> (по тапу
+    копируется)."""
+    kb = InlineKeyboardBuilder()
+    if CopyTextButton is not None:
+        kb.button(text="📋 Скопировать ссылку", copy_text=CopyTextButton(text=link))
+    share = (f"https://t.me/share/url?url={quote(link, safe='')}"
+             f"&text={quote(f'Держи {bonus_days} дней VPN бесплатно 🎁', safe='')}")
+    kb.button(text="📤 Отправить другу", url=share)
     kb.button(text="◀ Меню", callback_data="menu")
     kb.adjust(1)
     return kb.as_markup()
