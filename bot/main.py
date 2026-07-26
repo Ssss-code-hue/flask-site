@@ -206,7 +206,8 @@ async def cmd_status(message: Message):
 
 @dp.message(Command("help"))
 async def cmd_help(message: Message):
-    await message.answer(texts.HELP.format(trial=TRIAL_DAYS), reply_markup=main_menu())
+    await message.answer(texts.HELP.format(trial=TRIAL_DAYS, ref=REFERRAL_BONUS_DAYS),
+                         reply_markup=main_menu())
 
 
 @dp.message(Command("broadcast_nc"))

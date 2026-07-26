@@ -5,8 +5,9 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 import lolz
 import platega
 
-from .config import (PLANS, PRIVACY_URL, SUPPORT_BOT_USERNAME, TERMS_URL,
-                     TRIAL_DAYS, WEBAPP_URL, OFFER_URL)
+from .config import (PLANS, PRIVACY_URL, REFERRAL_BONUS_DAYS,
+                     SUPPORT_BOT_USERNAME, TERMS_URL, TRIAL_DAYS,
+                     WEBAPP_URL, OFFER_URL)
 
 
 def card_available():
@@ -20,7 +21,7 @@ def main_menu():
     kb.button(text=f"🆓 Попробовать бесплатно ({TRIAL_DAYS} дн.)", callback_data="trial")
     kb.button(text="🎁 Промокод", callback_data="promo")
     kb.button(text="📡 Моя подписка", callback_data="status")
-    kb.button(text="🎁 Пригласить друга (+3 дня)", callback_data="ref")
+    kb.button(text=f"🎁 Пригласить друга (+{REFERRAL_BONUS_DAYS} дн.)", callback_data="ref")
     kb.button(text="📄 Документы", callback_data="docs")
     kb.button(text="💬 Поддержка", url=f"https://t.me/{SUPPORT_BOT_USERNAME}")
     # «Купить» и «Попробовать» на всю ширину, «Промокод»+«Моя подписка» в ряд, дальше по две

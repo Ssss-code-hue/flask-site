@@ -36,7 +36,7 @@ if not PRIVACY_URL.startswith("https://"):
 SITE_URL = os.environ.get("SITE_URL", "https://ikkvpn.com").rstrip("/")
 
 # Сколько дней бесплатно даёт реферальная ссылка
-REFERRAL_BONUS_DAYS = int(os.environ.get("REFERRAL_BONUS_DAYS", "3"))
+REFERRAL_BONUS_DAYS = int(os.environ.get("REFERRAL_BONUS_DAYS", "25"))
 
 # Пробный период «Попробовать бесплатно» (дней, раз на пользователя)
 TRIAL_DAYS = int(os.environ.get("TRIAL_DAYS", "15"))
