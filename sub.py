@@ -162,12 +162,20 @@ def proxy(subpath):
     """Отдаёт клиенту подписку, забирая её с панели Marzban.
 
     User-Agent пробрасываем — от него зависит формат (Happ/v2ray/clash).
+
+    Диагностика: ?nopatch=1 отдаёт конфиг панели БЕЗ наших правок XHTTP.
+    Нужно, чтобы отличить «клиент не понимает наши xmux/extra» от
+    «проблема на стороне сервера». Наружу не рекламируем.
     """
+    # свой параметр наверх не пробрасываем — панель его не ждёт
+    args = request.args.to_dict(flat=False)
+    nopatch = args.pop("nopatch", None)
+
     upstream = f"{SUB_UPSTREAM}/sub/{subpath}"
     try:
         r = requests.get(
             upstream,
-            params=request.args,
+            params=args,
             headers={"User-Agent": request.headers.get("User-Agent", "Happ")},
             timeout=TIMEOUT,
         )
@@ -179,7 +187,7 @@ def proxy(subpath):
         abort(404)
 
     body = r.content
-    if r.status_code == 200:
+    if r.status_code == 200 and not nopatch:
         try:
             body = _patch_body(body)
         except Exception:
