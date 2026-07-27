@@ -1,4 +1,4 @@
-"""Прокси подписок VPN через основной сайт (чистый 443 за Cloudflare).
+﻿"""Прокси подписок VPN через основной сайт (чистый 443 за Cloudflare).
 
 Зачем: панель Marzban раздаёт подписки на порту 8000, который у части
 провайдеров (напр. Ростелеком) ненадёжен/режется — клиент не может
@@ -74,31 +74,40 @@ XHTTP_EXTRA = {
     "xPaddingBytes": "100-1000",
 }
 
-# --- вариант для старых ядер (v2RayTun на iOS) -----------------------
+# --- Apple: не XHTTP, а другой инбаунд -------------------------------
 #
-# Ядро в Apple-сборке не знает xmux: наткнувшись на него в extra, оно не
-# ругается, а молча не поднимает outbound — туннель встаёт, трафика нет.
-# Проверено 27.07.2026 на iPhone: с ?nopatch=1 связь появляется.
+# Ядро v2RayTun в Apple-сборке не тянет XHTTP: с нашим xmux в extra оно
+# молча не поднимает outbound (туннель встаёт, трафика нет), а без него
+# соединение живёт пару минут и рвётся. Проверено 27.07.2026 на iPhone.
 #
-# None = extra не трогаем вообще, отдаём как прислал Marzban. Меняем
-# только fp (это отдельный от extra параметр, ядро его понимает).
+# Подбирать XHTTP-параметры под это ядро — тупик: значения пришлось бы
+# угадывать, а одна попытка уже вышла боком (scMaxConcurrentPosts=1 плюс
+# scMinPostsIntervalMs=30 упирают сессию в ~33 запроса/с, выглядит как
+# «не подключается»).
 #
-# Своих значений сюда подставлять НЕЛЬЗЯ без замера на реальном канале.
-# Так уже обожглись: scMaxConcurrentPosts=1 + scMinPostsIntervalMs=30
-# упирают сессию в ~33 запроса/с и выглядят как «не подключается», а
-# выброшенный xPaddingBytes лишает трафик набивки, которая прячет от DPI
-# размеры пакетов. Обе правки делали хуже, чем дефолт панели.
-XHTTP_EXTRA_LEGACY = None
+# На сервере есть второй инбаунд — VLESS TCP REALITY. В нём нет ни XHTTP,
+# ни extra, ни xmux, то есть нечему и ломаться. Поэтому Apple-устройствам
+# просто не отдаём XHTTP-серверы, оставляя им TCP+REALITY.
+#
+# Android и десктоп это не затрагивает: они получают подписку как раньше,
+# со всеми серверами и с xmux (см. XHTTP_EXTRA).
 
 # chrome помечен ТСПУ как подозрительный отпечаток, firefox — нет.
 FINGERPRINT = "firefox"
 
 
-def _fix_vless_link(link, extra=XHTTP_EXTRA):
-    """Правит один vless://-URI. У не-XHTTP ссылок меняет только fp.
+def _is_xhttp_link(link):
+    """XHTTP ли этот vless://-URI (по параметру type, а не по названию)."""
+    try:
+        head = link.partition("#")[0]
+        q = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(head).query))
+        return q.get("type") == "xhttp"
+    except Exception:
+        return False
 
-    extra=None — параметры XHTTP оставляем как есть (см. XHTTP_EXTRA_LEGACY).
-    """
+
+def _fix_vless_link(link, apple=False):
+    """Правит один vless://-URI. У не-XHTTP ссылок меняет только fp."""
     try:
         head, _, frag = link.partition("#")
         parts = urllib.parse.urlsplit(head)
@@ -107,8 +116,9 @@ def _fix_vless_link(link, extra=XHTTP_EXTRA):
         if q.get("fp"):
             q["fp"] = FINGERPRINT
 
-        if extra is not None and q.get("type") == "xhttp":
-            q["extra"] = json.dumps(extra, separators=(",", ":"))
+        # у Apple XHTTP-ссылок не остаётся, так что extra правим только им
+        if not apple and q.get("type") == "xhttp":
+            q["extra"] = json.dumps(XHTTP_EXTRA, separators=(",", ":"))
 
         new = urllib.parse.urlunsplit((
             parts.scheme, parts.netloc, parts.path,
@@ -120,34 +130,70 @@ def _fix_vless_link(link, extra=XHTTP_EXTRA):
         return link
 
 
-def _fix_plain_text(text, extra=XHTTP_EXTRA):
-    """Правит список ссылок (по одной на строку)."""
-    out = []
+def _fix_plain_text(text, apple=False):
+    """Правит список ссылок (по одной на строку).
+
+    apple=True — XHTTP-серверы выбрасываем совсем. Если после этого не
+    осталось ни одного сервера, отдаём полный список: подписка без единого
+    сервера бесполезна, пусть уж будет XHTTP.
+    """
+    out, seen, kept = [], False, False
     for line in text.splitlines():
         s = line.strip()
-        out.append(_fix_vless_link(s, extra) if s.startswith("vless://") else line)
+        if not s.startswith("vless://"):
+            out.append(line)
+            continue
+        seen = True
+        if apple and _is_xhttp_link(s):
+            continue
+        out.append(_fix_vless_link(s, apple))
+        kept = True
+
+    if apple and seen and not kept:
+        log.warning("Подписка: для Apple не осталось серверов, отдаю все")
+        return _fix_plain_text(text, apple=False)
     return "\n".join(out)
 
 
-def _fix_json_configs(data, extra=XHTTP_EXTRA):
+def _cfg_is_xhttp(cfg):
+    """Есть ли в конфиге XHTTP-outbound (Marzban даёт по конфигу на сервер)."""
+    for ob in cfg.get("outbounds") or []:
+        if ((ob or {}).get("streamSettings") or {}).get("network") == "xhttp":
+            return True
+    return False
+
+
+def _fix_json_configs(data, apple=False):
     """Правит формат v2ray-json: список готовых конфигов Xray."""
-    for cfg in data if isinstance(data, list) else [data]:
+    is_list = isinstance(data, list)
+    cfgs = data if is_list else [data]
+
+    # выбрасывать серверы умеем только когда их список — иначе просто правим
+    if apple and is_list:
+        kept = [c for c in cfgs
+                if not (isinstance(c, dict) and _cfg_is_xhttp(c))]
+        if not kept:
+            log.warning("Подписка: для Apple не осталось конфигов, отдаю все")
+        else:
+            cfgs = kept
+
+    for cfg in cfgs:
         if not isinstance(cfg, dict):
             continue
         for ob in cfg.get("outbounds") or []:
             ss = (ob or {}).get("streamSettings") or {}
-            if extra is not None and ss.get("network") == "xhttp":
+            if not apple and ss.get("network") == "xhttp":
                 xs = ss.get("xhttpSettings") or {}
                 xs.pop("scMaxConcurrentPosts", None)
-                xs.update(extra)
+                xs.update(XHTTP_EXTRA)
                 ss["xhttpSettings"] = xs
             rs = ss.get("realitySettings") or ss.get("tlsSettings")
             if isinstance(rs, dict) and rs.get("fingerprint"):
                 rs["fingerprint"] = FINGERPRINT
-    return data
+    return cfgs if is_list else data
 
 
-def _patch_body(body, extra=XHTTP_EXTRA):
+def _patch_body(body, apple=False):
     """Определяет формат подписки и правит его.
 
     Marzban отдаёт три варианта: JSON-конфиги, base64 от списка ссылок
@@ -157,14 +203,14 @@ def _patch_body(body, extra=XHTTP_EXTRA):
 
     if text.lstrip()[:1] in ("[", "{"):
         try:
-            fixed = _fix_json_configs(json.loads(text), extra)
+            fixed = _fix_json_configs(json.loads(text), apple)
         except (ValueError, TypeError):
             log.warning("Подписка: похоже на JSON, но разобрать не вышло")
             return body
         return json.dumps(fixed, ensure_ascii=False).encode()
 
     if "vless://" in text:
-        return _fix_plain_text(text, extra).encode()
+        return _fix_plain_text(text, apple).encode()
 
     try:
         raw = base64.b64decode(text + "=" * (-len(text) % 4)).decode("utf-8")
@@ -173,7 +219,7 @@ def _patch_body(body, extra=XHTTP_EXTRA):
 
     if "vless://" not in raw:
         return body
-    return base64.b64encode(_fix_plain_text(raw, extra).encode())
+    return base64.b64encode(_fix_plain_text(raw, apple).encode())
 
 
 @sub.route("/sub/<path:subpath>")
@@ -182,9 +228,9 @@ def proxy(subpath):
 
     User-Agent пробрасываем — от него зависит формат (Happ/v2ray/clash).
 
-    ?legacy=1 — вариант для старых ядер (iOS): защита от ТСПУ через
-    scMaxConcurrentPosts вместо непонятного им xmux. Эту ссылку выдаёт
-    мини-приложение, когда видит iPhone/iPad/Mac.
+    ?legacy=1 — вариант для Apple: без XHTTP-серверов, только TCP+REALITY
+    (их ядро XHTTP не тянет). Эту ссылку выдаёт сайт, когда видит
+    iPhone/iPad/Mac — см. _is_apple в app.py.
 
     Диагностика: ?nopatch=1 отдаёт конфиг панели БЕЗ наших правок XHTTP.
     Нужно, чтобы отличить «клиент не понимает наши xmux/extra» от
@@ -213,7 +259,7 @@ def proxy(subpath):
     body = r.content
     if r.status_code == 200 and not nopatch:
         try:
-            body = _patch_body(body, XHTTP_EXTRA_LEGACY if legacy else XHTTP_EXTRA)
+            body = _patch_body(body, apple=bool(legacy))
         except Exception:
             log.exception("Подписка: правка не удалась, отдаю оригинал")
             body = r.content
