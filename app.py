@@ -11,6 +11,7 @@ from bot import db
 from bot.panel import WEB_PREFIX, get_subscription_url, sub_token
 from pay import pay as pay_blueprint
 from pay import available_providers
+from sub import legacy_suffix
 from sub import sub as sub_blueprint
 from admin import admin as admin_blueprint
 
@@ -114,17 +115,6 @@ def _actual_token(token):
     return fresh or token
 
 
-def _is_apple(ua):
-    """iPhone/iPad/Mac — им нужна подписка в legacy-варианте (см. sub.py).
-
-    Проверяем User-Agent браузера, а не самого v2RayTun: страницу открывает
-    Safari, и его UA однозначен, тогда как приложение на обеих платформах
-    представляется одинаково.
-    """
-    ua = (ua or "").lower()
-    return any(s in ua for s in ("iphone", "ipad", "ipod", "macintosh", "mac os"))
-
-
 @app.route('/v2raytun/<token>')
 def v2raytun_open(token):
     """Открыть ключ в v2RayTun. Раньше отдавали 302 на v2raytun://import,
@@ -133,9 +123,8 @@ def v2raytun_open(token):
     сама пытается открыть приложение, показывает кнопку-ссылку для ручного
     открытия и ссылку-подписку для копирования — надёжно на всех платформах."""
     tok = _actual_token(token)
-    # ядро v2RayTun на Apple не понимает xmux — отдаём ему свой вариант
-    suffix = "?legacy=1" if _is_apple(request.headers.get("User-Agent")) else ""
-    sub_url = f"{_SITE_URL}/sub/{tok}{suffix}"
+    # Apple-устройствам — подписка без XHTTP (см. sub.py)
+    sub_url = f"{_SITE_URL}/sub/{tok}{legacy_suffix(request.headers.get('User-Agent'))}"
     return render_template('open_app.html',
                            deeplink=f"v2raytun://import/{sub_url}", sub_url=sub_url)
 
@@ -181,9 +170,7 @@ def webapp():
     sub_url = None
     if token:
         token = _actual_token(token)
-        # см. _is_apple: их ядро v2RayTun не понимает xmux
-        suffix = "?legacy=1" if _is_apple(request.headers.get("User-Agent")) else ""
-        sub_url = f"{_SITE_URL}/sub/{token}{suffix}"
+        sub_url = f"{_SITE_URL}/sub/{token}{legacy_suffix(request.headers.get('User-Agent'))}"
     return render_template('webapp.html', sub_token=token, sub_url=sub_url,
                            support_bot=SUPPORT_BOT_USERNAME)
 

@@ -20,6 +20,7 @@ import mailer
 from bot import db
 from bot.config import BOT_TOKEN, BOT_USERNAME
 from bot.panel import WEB_PREFIX, get_subscription_url, site_sub_url, sub_token
+from sub import legacy_suffix
 
 auth = Blueprint("auth", __name__)
 
@@ -302,7 +303,10 @@ def account():
             # панель недоступна — отдаём то, что было, лучше чем ничего
             token = sub_token(stored_sub)
 
-    vpn_key = f"{SITE_URL}/sub/{token}" if token else None
+    # Ссылку помечаем под устройство, с которого её сейчас копируют:
+    # айфону нужен вариант без XHTTP-серверов (см. sub.py).
+    vpn_key = (f"{SITE_URL}/sub/{token}{legacy_suffix(request.headers.get('User-Agent'))}"
+               if token else None)
     app_url = f"/v2raytun/{token}" if token else None
 
     # У Telegram-аккаунта email синтетический, а пароля нет — показываем

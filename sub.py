@@ -95,6 +95,27 @@ XHTTP_EXTRA = {
 # chrome помечен ТСПУ как подозрительный отпечаток, firefox — нет.
 FINGERPRINT = "firefox"
 
+# Признаки Apple в User-Agent. Первые — браузеры (ими помечаем ссылку на
+# сайте), CFNetwork и Darwin — сетевой стек iOS/macOS, с ним подписку
+# качает само приложение. У Android-сборки этих строк не бывает, так что
+# ошибиться в сторону «выдать айфонский вариант андроиду» нельзя.
+APPLE_UA = ("iphone", "ipad", "ipod", "macintosh", "mac os",
+            "cfnetwork", "darwin")
+
+
+def is_apple_ua(ua):
+    ua = (ua or "").lower()
+    return any(s in ua for s in APPLE_UA)
+
+
+def legacy_suffix(ua):
+    """«?legacy=1» для Apple-клиента, иначе пусто.
+
+    Этим помечаем ссылку-подписку, которую отдаём наружу: сайт видит
+    браузер устройства и заранее знает, какой вариант тому нужен.
+    """
+    return "?legacy=1" if is_apple_ua(ua) else ""
+
 
 def _is_xhttp_link(link):
     """XHTTP ли этот vless://-URI (по параметру type, а не по названию)."""
@@ -228,9 +249,12 @@ def proxy(subpath):
 
     User-Agent пробрасываем — от него зависит формат (Happ/v2ray/clash).
 
-    ?legacy=1 — вариант для Apple: без XHTTP-серверов, только TCP+REALITY
-    (их ядро XHTTP не тянет). Эту ссылку выдаёт сайт, когда видит
-    iPhone/iPad/Mac — см. _is_apple в app.py.
+    Apple получает подписку без XHTTP-серверов, только TCP+REALITY: их
+    ядро XHTTP не тянет. Признаём Apple двумя путями сразу —
+      * ?legacy=1 в ссылке (её так помечает сайт, см. legacy_suffix);
+      * User-Agent самого клиента (см. APPLE_UA).
+    Второй путь — страховка: если приложение обрежет query-строку при
+    импорте ссылки, параметр до нас не доедет, а UA доедет всегда.
 
     Диагностика: ?nopatch=1 отдаёт конфиг панели БЕЗ наших правок XHTTP.
     Нужно, чтобы отличить «клиент не понимает наши xmux/extra» от
@@ -240,6 +264,12 @@ def proxy(subpath):
     args = request.args.to_dict(flat=False)
     nopatch = args.pop("nopatch", None)
     legacy = args.pop("legacy", None)
+
+    ua = request.headers.get("User-Agent")
+    apple = bool(legacy) or is_apple_ua(ua)
+    # UA клиентов подписки нигде не задокументированы — пишем в лог, чтобы
+    # видеть, чем на самом деле представляются iOS- и Android-сборки
+    log.info("Подписка: apple=%s (legacy=%s) UA=%r", apple, bool(legacy), ua)
 
     upstream = f"{SUB_UPSTREAM}/sub/{subpath}"
     try:
@@ -259,7 +289,7 @@ def proxy(subpath):
     body = r.content
     if r.status_code == 200 and not nopatch:
         try:
-            body = _patch_body(body, apple=bool(legacy))
+            body = _patch_body(body, apple=apple)
         except Exception:
             log.exception("Подписка: правка не удалась, отдаю оригинал")
             body = r.content
