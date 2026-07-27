@@ -56,8 +56,14 @@ def ref_share_kb(link, bonus_days=REFERRAL_BONUS_DAYS):
     kb = InlineKeyboardBuilder()
     if CopyTextButton is not None:
         kb.button(text="📋 Скопировать ссылку", copy_text=CopyTextButton(text=link))
+    # Telegram в share/url ставит сначала ссылку, потом текст, а превью для
+    # t.me-ссылок со start-параметром не показывает — поэтому текст должен
+    # сам объяснять, куда ведёт ссылка.
+    pitch = (f"⬆️ Это бот 🛡 IKK VPN — быстрый VPN без логов и рекламы.\n"
+             f"Открой ссылку выше, нажми «Запустить» — "
+             f"и получи {TRIAL_DAYS} дней бесплатно 🎁")
     share = (f"https://t.me/share/url?url={quote(link, safe='')}"
-             f"&text={quote(f'Держи {bonus_days} дней VPN бесплатно 🎁', safe='')}")
+             f"&text={quote(pitch, safe='')}")
     kb.button(text="📤 Отправить другу", url=share)
     kb.button(text="◀ Меню", callback_data="menu")
     kb.adjust(1)
