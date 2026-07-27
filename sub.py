@@ -76,25 +76,29 @@ XHTTP_EXTRA = {
 
 # --- вариант для старых ядер (v2RayTun на iOS) -----------------------
 #
-# Ядро в iOS-сборке не знает ни xmux, ни xPaddingBytes. Наткнувшись на
-# них в extra, оно не ругается, а молча не поднимает outbound: туннель
-# встаёт, трафика нет. Проверено 27.07.2026 на iPhone.
+# Ядро в Apple-сборке не знает xmux: наткнувшись на него в extra, оно не
+# ругается, а молча не поднимает outbound — туннель встаёт, трафика нет.
+# Проверено 27.07.2026 на iPhone: с ?nopatch=1 связь появляется.
 #
-# Та же цель — не больше одного параллельного потока к SNI — достигается
-# штатным scMaxConcurrentPosts=1. Этот параметр Marzban шлёт сам (со
-# значением 100), значит старое ядро его гарантированно понимает.
-XHTTP_EXTRA_LEGACY = {
-    "scMaxConcurrentPosts": 1,
-    "scMaxEachPostBytes": 1000000,
-    "scMinPostsIntervalMs": 30,
-}
+# None = extra не трогаем вообще, отдаём как прислал Marzban. Меняем
+# только fp (это отдельный от extra параметр, ядро его понимает).
+#
+# Своих значений сюда подставлять НЕЛЬЗЯ без замера на реальном канале.
+# Так уже обожглись: scMaxConcurrentPosts=1 + scMinPostsIntervalMs=30
+# упирают сессию в ~33 запроса/с и выглядят как «не подключается», а
+# выброшенный xPaddingBytes лишает трафик набивки, которая прячет от DPI
+# размеры пакетов. Обе правки делали хуже, чем дефолт панели.
+XHTTP_EXTRA_LEGACY = None
 
 # chrome помечен ТСПУ как подозрительный отпечаток, firefox — нет.
 FINGERPRINT = "firefox"
 
 
 def _fix_vless_link(link, extra=XHTTP_EXTRA):
-    """Правит один vless://-URI. У не-XHTTP ссылок меняет только fp."""
+    """Правит один vless://-URI. У не-XHTTP ссылок меняет только fp.
+
+    extra=None — параметры XHTTP оставляем как есть (см. XHTTP_EXTRA_LEGACY).
+    """
     try:
         head, _, frag = link.partition("#")
         parts = urllib.parse.urlsplit(head)
@@ -103,7 +107,7 @@ def _fix_vless_link(link, extra=XHTTP_EXTRA):
         if q.get("fp"):
             q["fp"] = FINGERPRINT
 
-        if q.get("type") == "xhttp":
+        if extra is not None and q.get("type") == "xhttp":
             q["extra"] = json.dumps(extra, separators=(",", ":"))
 
         new = urllib.parse.urlunsplit((
@@ -132,7 +136,7 @@ def _fix_json_configs(data, extra=XHTTP_EXTRA):
             continue
         for ob in cfg.get("outbounds") or []:
             ss = (ob or {}).get("streamSettings") or {}
-            if ss.get("network") == "xhttp":
+            if extra is not None and ss.get("network") == "xhttp":
                 xs = ss.get("xhttpSettings") or {}
                 xs.pop("scMaxConcurrentPosts", None)
                 xs.update(extra)
