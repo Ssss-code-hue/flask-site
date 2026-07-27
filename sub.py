@@ -74,11 +74,26 @@ XHTTP_EXTRA = {
     "xPaddingBytes": "100-1000",
 }
 
+# --- вариант для старых ядер (v2RayTun на iOS) -----------------------
+#
+# Ядро в iOS-сборке не знает ни xmux, ни xPaddingBytes. Наткнувшись на
+# них в extra, оно не ругается, а молча не поднимает outbound: туннель
+# встаёт, трафика нет. Проверено 27.07.2026 на iPhone.
+#
+# Та же цель — не больше одного параллельного потока к SNI — достигается
+# штатным scMaxConcurrentPosts=1. Этот параметр Marzban шлёт сам (со
+# значением 100), значит старое ядро его гарантированно понимает.
+XHTTP_EXTRA_LEGACY = {
+    "scMaxConcurrentPosts": 1,
+    "scMaxEachPostBytes": 1000000,
+    "scMinPostsIntervalMs": 30,
+}
+
 # chrome помечен ТСПУ как подозрительный отпечаток, firefox — нет.
 FINGERPRINT = "firefox"
 
 
-def _fix_vless_link(link):
+def _fix_vless_link(link, extra=XHTTP_EXTRA):
     """Правит один vless://-URI. У не-XHTTP ссылок меняет только fp."""
     try:
         head, _, frag = link.partition("#")
@@ -89,7 +104,7 @@ def _fix_vless_link(link):
             q["fp"] = FINGERPRINT
 
         if q.get("type") == "xhttp":
-            q["extra"] = json.dumps(XHTTP_EXTRA, separators=(",", ":"))
+            q["extra"] = json.dumps(extra, separators=(",", ":"))
 
         new = urllib.parse.urlunsplit((
             parts.scheme, parts.netloc, parts.path,
@@ -101,16 +116,16 @@ def _fix_vless_link(link):
         return link
 
 
-def _fix_plain_text(text):
+def _fix_plain_text(text, extra=XHTTP_EXTRA):
     """Правит список ссылок (по одной на строку)."""
     out = []
     for line in text.splitlines():
         s = line.strip()
-        out.append(_fix_vless_link(s) if s.startswith("vless://") else line)
+        out.append(_fix_vless_link(s, extra) if s.startswith("vless://") else line)
     return "\n".join(out)
 
 
-def _fix_json_configs(data):
+def _fix_json_configs(data, extra=XHTTP_EXTRA):
     """Правит формат v2ray-json: список готовых конфигов Xray."""
     for cfg in data if isinstance(data, list) else [data]:
         if not isinstance(cfg, dict):
@@ -120,7 +135,7 @@ def _fix_json_configs(data):
             if ss.get("network") == "xhttp":
                 xs = ss.get("xhttpSettings") or {}
                 xs.pop("scMaxConcurrentPosts", None)
-                xs.update(XHTTP_EXTRA)
+                xs.update(extra)
                 ss["xhttpSettings"] = xs
             rs = ss.get("realitySettings") or ss.get("tlsSettings")
             if isinstance(rs, dict) and rs.get("fingerprint"):
@@ -128,7 +143,7 @@ def _fix_json_configs(data):
     return data
 
 
-def _patch_body(body):
+def _patch_body(body, extra=XHTTP_EXTRA):
     """Определяет формат подписки и правит его.
 
     Marzban отдаёт три варианта: JSON-конфиги, base64 от списка ссылок
@@ -138,14 +153,14 @@ def _patch_body(body):
 
     if text.lstrip()[:1] in ("[", "{"):
         try:
-            fixed = _fix_json_configs(json.loads(text))
+            fixed = _fix_json_configs(json.loads(text), extra)
         except (ValueError, TypeError):
             log.warning("Подписка: похоже на JSON, но разобрать не вышло")
             return body
         return json.dumps(fixed, ensure_ascii=False).encode()
 
     if "vless://" in text:
-        return _fix_plain_text(text).encode()
+        return _fix_plain_text(text, extra).encode()
 
     try:
         raw = base64.b64decode(text + "=" * (-len(text) % 4)).decode("utf-8")
@@ -154,7 +169,7 @@ def _patch_body(body):
 
     if "vless://" not in raw:
         return body
-    return base64.b64encode(_fix_plain_text(raw).encode())
+    return base64.b64encode(_fix_plain_text(raw, extra).encode())
 
 
 @sub.route("/sub/<path:subpath>")
@@ -163,13 +178,18 @@ def proxy(subpath):
 
     User-Agent пробрасываем — от него зависит формат (Happ/v2ray/clash).
 
+    ?legacy=1 — вариант для старых ядер (iOS): защита от ТСПУ через
+    scMaxConcurrentPosts вместо непонятного им xmux. Эту ссылку выдаёт
+    мини-приложение, когда видит iPhone/iPad/Mac.
+
     Диагностика: ?nopatch=1 отдаёт конфиг панели БЕЗ наших правок XHTTP.
     Нужно, чтобы отличить «клиент не понимает наши xmux/extra» от
     «проблема на стороне сервера». Наружу не рекламируем.
     """
-    # свой параметр наверх не пробрасываем — панель его не ждёт
+    # свои параметры наверх не пробрасываем — панель их не ждёт
     args = request.args.to_dict(flat=False)
     nopatch = args.pop("nopatch", None)
+    legacy = args.pop("legacy", None)
 
     upstream = f"{SUB_UPSTREAM}/sub/{subpath}"
     try:
@@ -189,7 +209,7 @@ def proxy(subpath):
     body = r.content
     if r.status_code == 200 and not nopatch:
         try:
-            body = _patch_body(body)
+            body = _patch_body(body, XHTTP_EXTRA_LEGACY if legacy else XHTTP_EXTRA)
         except Exception:
             log.exception("Подписка: правка не удалась, отдаю оригинал")
             body = r.content
