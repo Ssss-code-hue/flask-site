@@ -628,18 +628,18 @@ section { padding: 96px 0; position: relative; }
     width: 132px; height: 132px; border-radius: 50%; margin: 26px 0 22px;
     position: relative; display: flex; align-items: center; justify-content: center;
     background: radial-gradient(circle at 50% 42%,
-        #4bcadb 0%, #2aa9bd 30%, #17809a 62%, #0a4356 100%);
+        #3f9dc2 0%, #2a7ea6 30%, #195b80 62%, #0a3149 100%);
     box-shadow:
-        0 0 0 12px rgba(54, 203, 218, 0.055),
-        0 0 0 26px rgba(54, 203, 218, 0.028),
-        0 0 34px 4px rgba(54, 203, 218, 0.28),
-        0 0 80px 18px rgba(54, 203, 218, 0.13),
+        0 0 0 12px rgba(58, 150, 196, 0.055),
+        0 0 0 26px rgba(58, 150, 196, 0.028),
+        0 0 34px 4px rgba(58, 150, 196, 0.28),
+        0 0 80px 18px rgba(58, 150, 196, 0.13),
         inset 0 -8px 20px rgba(0, 26, 33, 0.55),
         inset 0 6px 16px rgba(255, 255, 255, 0.22);
 }
 .phone-connect::before {        /* расходящееся кольцо «идёт соединение» */
     content: ''; position: absolute; inset: -16px; border-radius: 50%;
-    border: 1px solid rgba(54, 203, 218, 0.26);
+    border: 1px solid rgba(58, 150, 196, 0.3);
     animation: phone-pulse 3.4s var(--ease) infinite;
 }
 @keyframes phone-pulse {
