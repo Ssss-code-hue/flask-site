@@ -424,6 +424,19 @@ section { padding: 96px 0; position: relative; }
 /* ---------- Карточки ---------- */
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
 
+/* Хвост из карточек — по центру, а не прижатым влево.
+   Сетка делится на 8 дорожек (полкарточки каждая), карточка занимает две.
+   Пятая начинается с дорожки 2, поэтому второй ряд сдвинут ровно на полшага
+   и три карточки встают по центру четырёхколоночного ряда. Ширина карточек
+   при этом та же, что и при обычных четырёх колонках.
+   Порог 1277px — ширина, с которой auto-fit даёт именно 4 колонки; уже неё
+   колонок 3 или 2, и карточки ложатся ровно сами. */
+@media (min-width: 1277px) {
+    .cards-center-tail { grid-template-columns: repeat(8, 1fr); }
+    .cards-center-tail > .card { grid-column: span 2; }
+    .cards-center-tail > .card:nth-child(5) { grid-column: 2 / span 2; }
+}
+
 .card {
     position: relative;
     background: var(--glass);
