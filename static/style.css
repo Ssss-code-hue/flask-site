@@ -598,10 +598,12 @@ section { padding: 96px 0; position: relative; }
     height: 100%; border-radius: 45px; overflow: hidden; position: relative;
     padding: 46px 16px 16px;
     display: flex; flex-direction: column; align-items: center;
+    /* подложка чуть светлее фона сайта (#002B42) — экран читается как
+       включённый дисплей, а не как чёрный прямоугольник */
     background:
-        radial-gradient(120% 70% at 50% 34%, rgba(54, 203, 218, 0.16) 0%, rgba(5, 21, 36, 0) 62%),
-        linear-gradient(180deg, #061a2b 0%, #051524 55%, #030f1b 100%);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+        radial-gradient(120% 70% at 50% 34%, rgba(84, 217, 232, 0.20) 0%, rgba(10, 47, 69, 0) 64%),
+        linear-gradient(180deg, #0d3c52 0%, #092d43 52%, #062134 100%);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09);
 }
 .phone-screen::after {          /* диагональный блик стекла */
     content: ''; position: absolute; inset: 0; pointer-events: none;
@@ -626,18 +628,18 @@ section { padding: 96px 0; position: relative; }
     width: 132px; height: 132px; border-radius: 50%; margin: 26px 0 22px;
     position: relative; display: flex; align-items: center; justify-content: center;
     background: radial-gradient(circle at 50% 42%,
-        #6ce8f6 0%, #36cbda 30%, #1f9cb2 62%, #0d5568 100%);
+        #4bcadb 0%, #2aa9bd 30%, #17809a 62%, #0a4356 100%);
     box-shadow:
-        0 0 0 12px rgba(54, 203, 218, 0.07),
-        0 0 0 26px rgba(54, 203, 218, 0.035),
-        0 0 42px 6px rgba(54, 203, 218, 0.45),
-        0 0 100px 24px rgba(54, 203, 218, 0.22),
-        inset 0 -8px 20px rgba(0, 26, 33, 0.5),
-        inset 0 6px 16px rgba(255, 255, 255, 0.35);
+        0 0 0 12px rgba(54, 203, 218, 0.055),
+        0 0 0 26px rgba(54, 203, 218, 0.028),
+        0 0 34px 4px rgba(54, 203, 218, 0.28),
+        0 0 80px 18px rgba(54, 203, 218, 0.13),
+        inset 0 -8px 20px rgba(0, 26, 33, 0.55),
+        inset 0 6px 16px rgba(255, 255, 255, 0.22);
 }
 .phone-connect::before {        /* расходящееся кольцо «идёт соединение» */
     content: ''; position: absolute; inset: -16px; border-radius: 50%;
-    border: 1px solid rgba(54, 203, 218, 0.35);
+    border: 1px solid rgba(54, 203, 218, 0.26);
     animation: phone-pulse 3.4s var(--ease) infinite;
 }
 @keyframes phone-pulse {
@@ -645,8 +647,8 @@ section { padding: 96px 0; position: relative; }
     70%, 100% { transform: scale(1.2); opacity: 0; }
 }
 .phone-power {
-    width: 46px; height: 46px; fill: none; stroke: #eafcff; stroke-width: 1.7;
-    stroke-linecap: round; filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.5));
+    width: 46px; height: 46px; fill: none; stroke: #dff4fa; stroke-width: 1.7;
+    stroke-linecap: round; filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.32));
 }
 .phone-state {
     display: flex; align-items: center; gap: 8px;
@@ -667,8 +669,8 @@ section { padding: 96px 0; position: relative; }
 }
 .srv {
     display: flex; align-items: center; gap: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 16px; padding: 10px 12px;
-    background: rgba(9, 38, 50, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.11); border-radius: 16px; padding: 10px 12px;
+    background: rgba(17, 66, 88, 0.55);
 }
 .srv-dot {
     width: 7px; height: 7px; border-radius: 50%; background: #4ade80; flex-shrink: 0;
