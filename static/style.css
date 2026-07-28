@@ -565,54 +565,123 @@ section { padding: 96px 0; position: relative; }
 .pill:hover { color: hsl(var(--foreground)); border-color: var(--line); }
 .pill.accent { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); border-color: transparent; }
 
-/* телефон-мокап */
-.phone-wrap { display: flex; justify-content: center; }
+/* телефон-мокап — корпус и свечение сняты пипеткой с рекламного баннера
+   (ikkvpn_banner.png), чтобы сайт и реклама выглядели одинаково */
+.phone-wrap { display: flex; justify-content: center; perspective: 1600px; }
 .phone {
-    width: 300px; max-width: 80vw; aspect-ratio: 300 / 620;
-    border: 1px solid var(--line); border-radius: 44px;
-    background: hsl(var(--background) / 0.6);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    padding: 16px 14px; position: relative;
-    box-shadow: 0 40px 80px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.1);
-    transition: transform 0.5s var(--ease);
+    --accent: #36cbda;               /* бирюза кнопки с баннера */
+    width: 300px; max-width: 78vw; aspect-ratio: 300 / 636;
+    border-radius: 54px; padding: 10px; position: relative;
+    /* тонкие светлые полосы по краям — блик титановой рамки */
+    background: linear-gradient(115deg,
+        #7d8489 0%, #171c21 6%, #0a0e12 26%, #05080b 50%,
+        #0a0e12 74%, #171c21 94%, #6f767b 100%);
+    box-shadow:
+        0 50px 90px rgba(0, 0, 0, 0.55),
+        0 12px 28px rgba(0, 0, 0, 0.45),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.09);
+    transform: rotateY(-9deg) rotateX(2deg);
+    transition: transform 0.7s var(--ease);
 }
-.phone:hover { transform: translateY(-8px); }
-.phone-notch {
-    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
-    width: 104px; height: 20px; background: rgba(255, 255, 255, 0.12);
-    border-radius: 0 0 14px 14px; z-index: 2;
+.phone:hover { transform: rotateY(0deg) rotateX(0deg) translateY(-8px); }
+
+/* боковые клавиши — выступают за силуэт на пару пикселей */
+.phone-side {
+    position: absolute; width: 3px; border-radius: 3px;
+    background: linear-gradient(180deg, #6e757a, #2b3136);
 }
+.phone-side-mute { left: -3px; top: 15%; height: 4%; }
+.phone-side-vol { left: -3px; top: 22%; height: 14%; }
+.phone-side-power { right: -3px; top: 26%; height: 12%; }
+
 .phone-screen {
-    height: 100%; border: 1px solid var(--line-soft); border-radius: 32px;
-    padding: 34px 15px 18px; display: flex; flex-direction: column; gap: 13px; overflow: hidden;
-    background: var(--glass);
+    height: 100%; border-radius: 45px; overflow: hidden; position: relative;
+    padding: 46px 16px 16px;
+    display: flex; flex-direction: column; align-items: center;
+    background:
+        radial-gradient(120% 70% at 50% 34%, rgba(54, 203, 218, 0.16) 0%, rgba(5, 21, 36, 0) 62%),
+        linear-gradient(180deg, #061a2b 0%, #051524 55%, #030f1b 100%);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
+.phone-screen::after {          /* диагональный блик стекла */
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(128deg,
+        rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.02) 22%, rgba(255, 255, 255, 0) 46%);
+}
+.phone-island {
+    position: absolute; top: 13px; left: 50%; transform: translateX(-50%);
+    width: 88px; height: 25px; border-radius: 999px; background: #000; z-index: 2;
+}
+.phone-island::after {          /* глазок камеры */
+    content: ''; position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    width: 9px; height: 9px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #1b3d4d, #050a0e 70%);
+}
+.phone-brand {
+    font-family: var(--font-display); font-size: 1.15rem; letter-spacing: 0.5px;
+    color: var(--accent); line-height: 1.2;
+}
+.phone-brand b { color: hsl(var(--foreground)); font-weight: 400; }
 .phone-connect {
-    align-self: center; width: 128px; height: 128px; border-radius: 50%;
-    border: 1px solid var(--line);
-    box-shadow: 0 0 0 10px var(--line-soft), inset 0 1px 1px rgba(255, 255, 255, 0.15);
-    background: var(--glass);
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-    margin: 6px 0 2px;
+    width: 132px; height: 132px; border-radius: 50%; margin: 26px 0 22px;
+    position: relative; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 50% 42%,
+        #6ce8f6 0%, #36cbda 30%, #1f9cb2 62%, #0d5568 100%);
+    box-shadow:
+        0 0 0 12px rgba(54, 203, 218, 0.07),
+        0 0 0 26px rgba(54, 203, 218, 0.035),
+        0 0 42px 6px rgba(54, 203, 218, 0.45),
+        0 0 100px 24px rgba(54, 203, 218, 0.22),
+        inset 0 -8px 20px rgba(0, 26, 33, 0.5),
+        inset 0 6px 16px rgba(255, 255, 255, 0.35);
 }
-.phone-power { font-size: 1.8rem; color: hsl(var(--foreground)); line-height: 1; }
-.phone-state { text-transform: uppercase; letter-spacing: 2px; font-size: 0.52rem; color: hsl(var(--muted-foreground)); }
-.phone-timer { font-family: var(--font-display); font-size: 1.25rem; color: hsl(var(--foreground)); line-height: 1; }
-.phone-appname {
-    text-transform: uppercase; letter-spacing: 2px; font-size: 0.56rem;
-    color: hsl(var(--muted-foreground)); text-align: center; margin-top: 2px;
+.phone-connect::before {        /* расходящееся кольцо «идёт соединение» */
+    content: ''; position: absolute; inset: -16px; border-radius: 50%;
+    border: 1px solid rgba(54, 203, 218, 0.35);
+    animation: phone-pulse 3.4s var(--ease) infinite;
+}
+@keyframes phone-pulse {
+    0% { transform: scale(0.92); opacity: 0.9; }
+    70%, 100% { transform: scale(1.2); opacity: 0; }
+}
+.phone-power {
+    width: 46px; height: 46px; fill: none; stroke: #eafcff; stroke-width: 1.7;
+    stroke-linecap: round; filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.5));
+}
+.phone-state {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.84rem; font-weight: 600; color: hsl(var(--foreground));
+}
+.phone-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: #4ade80;
+    box-shadow: 0 0 8px rgba(74, 222, 128, 0.8);
+}
+.phone-timer {
+    font-size: 0.74rem; letter-spacing: 1.5px; margin-top: 3px;
+    color: rgba(255, 255, 255, 0.42); font-variant-numeric: tabular-nums;
+}
+.phone-servers { width: 100%; margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
+.phone-bar {
+    width: 108px; height: 4px; border-radius: 999px;
+    background: rgba(255, 255, 255, 0.3); margin: 12px 0 2px; flex-shrink: 0;
 }
 .srv {
     display: flex; align-items: center; gap: 10px;
-    border: 1px solid var(--line-soft); border-radius: 14px; padding: 10px 12px;
-    background: var(--glass);
+    border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 16px; padding: 10px 12px;
+    background: rgba(9, 38, 50, 0.75);
 }
-.srv-dot { width: 7px; height: 7px; border-radius: 50%; background: #6fe3a5; flex-shrink: 0; }
-.srv.off .srv-dot { background: hsl(var(--muted-foreground) / 0.4); }
+.srv-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: #4ade80; flex-shrink: 0;
+    box-shadow: 0 0 8px rgba(74, 222, 128, 0.7);
+}
+.srv.off .srv-dot { background: rgba(255, 255, 255, 0.25); box-shadow: none; }
 .srv-name { font-size: 0.78rem; color: hsl(var(--foreground)); }
 .srv.off .srv-name { color: hsl(var(--muted-foreground)); }
 .srv-tag { margin-left: auto; text-transform: uppercase; letter-spacing: 1px; font-size: 0.5rem; color: hsl(var(--muted-foreground)); }
+
+@media (prefers-reduced-motion: reduce) {
+    .phone-connect::before { animation: none; }
+}
 
 @media (max-width: 860px) {
     .showcase { grid-template-columns: 1fr; gap: 40px; }
@@ -620,6 +689,7 @@ section { padding: 96px 0; position: relative; }
     .showcase-text .lead-left { margin-left: auto; margin-right: auto; }
     .showcase .pills { justify-content: center; }
     .panel { padding: 44px 24px; }
+    .phone { transform: none; }   /* без наклона на узком экране */
 }
 
 /* ---------- Контакт ---------- */
