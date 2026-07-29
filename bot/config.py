@@ -36,7 +36,7 @@ if not PRIVACY_URL.startswith("https://"):
 SITE_URL = os.environ.get("SITE_URL", "https://ikkvpn.com").rstrip("/")
 
 # Сколько дней бесплатно даёт реферальная ссылка
-REFERRAL_BONUS_DAYS = int(os.environ.get("REFERRAL_BONUS_DAYS", "25"))
+REFERRAL_BONUS_DAYS = int(os.environ.get("REFERRAL_BONUS_DAYS", "10"))
 
 # Пробный период «Попробовать бесплатно» (дней, раз на пользователя)
 TRIAL_DAYS = int(os.environ.get("TRIAL_DAYS", "15"))
@@ -46,7 +46,7 @@ DB_PATH = os.environ.get("DB_PATH", "ikk_bot.db")
 
 # Тарифы. stars — цена в Telegram Stars (XTR), rub — в рублях (Platega), days — длительность.
 PLANS = {
-    "1m":  {"title": "1 месяц",    "days": 30,  "stars": 100, "rub": 99},
-    "3m":  {"title": "3 месяца",   "days": 90,  "stars": 270, "rub": 399},
-    "12m": {"title": "12 месяцев", "days": 365, "stars": 900, "rub": 1290},
+    "1m":  {"title": "1 месяц",    "days": 30,  "stars": 50,  "rub": 50},
+    "3m":  {"title": "3 месяца",   "days": 90,  "stars": 135, "rub": 135},
+    "12m": {"title": "12 месяцев", "days": 365, "stars": 450, "rub": 450},
 }
