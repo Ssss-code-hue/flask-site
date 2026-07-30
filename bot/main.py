@@ -51,17 +51,23 @@ def fmt_date(ts):
     return datetime.fromtimestamp(ts).strftime("%d.%m.%Y")
 
 
-# Баннер приветствия (в стиле сайта). Приветствие — одно сообщение:
+# Баннер IKK VPN (в стиле сайта). Каждое сообщение бота — одно сообщение:
 # фото + подпись + кнопки, так картинка и текст одной ширины.
+# Кнопки Telegram растягивает по ширине самого широкого элемента сообщения,
+# поэтому под фото они выходят ровными, а под голым текстом — рваными.
 # Файл загружается один раз, дальше используем file_id из кэша.
 BANNER = Path(__file__).parent / "assets" / "banner.png"
 _banner_file_id = None
+
+# Лимит подписи к фото у Telegram. У обычного сообщения он 4096, поэтому
+# редкий длинный текст отправляем без баннера, а не теряем совсем.
+CAPTION_LIMIT = 1024
 
 
 async def send_banner_to(bot, chat_id, text, reply_markup=None):
     """Отправляет в чат НОВОЕ сообщение с баннером IKK VPN сверху."""
     global _banner_file_id
-    if BANNER.exists():
+    if BANNER.exists() and len(text) <= CAPTION_LIMIT:
         try:
             photo = _banner_file_id or FSInputFile(BANNER)
             sent = await bot.send_photo(chat_id, photo, caption=text,
@@ -170,8 +176,8 @@ async def cmd_start(message: Message):
             # отключится по старому сроку, хотя бот показывает новый.
             sync_panel(ref_id)
             try:
-                await message.bot.send_message(
-                    ref_id,
+                await send_banner_to(
+                    message.bot, ref_id,
                     texts.REF_BONUS.format(days=REFERRAL_BONUS_DAYS, date=fmt_date(new_until)),
                 )
             except Exception:
@@ -183,32 +189,30 @@ async def cmd_start(message: Message):
 # ============ Команды-функции (видны в меню слева от поля ввода) ============
 @dp.message(Command("buy"))
 async def cmd_buy(message: Message):
-    await message.answer(texts.OFFER_INTRO, reply_markup=offer_consent_kb())
+    await send_banner(message, texts.OFFER_INTRO, offer_consent_kb())
 
 
 @dp.message(Command("devices"))
 async def cmd_devices(message: Message):
-    await message.answer(texts.DEVICES_INTRO, reply_markup=devices_kb())
+    await send_banner(message, texts.DEVICES_INTRO, devices_kb())
 
 
 @dp.message(Command("ref"))
 async def cmd_ref(message: Message):
     db.create_user(message.from_user.id, message.from_user.username)
-    await message.answer(
-        ref_text(message.from_user.id), reply_markup=back_kb("menu"), disable_web_page_preview=True
-    )
+    await send_banner(message, ref_text(message.from_user.id), back_kb("menu"))
 
 
 @dp.message(Command("status"))
 async def cmd_status(message: Message):
-    await message.answer(status_text(message.from_user.id),
-                         reply_markup=status_kb(message.from_user.id))
+    await send_banner(message, status_text(message.from_user.id),
+                      status_kb(message.from_user.id))
 
 
 @dp.message(Command("help"))
 async def cmd_help(message: Message):
-    await message.answer(texts.HELP.format(trial=TRIAL_DAYS, ref=REFERRAL_BONUS_DAYS),
-                         reply_markup=main_menu())
+    await send_banner(message, texts.HELP.format(trial=TRIAL_DAYS, ref=REFERRAL_BONUS_DAYS),
+                      main_menu())
 
 
 @dp.message(Command("broadcast_nc"))
@@ -230,7 +234,7 @@ async def cmd_broadcast_nc(message: Message):
         token = sync_panel(uid)
         text = texts.NOT_CONNECTED_NUDGE.format(date=fmt_date(sub_until))
         try:
-            await message.bot.send_message(uid, text, reply_markup=connect_kb(token))
+            await send_banner_to(message.bot, uid, text, connect_kb(token))
             sent += 1
         except Exception:
             failed += 1                        # заблокировал бота / удалил чат
@@ -320,14 +324,15 @@ def _trial_available(uid, username):
 async def cmd_trial(message: Message):
     if _trial_available(message.from_user.id, message.from_user.username):
         # сначала — согласие с офертой, активация кнопкой «Принимаю»
-        await message.answer(
-            texts.TRIAL_OFFER.format(days=TRIAL_DAYS), reply_markup=trial_consent_kb()
+        await send_banner(
+            message, texts.TRIAL_OFFER.format(days=TRIAL_DAYS), trial_consent_kb()
         )
     else:
-        await message.answer(
+        await send_banner(
+            message,
             "🆓 Пробный период уже был использован.\n"
             "Оформите подписку — или получите бесплатные дни за друзей 🎁.",
-            reply_markup=main_menu(),
+            main_menu(),
         )
 
 
@@ -618,7 +623,7 @@ async def _credit_card_payment(bot, rec):
         text = texts.PAID_NO_KEY.format(date=fmt_date(new_until), owner=SUPPORT_BOT_USERNAME)
     try:
         kb = connect_kb(token) if sub_url else main_menu()
-        await bot.send_message(uid, text, reply_markup=kb)
+        await send_banner_to(bot, uid, text, kb)
     except Exception:
         logging.exception("Lolz (бот): оплату %s зачислили, но сообщение "
                           "пользователю %s не ушло", rec["payment_id"], uid)
@@ -707,14 +712,16 @@ async def on_paid(message: Message):
     token = sync_panel(uid)
     sub_url = vpn_key(uid, token)
     if sub_url:
-        await message.answer(
+        await send_banner(
+            message,
             texts.PAID_WITH_KEY.format(date=fmt_date(new_until)),
-            reply_markup=connect_kb(token),
+            connect_kb(token),
         )
     else:
-        await message.answer(
+        await send_banner(
+            message,
             texts.PAID_NO_KEY.format(date=fmt_date(new_until), owner=SUPPORT_BOT_USERNAME),
-            reply_markup=main_menu(),
+            main_menu(),
         )
 
     # уведомление владельцу
@@ -771,7 +778,7 @@ async def remind_trial_ending(bot):
                     ending="ся" if days == 1 else "ось",
                     days=days, word=_plural_days(days))
                 try:
-                    await bot.send_message(uid, text, reply_markup=connect_kb(token))
+                    await send_banner_to(bot, uid, text, connect_kb(token))
                 except Exception:
                     pass                          # заблокировал бота / удалил чат
                 db.mark_trial_reminded(uid)
