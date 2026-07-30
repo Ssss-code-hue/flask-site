@@ -13,6 +13,7 @@ import lolz
 import platega
 
 from .config import (PLANS, PRIVACY_URL, REFERRAL_BONUS_DAYS,
+                     SALE_BONUS_DAYS, SALE_PLAN, plan_days, sale_active,
                      SUPPORT_BOT_USERNAME, TERMS_URL, TRIAL_DAYS,
                      WEBAPP_URL, OFFER_URL)
 
@@ -126,8 +127,22 @@ def plans_kb():
     card = card_available()     # показываем ₽ только когда карта включена
     for code, p in PLANS.items():
         price = f"{p['stars']} ⭐ / {p['rub']} ₽" if card else f"{p['stars']} ⭐"
-        kb.button(text=f"{p['title']} — {price}", callback_data=f"plan:{code}")
+        # пока идёт акция — сразу видно, на каком тарифе бонус
+        bonus = f" +{SALE_BONUS_DAYS} дн. 🎁" if code == SALE_PLAN and sale_active() else ""
+        kb.button(text=f"{p['title']}{bonus} — {price}", callback_data=f"plan:{code}")
     kb.button(text="◀ Назад", callback_data="buy")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def sale_kb():
+    """Кнопка из рассылки об акции — ведёт в обычную покупку через оферту."""
+    kb = InlineKeyboardBuilder()
+    p = PLANS.get(SALE_PLAN, {})
+    price = f"{p.get('rub')} ₽" if card_available() else f"{p.get('stars')} ⭐"
+    kb.button(text=f"🎁 Забрать {plan_days(SALE_PLAN)} дней за {price}",
+              callback_data="buy")
+    kb.button(text="◀ Меню", callback_data="menu")
     kb.adjust(1)
     return kb.as_markup()
 

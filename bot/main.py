@@ -32,13 +32,18 @@ from .config import (
     OWNER_ID,
     PLANS,
     REFERRAL_BONUS_DAYS,
+    SALE_BONUS_DAYS,
+    SALE_PLAN,
+    SALE_UNTIL,
     SITE_URL,
     SUPPORT_BOT_USERNAME,
     TRIAL_DAYS,
+    plan_days,
+    sale_active,
 )
 from .keyboards import (back_kb, card_invoice_kb, connect_kb, devices_kb,
                         docs_kb, main_menu, offer_consent_kb, pay_method_kb,
-                        plans_kb, promo_offer_kb, ref_share_kb,
+                        plans_kb, promo_offer_kb, ref_share_kb, sale_kb,
                         trial_consent_kb)
 from .panel import (get_subscription_url, site_sub_url, sub_token,
                     user_connected)
@@ -254,6 +259,54 @@ async def cmd_broadcast_promo(message: Message):
     await message.answer(f"⏳ Рассылаю промокод {PROMO_CODE} по {len(users)} пользователям…")
     text = texts.PROMO_BROADCAST.format(code=PROMO_CODE, days=PROMO_DAYS)
     kb = promo_offer_kb(PROMO_CODE, PROMO_DAYS)
+    sent = failed = 0
+    for uid in users:
+        try:
+            await send_banner_to(message.bot, uid, text, kb)
+            sent += 1
+        except Exception:
+            failed += 1                        # заблокировал бота / удалил чат
+        await asyncio.sleep(0.1)
+    await message.answer(f"✅ Готово.\nОтправлено: {sent}\nОшибок: {failed}")
+
+
+_MONTHS_RU = ("января", "февраля", "марта", "апреля", "мая", "июня", "июля",
+              "августа", "сентября", "октября", "ноября", "декабря")
+
+
+def _sale_until_ru():
+    """«2026-08-03» → «3 августа» — для текста рассылки."""
+    d = datetime.strptime(SALE_UNTIL, "%Y-%m-%d").date()
+    return f"{d.day} {_MONTHS_RU[d.month - 1]}"
+
+
+@dp.message(Command("broadcast_sale"))
+async def cmd_broadcast_sale(message: Message):
+    """Рассылка про акцию «конец месяца» ВСЕМ пользователям (owner-only).
+
+    Не даёт разослать после SALE_UNTIL: иначе люди придут за бонусом,
+    которого уже нет, — а начисление считается по той же дате.
+    """
+    if not OWNER_ID or message.from_user.id != OWNER_ID:
+        return
+    if not sale_active():
+        await message.answer(
+            f"⛔ Акция закончилась {_sale_until_ru()} — рассылка отменена.\n"
+            f"Чтобы продлить, поменяйте SALE_UNTIL в bot/config.py.")
+        return
+
+    p = PLANS.get(SALE_PLAN, {})
+    base, total = p.get("days", 30), plan_days(SALE_PLAN)
+    price = f"{p.get('rub')} ₽" if (platega.is_configured() or lolz.can_invoice()) \
+        else f"{p.get('stars')} ⭐"
+    users = db.all_user_ids()
+    await message.answer(
+        f"⏳ Рассылаю акцию (+{SALE_BONUS_DAYS} дн. к месяцу, по {_sale_until_ru()}) "
+        f"по {len(users)} пользователям…")
+    text = texts.SALE_BROADCAST.format(bonus=SALE_BONUS_DAYS, price=price,
+                                       total=total, base=base,
+                                       until=_sale_until_ru())
+    kb = sale_kb()
     sent = failed = 0
     for uid in users:
         try:
@@ -490,7 +543,7 @@ async def on_promo_text(message: Message):
 async def _send_stars_invoice(cq: CallbackQuery, code, p):
     await cq.message.answer_invoice(
         title=f"IKK VPN — {p['title']}",
-        description=f"Подписка на {p['title']} ({p['days']} дней). Работает в v2RayTun.",
+        description=f"Подписка на {p['title']} ({plan_days(code)} дней). Работает в v2RayTun.",
         payload=f"plan:{code}",
         provider_token="",          # для Telegram Stars токен не нужен
         currency="XTR",             # Telegram Stars
@@ -509,7 +562,7 @@ async def cb_plan(cq: CallbackQuery):
     if platega.is_configured() or lolz.can_invoice():
         # доступны два способа — даём выбрать
         await show_screen(cq, 
-            texts.PAY_METHOD.format(title=p["title"], days=p["days"]),
+            texts.PAY_METHOD.format(title=p["title"], days=plan_days(code)),
             reply_markup=pay_method_kb(code),
         )
         await cq.answer()
@@ -610,7 +663,7 @@ async def _credit_card_payment(bot, rec):
     if not db.settle_bot_invoice(rec["payment_id"], "paid"):
         return False
     p = PLANS.get(rec["plan"], {})
-    days = p.get("days", 30)
+    days = plan_days(rec["plan"])
     uid = rec["user_id"]
     new_until = db.add_days(uid, days)
     db.record_payment(uid, rec["plan"], 0, f"lolz:{rec['payment_id']}")
@@ -704,7 +757,7 @@ async def on_paid(message: Message):
     code = sp.invoice_payload.split(":", 1)[1] if ":" in sp.invoice_payload else None
     p = PLANS.get(code)
     uid = message.from_user.id
-    days = p["days"] if p else 30
+    days = plan_days(code)
 
     new_until = db.add_days(uid, days)
     db.record_payment(uid, code, sp.total_amount, sp.telegram_payment_charge_id)

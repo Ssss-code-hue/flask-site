@@ -1,5 +1,6 @@
 """Настройки бота IKK VPN. Всё чувствительное берётся из переменных окружения."""
 import os
+from datetime import date, datetime
 
 # Токен бота от @BotFather (обязательно)
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
@@ -50,3 +51,31 @@ PLANS = {
     "3m":  {"title": "3 месяца",   "days": 90,  "stars": 135, "rub": 135},
     "12m": {"title": "12 месяцев", "days": 365, "stars": 450, "rub": 450},
 }
+
+# Акция «конец месяца»: к тарифу «1 месяц» добавляем бонусные дни при покупке
+# В БОТЕ (на сайте акции нет — там месяц остаётся 30 дней).
+# Дата окончания включительно. После неё тариф сам вернётся к 30 дням, вручную
+# откатывать ничего не надо — поэтому и сделано датой, а не правкой PLANS.
+SALE_PLAN = "1m"
+SALE_BONUS_DAYS = int(os.environ.get("SALE_BONUS_DAYS", "20"))
+SALE_UNTIL = os.environ.get("SALE_UNTIL", "2026-08-03")
+
+
+def sale_active():
+    """Идёт ли акция сейчас. Дата берётся по часам сервера."""
+    try:
+        return date.today() <= datetime.strptime(SALE_UNTIL, "%Y-%m-%d").date()
+    except ValueError:
+        return False                     # кривая дата — считаем, что акции нет
+
+
+def plan_days(code):
+    """Сколько дней даёт тариф при покупке в боте — уже с учётом акции.
+
+    Единая точка: и начисление, и тексты берут длительность отсюда, иначе
+    легко пообещать 50 дней, а начислить 30.
+    """
+    days = (PLANS.get(code) or {}).get("days", 30)
+    if code == SALE_PLAN and sale_active():
+        days += SALE_BONUS_DAYS
+    return days
