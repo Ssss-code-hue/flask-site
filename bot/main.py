@@ -11,6 +11,7 @@ from pathlib import Path
 from aiogram import Bot, Dispatcher, F
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.exceptions import TelegramForbiddenError
 from aiogram.filters import Command, CommandStart
 from aiogram.types import (
     BotCommand,
@@ -80,9 +81,43 @@ async def send_banner_to(bot, chat_id, text, reply_markup=None):
             if not _banner_file_id:
                 _banner_file_id = sent.photo[-1].file_id
             return
+        except TelegramForbiddenError:
+            # чат недоступен (бот заблокирован) — текстом тоже не дойдёт,
+            # второй запрос только зря нагружает API и засоряет журнал
+            raise
         except Exception:
             logging.exception("Баннер не отправился — шлём текстом")
     await bot.send_message(chat_id, text, reply_markup=reply_markup)
+
+
+async def broadcast(message: Message, users, make_message):
+    """Общая механика рассылок: отправка, подсчёт, отчёт владельцу.
+
+    make_message(uid) -> (text, клавиатура) — у рефералки текст свой на
+    каждого. Заблокировавших помечаем в базе, чтобы следующая рассылка их
+    не трогала и статистика не врала.
+    """
+    sent = blocked = failed = 0
+    for uid in users:
+        text, kb = make_message(uid)
+        try:
+            await send_banner_to(message.bot, uid, text, kb)
+            sent += 1
+        except TelegramForbiddenError:
+            db.mark_blocked(uid)
+            blocked += 1
+        except Exception:
+            logging.exception("Рассылка: сбой у пользователя %s", uid)
+            failed += 1
+        await asyncio.sleep(0.1)
+
+    report = f"✅ Готово.\nДоставлено: {sent}\nЗаблокировали бота: {blocked}"
+    if failed:
+        report += f"\nПрочие ошибки: {failed} — причина в журнале"
+    if blocked:
+        report += (f"\n\nЭти {blocked} больше не получат рассылок — "
+                   f"вернутся сами, если снова напишут боту.")
+    await message.answer(report)
 
 
 async def send_banner(message: Message, text, reply_markup=None):
@@ -230,7 +265,7 @@ async def cmd_broadcast_nc(message: Message):
     now = int(time.time())
     users = db.active_users(now)
     await message.answer(f"⏳ Проверяю {len(users)} активных подписок…")
-    sent = skipped = failed = 0
+    sent = skipped = blocked = failed = 0
     for uid, sub_until in users:
         connected = await asyncio.to_thread(user_connected, uid)
         if connected is None or connected:
@@ -241,12 +276,16 @@ async def cmd_broadcast_nc(message: Message):
         try:
             await send_banner_to(message.bot, uid, text, connect_kb(token))
             sent += 1
+        except TelegramForbiddenError:
+            db.mark_blocked(uid)
+            blocked += 1
         except Exception:
-            failed += 1                        # заблокировал бота / удалил чат
+            logging.exception("Рассылка: сбой у пользователя %s", uid)
+            failed += 1
         await asyncio.sleep(0.1)
     await message.answer(
-        f"✅ Готово.\nОтправлено: {sent}\nПропущено (подключены/недоступны): "
-        f"{skipped}\nОшибок: {failed}")
+        f"✅ Готово.\nДоставлено: {sent}\nПропущено (подключены/недоступны): "
+        f"{skipped}\nЗаблокировали бота: {blocked}\nПрочие ошибки: {failed}")
 
 
 @dp.message(Command("broadcast_promo"))
@@ -259,15 +298,7 @@ async def cmd_broadcast_promo(message: Message):
     await message.answer(f"⏳ Рассылаю промокод {PROMO_CODE} по {len(users)} пользователям…")
     text = texts.PROMO_BROADCAST.format(code=PROMO_CODE, days=PROMO_DAYS)
     kb = promo_offer_kb(PROMO_CODE, PROMO_DAYS)
-    sent = failed = 0
-    for uid in users:
-        try:
-            await send_banner_to(message.bot, uid, text, kb)
-            sent += 1
-        except Exception:
-            failed += 1                        # заблокировал бота / удалил чат
-        await asyncio.sleep(0.1)
-    await message.answer(f"✅ Готово.\nОтправлено: {sent}\nОшибок: {failed}")
+    await broadcast(message, users, lambda uid: (text, kb))
 
 
 _MONTHS_RU = ("января", "февраля", "марта", "апреля", "мая", "июня", "июля",
@@ -307,15 +338,7 @@ async def cmd_broadcast_sale(message: Message):
                                        total=total, base=base,
                                        until=_sale_until_ru())
     kb = sale_kb()
-    sent = failed = 0
-    for uid in users:
-        try:
-            await send_banner_to(message.bot, uid, text, kb)
-            sent += 1
-        except Exception:
-            failed += 1                        # заблокировал бота / удалил чат
-        await asyncio.sleep(0.1)
-    await message.answer(f"✅ Готово.\nОтправлено: {sent}\nОшибок: {failed}")
+    await broadcast(message, users, lambda uid: (text, kb))
 
 
 @dp.message(Command("broadcast_ref"))
@@ -328,17 +351,12 @@ async def cmd_broadcast_ref(message: Message):
     await message.answer(
         f"⏳ Рассылаю про рефералы (+{REFERRAL_BONUS_DAYS} дн.) "
         f"по {len(users)} пользователям…")
-    sent = failed = 0
-    for uid in users:
+    def make(uid):
         link = f"https://t.me/{BOT_USERNAME}?start=ref_{uid}"
-        text = texts.REF_BROADCAST.format(days=REFERRAL_BONUS_DAYS, link=link)
-        try:
-            await send_banner_to(message.bot, uid, text, ref_share_kb(link))
-            sent += 1
-        except Exception:
-            failed += 1                        # заблокировал бота / удалил чат
-        await asyncio.sleep(0.1)
-    await message.answer(f"✅ Готово.\nОтправлено: {sent}\nОшибок: {failed}")
+        return (texts.REF_BROADCAST.format(days=REFERRAL_BONUS_DAYS, link=link),
+                ref_share_kb(link))
+
+    await broadcast(message, users, make)
 
 
 # ============ Пробный период ============

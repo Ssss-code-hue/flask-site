@@ -93,6 +93,12 @@ def init_db():
         # Сбрасывается при новой активации триала/подписки.
         if "trial_reminded" not in ucols:
             c.execute("ALTER TABLE users ADD COLUMN trial_reminded INTEGER DEFAULT 0")
+        # Заблокировал ли пользователь бота. Telegram сообщает об этом только
+        # при попытке отправки, поэтому отмечаем во время рассылок и дальше
+        # таких не трогаем — иначе каждая рассылка снова стучится в мёртвые
+        # чаты и портит статистику. Сбрасывается, когда человек вернётся.
+        if "blocked" not in ucols:
+            c.execute("ALTER TABLE users ADD COLUMN blocked INTEGER DEFAULT 0")
         wcols0 = {r["name"] for r in c.execute("PRAGMA table_info(web_users)")}
         if "hy_token" not in wcols0:
             c.execute("ALTER TABLE web_users ADD COLUMN hy_token TEXT")
@@ -135,8 +141,11 @@ def create_user(uid, username, referred_by=None):
 
 
 def update_username(uid, username):
+    """Обновляет юзернейм. Раз человек написал боту — он его не блокирует,
+    поэтому заодно снимаем флаг blocked, если тот стоял."""
     with _conn() as c:
-        c.execute("UPDATE users SET username=? WHERE user_id=?", (username, uid))
+        c.execute("UPDATE users SET username=?, blocked=0 WHERE user_id=?",
+                  (username, uid))
 
 
 # ===== Промокоды =====
@@ -211,9 +220,23 @@ def active_users(now):
 
 
 def all_user_ids():
-    """Все, кто запускал бота — для общей рассылки."""
+    """Все, кто запускал бота и не блокировал его — для общей рассылки."""
     with _conn() as c:
-        return [r["user_id"] for r in c.execute("SELECT user_id FROM users")]
+        return [r["user_id"] for r in
+                c.execute("SELECT user_id FROM users WHERE COALESCE(blocked,0)=0")]
+
+
+def mark_blocked(uid, blocked=True):
+    """Отмечает, что пользователь заблокировал бота (или вернулся)."""
+    with _conn() as c:
+        c.execute("UPDATE users SET blocked=? WHERE user_id=?",
+                  (1 if blocked else 0, uid))
+
+
+def blocked_count():
+    with _conn() as c:
+        return c.execute(
+            "SELECT COUNT(*) AS n FROM users WHERE blocked=1").fetchone()["n"]
 
 
 def trial_reminder_candidates(now, within_seconds):
