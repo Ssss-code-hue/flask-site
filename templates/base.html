@@ -5,6 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}IKK — приватный VPN{% endblock %}</title>
 
+    <!-- SEO и превью ссылки. Без og:* Telegram и VK показывают голую ссылку —
+         репост из бота или канала выглядит как спам и его не открывают.
+         Каждая страница переопределяет meta_description и og_title. -->
+    <meta name="description" content="{% block meta_description %}IKK VPN — быстрый VPN без логов и рекламы. Серверы в Финляндии и Нидерландах, работает на iPhone, Android, Windows и телевизоре. От 50 ₽ в месяц, {{ trial_days }} дней бесплатно.{% endblock %}">
+    <link rel="canonical" href="{{ site_url }}{{ request.path }}">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="IKK VPN">
+    <meta property="og:locale" content="ru_RU">
+    <meta property="og:title" content="{% block og_title %}{{ self.title() }}{% endblock %}">
+    <meta property="og:description" content="{{ self.meta_description() }}">
+    <meta property="og:url" content="{{ site_url }}{{ request.path }}">
+    <meta property="og:image" content="{{ site_url }}{{ url_for('static', filename='og.png') }}">
+    <meta property="og:image:width" content="1280">
+    <meta property="og:image:height" content="512">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ self.og_title() }}">
+    <meta name="twitter:description" content="{{ self.meta_description() }}">
+    <meta name="twitter:image" content="{{ site_url }}{{ url_for('static', filename='og.png') }}">
+
     <!-- Шрифты: Instrument Serif (латиница) + Playfair Display (кириллица
          для заголовков — у Instrument Serif её нет) + Inter (текст) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

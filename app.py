@@ -2,7 +2,7 @@ import os
 import time
 from datetime import timedelta
 
-from flask import Flask, redirect, render_template, request, session
+from flask import Flask, redirect, render_template, request, session, url_for
 from flasgger import Swagger
 
 from api import api as api_blueprint
@@ -72,6 +72,14 @@ def inject_nav_user():
     # Пользователь для шапки (аватар возле «Аккаунт»); None, если не вошёл
     uid = session.get('uid')
     return {'nav_user': db.get_web_user(uid) if uid else None}
+
+
+@app.context_processor
+def inject_seo():
+    # Нужны каждому шаблону: canonical и og:url собираются в base.html,
+    # trial_days — в описании страницы. Без context_processor пришлось бы
+    # передавать их в каждый render_template и однажды забыть.
+    return {'site_url': _SITE_URL, 'trial_days': TRIAL_DAYS}
 
 
 _SITE_URL = os.environ.get('SITE_URL', 'https://ikkvpn.com').rstrip('/')
@@ -209,6 +217,57 @@ def terms_app():
 def privacy_app():
     # Политика конфиденциальности в виде мини-приложения Telegram (для бота)
     return render_template('privacy_app.html')
+
+
+# Страницы, которые должны попасть в поиск. Личный кабинет, оплата и
+# мини-приложения для Telegram сюда не входят: они бесполезны в выдаче,
+# а /sub/* и /vpnsub/* — это ещё и персональные ссылки на подписку.
+SITEMAP_PAGES = [
+    ('home',       '1.0', 'weekly'),
+    ('tariffs',    '0.9', 'weekly'),
+    ('advantages', '0.8', 'monthly'),
+    ('bot',        '0.8', 'monthly'),
+    ('offer',      '0.3', 'yearly'),
+    ('terms',      '0.3', 'yearly'),
+    ('privacy',    '0.3', 'yearly'),
+]
+
+
+@app.route('/robots.txt')
+def robots():
+    lines = [
+        'User-agent: *',
+        'Allow: /',
+        # персональные ссылки на подписку и приватные разделы — не индексировать
+        'Disallow: /sub/',
+        'Disallow: /vpnsub/',
+        'Disallow: /v2raytun/',
+        'Disallow: /happ/',
+        'Disallow: /account',
+        'Disallow: /pay/',
+        'Disallow: /admin',
+        'Disallow: /apidocs',
+        '',
+        f'Sitemap: {_SITE_URL}/sitemap.xml',
+        '',
+    ]
+    return '\n'.join(lines), 200, {'Content-Type': 'text/plain; charset=utf-8'}
+
+
+@app.route('/sitemap.xml')
+def sitemap():
+    today = time.strftime('%Y-%m-%d')
+    urls = ''.join(
+        f'<url><loc>{_SITE_URL}{url_for(endpoint)}</loc>'
+        f'<lastmod>{today}</lastmod>'
+        f'<changefreq>{freq}</changefreq>'
+        f'<priority>{prio}</priority></url>'
+        for endpoint, prio, freq in SITEMAP_PAGES
+    )
+    xml = ('<?xml version="1.0" encoding="UTF-8"?>'
+           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+           f'{urls}</urlset>')
+    return xml, 200, {'Content-Type': 'application/xml; charset=utf-8'}
 
 
 if __name__ == '__main__':
