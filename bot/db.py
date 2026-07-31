@@ -111,6 +111,11 @@ def init_db():
         # Просили ли порекомендовать сервис друзьям (одна просьба на человека).
         if "ref_asked" not in ucols:
             c.execute("ALTER TABLE users ADD COLUMN ref_asked INTEGER DEFAULT 0")
+        # Откуда пришёл человек: метка из ссылки t.me/бот?start=<метка>.
+        # Без неё каналы продвижения сравнивать нечем — видно только общее
+        # число пользователей, а какой ролик его дал, приходится угадывать.
+        if "source" not in ucols:
+            c.execute("ALTER TABLE users ADD COLUMN source TEXT")
         wcols0 = {r["name"] for r in c.execute("PRAGMA table_info(web_users)")}
         if "hy_token" not in wcols0:
             c.execute("ALTER TABLE web_users ADD COLUMN hy_token TEXT")
@@ -150,6 +155,36 @@ def create_user(uid, username, referred_by=None):
             "VALUES(?,?,?,?,?)",
             (uid, username, 0, referred_by, int(time.time())),
         )
+
+
+def set_source(uid, source):
+    """Запоминает, откуда пришёл человек. Только если метки ещё нет.
+
+    Первое касание важнее последнего: если человек пришёл с YouTube, а потом
+    открыл бота по ссылке из канала, засчитать надо YouTube — иначе все
+    источники со временем перепишутся на самый частый.
+    """
+    with _conn() as c:
+        c.execute("UPDATE users SET source=? WHERE user_id=? "
+                  "AND (source IS NULL OR source='')", (source, uid))
+
+
+def source_stats():
+    """Сводка по источникам: сколько пришло, скольким выдали ключ, сколько
+    заплатили. Оплатой считаем и звёзды (payments), и карту (bot_invoices)."""
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT COALESCE(NULLIF(u.source,''),'—') AS src, "
+            "COUNT(*) AS total, "
+            "SUM(CASE WHEN u.sub_until>0 THEN 1 ELSE 0 END) AS activated, "
+            "SUM(CASE WHEN EXISTS(SELECT 1 FROM payments p WHERE p.user_id=u.user_id) "
+            "      OR EXISTS(SELECT 1 FROM bot_invoices b WHERE b.user_id=u.user_id "
+            "                AND b.status='paid') "
+            "    THEN 1 ELSE 0 END) AS paid "
+            "FROM users u GROUP BY src ORDER BY total DESC"
+        ).fetchall()
+        return [(r["src"], r["total"], r["activated"] or 0, r["paid"] or 0)
+                for r in rows]
 
 
 def update_username(uid, username):

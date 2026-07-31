@@ -195,6 +195,18 @@ def status_kb(uid):
 
 
 # ============ /start (+ рефералы) ============
+def _clean_source(param):
+    """Метка источника из ссылки → безопасная строка для базы и отчёта.
+
+    Telegram пропускает в start-параметре только [A-Za-z0-9_-], но пришедшее
+    из внешнего мира всё равно режем по длине и приводим к нижнему регистру,
+    чтобы «YT» и «yt» не разъехались на две строки в сводке.
+    """
+    src = "".join(ch for ch in (param or "").lower()
+                  if ch.isalnum() or ch in "_-")[:32]
+    return src or None
+
+
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
     uid = message.from_user.id
@@ -205,9 +217,19 @@ async def cmd_start(message: Message):
 
     # обработка реферальной ссылки: /start ref_<id>
     parts = (message.text or "").split(maxsplit=1)
-    if not existed and len(parts) > 1 and parts[1].startswith("ref_"):
+    param = parts[1].strip() if len(parts) > 1 else ""
+
+    # Метка источника: t.me/IKKvpnpbot?start=yt — «пришёл с YouTube».
+    # Пишем только новичкам и только один раз (см. db.set_source), иначе
+    # источник перепишется при следующем заходе по другой ссылке.
+    if not existed and param:
+        src = "ref" if param.startswith("ref_") else _clean_source(param)
+        if src:
+            db.set_source(uid, src)
+
+    if not existed and param.startswith("ref_"):
         try:
-            ref_id = int(parts[1][4:])
+            ref_id = int(param[4:])
         except ValueError:
             ref_id = None
         if ref_id and ref_id != uid and db.get_user(ref_id):
@@ -282,6 +304,29 @@ async def cmd_status(message: Message):
 async def cmd_help(message: Message):
     await send_banner(message, texts.HELP.format(trial=TRIAL_DAYS, ref=REFERRAL_BONUS_DAYS),
                       main_menu())
+
+
+@dp.message(Command("sources"))
+async def cmd_sources(message: Message):
+    """Откуда приходят пользователи (owner-only).
+
+    Ссылки-метки: t.me/<бот>?start=yt, ?start=tiktok, ?start=vk и т.д.
+    «—» в отчёте — пришли до появления меток или по голой ссылке.
+    """
+    if not OWNER_ID or message.from_user.id != OWNER_ID:
+        return
+    rows = db.source_stats()
+    if not rows:
+        await message.answer("Пользователей пока нет.")
+        return
+    lines = ["📊 <b>Откуда приходят</b>\n",
+             "<code>источник      всего  ключ  опл.</code>"]
+    for src, total, activated, paid in rows:
+        lines.append(f"<code>{src[:12]:<12} {total:>5} {activated:>5} {paid:>5}</code>")
+    lines.append("\n<b>ключ</b> — активировали подписку (триал или оплата)")
+    lines.append("<b>опл.</b> — заплатили хотя бы раз")
+    lines.append(f"\nСсылка с меткой: <code>https://t.me/{BOT_USERNAME}?start=yt</code>")
+    await message.answer("\n".join(lines))
 
 
 @dp.message(Command("broadcast_nc"))
