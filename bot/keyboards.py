@@ -86,6 +86,30 @@ def connect_kb(sub_token=None):
     return kb.as_markup()
 
 
+def paid_kb(sub_token=None):
+    """После оплаты: подключиться + позвать друга.
+
+    Момент сразу после покупки — единственный, когда человек точно доволен и
+    готов рекомендовать. Прятать реферальную ссылку в меню значит потерять его.
+    """
+    kb = InlineKeyboardBuilder()
+    if sub_token and WEBAPP_URL.startswith("https://"):
+        kb.button(text="🚀 ПОДКЛЮЧИТЬСЯ СЕЙЧАС!", url=f"{WEBAPP_URL}?t={sub_token}")
+    kb.button(text=f"🎁 Позвать друга (+{REFERRAL_BONUS_DAYS} дн.)", callback_data="ref")
+    kb.button(text="◀ Меню", callback_data="menu")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def renew_kb():
+    """Под напоминанием об окончании подписки — сразу к тарифам."""
+    kb = InlineKeyboardBuilder()
+    kb.button(text="⭐ Продлить подписку", callback_data="buy")
+    kb.button(text="◀ Меню", callback_data="menu")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
 def docs_kb():
     """Документы сервиса: оферта, соглашение, политика — мини-приложениями."""
     kb = InlineKeyboardBuilder()

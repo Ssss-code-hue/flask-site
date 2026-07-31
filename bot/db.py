@@ -99,6 +99,18 @@ def init_db():
         # чаты и портит статистику. Сбрасывается, когда человек вернётся.
         if "blocked" not in ucols:
             c.execute("ALTER TABLE users ADD COLUMN blocked INTEGER DEFAULT 0")
+        # Выдана ли награда пригласившему ЗА ЭТОГО пользователя. Бонус даётся
+        # за первую оплату приглашённого, а платить он может много раз —
+        # без отметки пригласивший получал бы дни за каждое продление.
+        if "ref_rewarded" not in ucols:
+            c.execute("ALTER TABLE users ADD COLUMN ref_rewarded INTEGER DEFAULT 0")
+        # Напомнили ли, что заканчивается ТЕКУЩАЯ подписка. Сбрасывается в
+        # add_days: продлился — значит про новый срок надо напомнить заново.
+        if "expiry_reminded" not in ucols:
+            c.execute("ALTER TABLE users ADD COLUMN expiry_reminded INTEGER DEFAULT 0")
+        # Просили ли порекомендовать сервис друзьям (одна просьба на человека).
+        if "ref_asked" not in ucols:
+            c.execute("ALTER TABLE users ADD COLUMN ref_asked INTEGER DEFAULT 0")
         wcols0 = {r["name"] for r in c.execute("PRAGMA table_info(web_users)")}
         if "hy_token" not in wcols0:
             c.execute("ALTER TABLE web_users ADD COLUMN hy_token TEXT")
@@ -189,13 +201,18 @@ def redeem_promo(code, uid):
 
 
 def add_days(uid, days):
-    """Продлевает подписку на N дней (от текущего конца или от сейчас)."""
+    """Продлевает подписку на N дней (от текущего конца или от сейчас).
+
+    Сбрасывает флаг напоминания об окончании: срок стал другой, значит про
+    него надо будет напомнить заново.
+    """
     now = int(time.time())
     u = get_user(uid)
     base = max(now, u["sub_until"]) if (u and u["sub_until"]) else now
     new_until = base + days * 86400
     with _conn() as c:
-        c.execute("UPDATE users SET sub_until=? WHERE user_id=?", (new_until, uid))
+        c.execute("UPDATE users SET sub_until=?, expiry_reminded=0 WHERE user_id=?",
+                  (new_until, uid))
     return new_until
 
 
@@ -265,6 +282,88 @@ def set_referred_by(uid, ref_id):
             "UPDATE users SET referred_by=? WHERE user_id=? AND referred_by IS NULL",
             (ref_id, uid),
         )
+
+
+def pending_referrer(uid):
+    """Кому положен бонус за этого пользователя, если он ещё не выдан.
+
+    Возвращает id пригласившего или None. Пригласивший должен существовать —
+    иначе начислять некому.
+    """
+    with _conn() as c:
+        r = c.execute(
+            "SELECT u.referred_by AS ref FROM users u "
+            "JOIN users inv ON inv.user_id = u.referred_by "
+            "WHERE u.user_id=? AND COALESCE(u.ref_rewarded,0)=0",
+            (uid,)).fetchone()
+        return r["ref"] if r else None
+
+
+def mark_ref_rewarded(uid):
+    with _conn() as c:
+        c.execute("UPDATE users SET ref_rewarded=1 WHERE user_id=?", (uid,))
+
+
+def expiry_reminder_candidates(now, within_seconds):
+    """Кому пора напомнить, что подписка заканчивается.
+
+    Берём всех с активной подпиской, которая кончится в ближайшие
+    within_seconds, кому про этот срок ещё не напоминали и кто не блокировал
+    бота. Тех, кому сейчас положено напоминание о триале, исключаем — иначе
+    человек получит два сообщения об одном сроке. После того как триальное
+    напоминание отправлено (trial_reminded=1), продления попадают уже сюда.
+    """
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT user_id, sub_until FROM users "
+            "WHERE COALESCE(expiry_reminded,0)=0 AND COALESCE(blocked,0)=0 "
+            "AND NOT (COALESCE(trial_used,0)=1 AND COALESCE(trial_reminded,0)=0) "
+            "AND sub_until>? AND sub_until<=?",
+            (now, now + within_seconds),
+        ).fetchall()
+        return [(r["user_id"], r["sub_until"]) for r in rows]
+
+
+def mark_expiry_reminded(uid):
+    with _conn() as c:
+        c.execute("UPDATE users SET expiry_reminded=1 WHERE user_id=?", (uid,))
+
+
+def lapsed_users(now, max_age_days=180):
+    """У кого подписка была и закончилась — для рассылки «вернись».
+
+    Слишком старых не берём: человек, пропавший полгода назад, скорее всего
+    уже не вернётся, а рассылка ему — лишний повод заблокировать бота.
+    """
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT user_id, sub_until FROM users "
+            "WHERE COALESCE(blocked,0)=0 AND sub_until>0 AND sub_until<? "
+            "AND sub_until>? ORDER BY sub_until DESC",
+            (now, now - max_age_days * 86400),
+        ).fetchall()
+        return [(r["user_id"], r["sub_until"]) for r in rows]
+
+
+def advocacy_candidates(now, min_days_active=10):
+    """Кого попросить порекомендовать сервис.
+
+    Условие: подписка активна и человек с нами уже min_days_active дней —
+    значит успел попользоваться и может судить. Просим один раз.
+    """
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT user_id FROM users "
+            "WHERE COALESCE(ref_asked,0)=0 AND COALESCE(blocked,0)=0 "
+            "AND sub_until>? AND created_at IS NOT NULL AND created_at<=?",
+            (now, now - min_days_active * 86400),
+        ).fetchall()
+        return [r["user_id"] for r in rows]
+
+
+def mark_ref_asked(uid):
+    with _conn() as c:
+        c.execute("UPDATE users SET ref_asked=1 WHERE user_id=?", (uid,))
 
 
 def count_referrals(uid):

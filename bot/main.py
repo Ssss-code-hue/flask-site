@@ -33,6 +33,7 @@ from .config import (
     OWNER_ID,
     PLANS,
     REFERRAL_BONUS_DAYS,
+    REFERRAL_ON_TRIAL,
     SALE_BONUS_DAYS,
     SALE_PLAN,
     SALE_UNTIL,
@@ -43,9 +44,9 @@ from .config import (
     sale_active,
 )
 from .keyboards import (back_kb, card_invoice_kb, connect_kb, devices_kb,
-                        docs_kb, main_menu, offer_consent_kb, pay_method_kb,
-                        plans_kb, promo_offer_kb, ref_share_kb, sale_kb,
-                        trial_consent_kb)
+                        docs_kb, main_menu, offer_consent_kb, paid_kb,
+                        pay_method_kb, plans_kb, promo_offer_kb, ref_share_kb,
+                        renew_kb, sale_kb, trial_consent_kb)
 from .panel import (get_subscription_url, site_sub_url, sub_token,
                     user_connected)
 
@@ -210,20 +211,48 @@ async def cmd_start(message: Message):
         except ValueError:
             ref_id = None
         if ref_id and ref_id != uid and db.get_user(ref_id):
+            # Только запоминаем, кто кого привёл. Дни начисляем позже — когда
+            # приглашённый оплатит (см. reward_referrer). За нажатие Start
+            # бонус давать нельзя: новый Telegram-аккаунт заводится за минуту,
+            # и подписку можно было продлевать бесконечно бесплатно.
             db.set_referred_by(uid, ref_id)
-            new_until = db.add_days(ref_id, REFERRAL_BONUS_DAYS)
-            # Бонусные дни надо довести до панели, иначе ключ пригласившего
-            # отключится по старому сроку, хотя бот показывает новый.
-            sync_panel(ref_id)
             try:
                 await send_banner_to(
                     message.bot, ref_id,
-                    texts.REF_BONUS.format(days=REFERRAL_BONUS_DAYS, date=fmt_date(new_until)),
-                )
+                    texts.REF_JOINED.format(days=REFERRAL_BONUS_DAYS))
+            except TelegramForbiddenError:
+                db.mark_blocked(ref_id)
             except Exception:
-                pass
+                logging.exception("Реферал: не смог уведомить %s", ref_id)
 
     await send_welcome(message)
+
+
+async def reward_referrer(bot, uid, reason="оплата"):
+    """Начисляет бонус пригласившему, когда приглашённый впервые оплатил.
+
+    Вызывается из всех точек успешной оплаты. Награда выдаётся один раз на
+    приглашённого — за это отвечает отметка ref_rewarded в базе.
+    """
+    ref_id = db.pending_referrer(uid)
+    if not ref_id:
+        return
+    db.mark_ref_rewarded(uid)
+    new_until = db.add_days(ref_id, REFERRAL_BONUS_DAYS)
+    # Бонусные дни надо довести до панели, иначе ключ пригласившего
+    # отключится по старому сроку, хотя бот показывает новый.
+    token = sync_panel(ref_id)
+    logging.info("Реферал: +%s дн. пользователю %s за %s приглашённого %s",
+                 REFERRAL_BONUS_DAYS, ref_id, reason, uid)
+    try:
+        await send_banner_to(
+            bot, ref_id,
+            texts.REF_BONUS.format(days=REFERRAL_BONUS_DAYS, date=fmt_date(new_until)),
+            connect_kb(token))
+    except TelegramForbiddenError:
+        db.mark_blocked(ref_id)
+    except Exception:
+        logging.exception("Реферал: бонус начислен, но %s не уведомлён", ref_id)
 
 
 # ============ Команды-функции (видны в меню слева от поля ввода) ============
@@ -359,6 +388,33 @@ async def cmd_broadcast_ref(message: Message):
     await broadcast(message, users, make)
 
 
+@dp.message(Command("broadcast_lapsed"))
+async def cmd_broadcast_lapsed(message: Message):
+    """Рассылка «вернитесь» тем, у кого подписка уже закончилась (owner-only).
+
+    Самая тёплая аудитория из бесплатных: человек уже платил или хотя бы
+    пробовал. Даём отдельный промокод (не рекламный START7), чтобы по
+    статистике активаций было видно, сколько людей вернула именно эта рассылка.
+    """
+    if not OWNER_ID or message.from_user.id != OWNER_ID:
+        return
+    users = db.lapsed_users(int(time.time()))
+    if not users:
+        await message.answer("Некому слать: у всех подписка активна.")
+        return
+
+    p = PLANS.get("1m", {})
+    price = f"{p.get('rub')} ₽" if (platega.is_configured() or lolz.can_invoice()) \
+        else f"{p.get('stars')} ⭐"
+    await message.answer(
+        f"⏳ Рассылаю «возвращайтесь» (промокод {RETURN_PROMO_CODE}, "
+        f"+{RETURN_PROMO_DAYS} дн.) по {len(users)} ушедшим…")
+    text = texts.RETURN_BROADCAST.format(price=price, code=RETURN_PROMO_CODE,
+                                         days=RETURN_PROMO_DAYS)
+    kb = promo_offer_kb(RETURN_PROMO_CODE, RETURN_PROMO_DAYS)
+    await broadcast(message, [uid for uid, _ in users], lambda uid: (text, kb))
+
+
 # ============ Пробный период ============
 async def _give_trial(uid, username, send):
     """Общая логика «Попробовать бесплатно» для команды и кнопки.
@@ -436,6 +492,8 @@ async def cb_trial_go(cq: CallbackQuery):
         await show_screen(cq, text, reply_markup=kb)
     if await _give_trial(cq.from_user.id, cq.from_user.username, send):
         await cq.answer()
+        if REFERRAL_ON_TRIAL:
+            await reward_referrer(cq.bot, cq.from_user.id, reason="триал")
         if OWNER_ID:
             try:
                 who = (f"@{cq.from_user.username}" if cq.from_user.username
@@ -692,8 +750,9 @@ async def _credit_card_payment(bot, rec):
         text = texts.PAID_WITH_KEY.format(date=fmt_date(new_until))
     else:
         text = texts.PAID_NO_KEY.format(date=fmt_date(new_until), owner=SUPPORT_BOT_USERNAME)
+    await reward_referrer(bot, uid, reason="оплату картой")
     try:
-        kb = connect_kb(token) if sub_url else main_menu()
+        kb = paid_kb(token) if sub_url else main_menu()
         await send_banner_to(bot, uid, text, kb)
     except Exception:
         logging.exception("Lolz (бот): оплату %s зачислили, но сообщение "
@@ -782,11 +841,12 @@ async def on_paid(message: Message):
 
     token = sync_panel(uid)
     sub_url = vpn_key(uid, token)
+    await reward_referrer(message.bot, uid, reason="оплату звёздами")
     if sub_url:
         await send_banner(
             message,
             texts.PAID_WITH_KEY.format(date=fmt_date(new_until)),
-            connect_kb(token),
+            paid_kb(token),
         )
     else:
         await send_banner(
@@ -815,6 +875,19 @@ TRIAL_REMIND_INTERVAL = 3 * 3600   # как часто проверяем (ра�
 PROMO_CODE = os.environ.get("PROMO_CODE", "START7").upper()
 PROMO_DAYS = int(os.environ.get("PROMO_DAYS", "7"))
 PROMO_MAX_USES = int(os.environ.get("PROMO_MAX_USES", "0"))   # 0 = без лимита
+
+# Промокод для рассылки «возвращайтесь» — отдельный, чтобы по счётчику
+# активаций было видно отдачу именно от возвратной рассылки.
+RETURN_PROMO_CODE = os.environ.get("RETURN_PROMO_CODE", "COMEBACK").upper()
+RETURN_PROMO_DAYS = int(os.environ.get("RETURN_PROMO_DAYS", "5"))
+
+# За сколько дней до конца ПЛАТНОЙ подписки напоминать о продлении
+SUB_REMIND_BEFORE_DAYS = int(os.environ.get("SUB_REMIND_BEFORE_DAYS", "3"))
+SUB_REMIND_INTERVAL = 6 * 3600
+
+# Через сколько дней пользования просить порекомендовать сервис
+ADVOCACY_AFTER_DAYS = int(os.environ.get("ADVOCACY_AFTER_DAYS", "10"))
+ADVOCACY_INTERVAL = 12 * 3600
 
 
 def _plural_days(n):
@@ -857,6 +930,62 @@ async def remind_trial_ending(bot):
             logging.exception("Ошибка авторассылки напоминаний о триале")
 
 
+async def remind_sub_ending(bot):
+    """Напоминание о продлении ПЛАТНОЙ подписки за SUB_REMIND_BEFORE_DAYS дней.
+
+    Продление — самый дешёвый рост: удержать платящего дешевле, чем найти
+    нового. Флаг expiry_reminded сбрасывается в add_days(), поэтому после
+    каждого продления напоминание сработает заново.
+    """
+    within = SUB_REMIND_BEFORE_DAYS * 86400
+    while True:
+        await asyncio.sleep(SUB_REMIND_INTERVAL)
+        try:
+            now = int(time.time())
+            for uid, sub_until in db.expiry_reminder_candidates(now, within):
+                days = max(1, round((sub_until - now) / 86400))
+                text = texts.SUB_ENDING.format(
+                    ending="ся" if days == 1 else "ось",
+                    days=days, word=_plural_days(days), date=fmt_date(sub_until))
+                try:
+                    await send_banner_to(bot, uid, text, renew_kb())
+                except TelegramForbiddenError:
+                    db.mark_blocked(uid)
+                except Exception:
+                    logging.exception("Напоминание о продлении: сбой у %s", uid)
+                db.mark_expiry_reminded(uid)
+                await asyncio.sleep(0.1)
+        except Exception:
+            logging.exception("Ошибка авторассылки напоминаний о продлении")
+
+
+async def ask_for_advocacy(bot):
+    """Один раз просим довольного пользователя позвать друга.
+
+    Момент выбран так, чтобы человек успел попользоваться (ADVOCACY_AFTER_DAYS)
+    и подписка была ещё активна — просить рекомендацию у того, у кого VPN уже
+    не работает, бессмысленно.
+    """
+    while True:
+        await asyncio.sleep(ADVOCACY_INTERVAL)
+        try:
+            now = int(time.time())
+            for uid in db.advocacy_candidates(now, ADVOCACY_AFTER_DAYS):
+                link = f"https://t.me/{BOT_USERNAME}?start=ref_{uid}"
+                text = texts.REF_ASK.format(days=ADVOCACY_AFTER_DAYS,
+                                            bonus=REFERRAL_BONUS_DAYS, link=link)
+                try:
+                    await send_banner_to(bot, uid, text, ref_share_kb(link))
+                except TelegramForbiddenError:
+                    db.mark_blocked(uid)
+                except Exception:
+                    logging.exception("Просьба порекомендовать: сбой у %s", uid)
+                db.mark_ref_asked(uid)
+                await asyncio.sleep(0.1)
+        except Exception:
+            logging.exception("Ошибка авторассылки просьб порекомендовать")
+
+
 async def main():
     if not BOT_TOKEN:
         raise SystemExit("Ошибка: задайте переменную окружения BOT_TOKEN (токен от @BotFather).")
@@ -876,11 +1005,17 @@ async def main():
         logging.info("Касса не настроена (Platega/Lolz) — в боте только звёзды")
 
     db.create_promo(PROMO_CODE, PROMO_DAYS, PROMO_MAX_USES)
-    logging.info("Промокод %s (+%s дн.) готов", PROMO_CODE, PROMO_DAYS)
+    db.create_promo(RETURN_PROMO_CODE, RETURN_PROMO_DAYS, 0)
+    logging.info("Промокоды готовы: %s (+%s дн.), %s (+%s дн., для /broadcast_lapsed)",
+                 PROMO_CODE, PROMO_DAYS, RETURN_PROMO_CODE, RETURN_PROMO_DAYS)
 
     asyncio.create_task(remind_trial_ending(bot))
-    logging.info("Авторассылка напоминаний о триале включена (за %s дн.)",
-                 TRIAL_REMIND_BEFORE_DAYS)
+    asyncio.create_task(remind_sub_ending(bot))
+    asyncio.create_task(ask_for_advocacy(bot))
+    logging.info("Авторассылки включены: триал за %s дн., продление за %s дн., "
+                 "просьба порекомендовать через %s дн.",
+                 TRIAL_REMIND_BEFORE_DAYS, SUB_REMIND_BEFORE_DAYS,
+                 ADVOCACY_AFTER_DAYS)
 
     logging.info("IKK VPN bot запущен")
     await dp.start_polling(bot)
