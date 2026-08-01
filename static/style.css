@@ -531,6 +531,15 @@ section { padding: 96px 0; position: relative; }
     font-size: 0.9rem; color: hsl(var(--muted-foreground)); line-height: 1.7;
 }
 .notice strong { color: hsl(var(--foreground)); font-weight: 500; }
+/* Без этого браузер красит ссылку внутри плашки в свой синий — на тёмно-синем
+   фоне она почти не читается */
+.notice a:not(.btn) {
+    color: hsl(var(--foreground));
+    text-decoration: none;
+    border-bottom: 1px solid var(--line);
+    transition: border-color 0.3s ease;
+}
+.notice a:not(.btn):hover { border-bottom-color: hsl(var(--foreground)); }
 
 .note { text-align: center; margin-top: 32px; color: hsl(var(--muted-foreground)); font-size: 0.95rem; }
 .note a:not(.btn), .contact-box a:not(.btn) { color: hsl(var(--foreground)); }
@@ -904,3 +913,130 @@ section { padding: 96px 0; position: relative; }
 .tg-or::before { left: 0; }
 .tg-or::after { right: 0; }
 .tg-login .note { margin: 0; }
+
+/* ===========================================================
+   ИНСТРУКЦИИ И СРАВНЕНИЕ ЦЕН (страницы под поиск)
+   Отдельный блок: эти страницы приходят из Яндекса и Google, их
+   читают целиком и с телефона — поэтому колонка узкая, шрифт
+   крупнее обычного, а шаги идут вертикально, а не сеткой.
+   =========================================================== */
+
+/* ---------- Шаги инструкции ---------- */
+.steps { list-style: none; max-width: 760px; margin: 0 auto; padding: 0; counter-reset: step; }
+.steps > li {
+    position: relative;
+    padding: 0 0 40px 76px;
+    counter-increment: step;
+}
+/* Вертикальная нить между кружками; у последнего шага её нет */
+.steps > li::before {
+    content: '';
+    position: absolute; left: 25px; top: 52px; bottom: 6px;
+    width: 1px; background: var(--line-soft);
+}
+.steps > li:last-child { padding-bottom: 0; }
+.steps > li:last-child::before { display: none; }
+.steps > li::after {
+    content: counter(step);
+    position: absolute; left: 0; top: 0;
+    display: flex; align-items: center; justify-content: center;
+    width: 52px; height: 52px;
+    border: 1px solid var(--line); border-radius: 50%;
+    font-family: var(--font-display); font-size: 1.15rem;
+    color: hsl(var(--muted-foreground));
+    background: hsl(var(--background));
+}
+.steps h3 { font-size: 1.5rem; margin: 10px 0 10px; }
+.steps p { color: hsl(var(--muted-foreground)); font-size: 1rem; }
+.steps p + p { margin-top: 10px; }
+.steps a:not(.btn) { color: hsl(var(--foreground)); border-bottom: 1px solid var(--line); text-decoration: none; }
+.steps a:not(.btn):hover { border-bottom-color: hsl(var(--foreground)); }
+.steps code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.88em; padding: 2px 7px; border-radius: 6px;
+    background: rgba(255, 255, 255, 0.07);
+}
+
+/* ---------- Текстовый блок статьи ---------- */
+.prose { max-width: 760px; margin: 0 auto; }
+.prose h2 { font-size: clamp(1.8rem, 4vw, 2.4rem); margin: 56px 0 18px; }
+.prose h2:first-child { margin-top: 0; }
+
+/* Орнамент-разделитель между темами. Тот же ✦, что под заголовками секций
+   (.rule), но с воздухом сверху и снизу — иначе три темы подряд читаются
+   как одна сплошная стена текста.
+   Отступ у следующего h2 гасим: свои 56px он бы прибавил к отступу
+   разделителя и провал стал бы вдвое больше нужного. */
+.prose-sep { margin: 0 auto 40px; }
+.prose-sep + h2 { margin-top: 0; }
+.prose > *:not(:first-child).prose-sep { margin-top: 60px; }
+.prose p { color: hsl(var(--muted-foreground)); margin-bottom: 18px; }
+.prose ul { color: hsl(var(--muted-foreground)); margin: 0 0 18px 22px; }
+.prose li { margin-bottom: 9px; }
+.prose strong { color: hsl(var(--foreground)); font-weight: 500; }
+.prose a:not(.btn) { color: hsl(var(--foreground)); border-bottom: 1px solid var(--line); text-decoration: none; }
+
+/* ---------- Таблица сравнения ---------- */
+/* Обёртка со скроллом: на телефоне таблица шире экрана, но страница
+   при этом не должна ездить вбок целиком */
+.table-wrap { max-width: 860px; margin: 0 auto 28px; overflow-x: auto; }
+.cmp { width: 100%; border-collapse: collapse; font-size: 0.95rem; min-width: 520px; }
+.cmp th, .cmp td { padding: 15px 18px; text-align: left; border-bottom: 1px solid var(--line-soft); }
+.cmp th {
+    font-family: var(--font-body); font-weight: 500;
+    text-transform: uppercase; letter-spacing: 2px; font-size: 0.68rem;
+    color: hsl(var(--muted-foreground));
+    border-bottom-color: var(--line);
+}
+.cmp td { color: hsl(var(--muted-foreground)); }
+.cmp td:first-child { color: hsl(var(--foreground)); }
+.cmp tr.is-us td { color: hsl(var(--foreground)); background: rgba(255, 255, 255, 0.05); }
+.cmp tr:last-child td { border-bottom: none; }
+
+/* ---------- Вопросы и ответы ---------- */
+.faq-list { max-width: 760px; margin: 0 auto; }
+.faq-list details {
+    border-bottom: 1px solid var(--line-soft);
+    padding: 4px 0;
+}
+.faq-list summary {
+    cursor: pointer; list-style: none;
+    padding: 20px 36px 20px 0; position: relative;
+    font-size: 1.06rem; color: hsl(var(--foreground));
+}
+.faq-list summary::-webkit-details-marker { display: none; }
+.faq-list summary::after {
+    content: '+'; position: absolute; right: 4px; top: 50%;
+    transform: translateY(-50%);
+    font-family: var(--font-display); font-size: 1.5rem;
+    color: hsl(var(--muted-foreground));
+}
+.faq-list details[open] summary::after { content: '−'; }
+.faq-list details > div {
+    padding: 0 36px 22px 0;
+    color: hsl(var(--muted-foreground)); font-size: 0.98rem;
+}
+.faq-list a:not(.btn) { color: hsl(var(--foreground)); }
+
+/* ---------- Плитка ссылок на инструкции ---------- */
+.guide-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; max-width: 860px; margin: 0 auto; }
+.guide-tile {
+    display: block; padding: 26px 24px; text-decoration: none;
+    border: 1px solid var(--line-soft); border-radius: 20px;
+    background: var(--glass);
+    transition: background 0.35s ease, border-color 0.35s ease, transform 0.35s var(--ease);
+}
+.guide-tile:hover { background: rgba(255, 255, 255, 0.06); border-color: var(--line); transform: translateY(-3px); }
+.guide-tile b { display: block; font-family: var(--font-display); font-size: 1.5rem; font-weight: 400; color: hsl(var(--foreground)); margin-bottom: 6px; }
+.guide-tile span { font-size: 0.9rem; color: hsl(var(--muted-foreground)); }
+
+/* ---------- Призыв в конце страницы ---------- */
+.cta-band { text-align: center; max-width: 720px; margin: 0 auto; }
+.cta-band h2 { font-size: clamp(2rem, 4.5vw, 3rem); margin-bottom: 16px; }
+.cta-band p { color: hsl(var(--muted-foreground)); margin-bottom: 28px; }
+
+@media (max-width: 640px) {
+    .steps > li { padding-left: 62px; }
+    .steps > li::after { width: 42px; height: 42px; font-size: 1rem; }
+    .steps > li::before { left: 20px; top: 46px; }
+}

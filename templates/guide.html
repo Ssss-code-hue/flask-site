@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}{{ g.title }}{% endblock %}
+{% block meta_description %}{{ g.description }}{% endblock %}
+{% block hero_eyebrow %}{{ g.eyebrow }}{% endblock %}
+{% block hero_title %}{{ g.h1|safe }}{% endblock %}
+
+{# Разметка HowTo + FAQPage: из неё поисковик собирает расширенный сниппет
+   со списком шагов и раскрывающимися ответами. tojson экранирует кавычки
+   и переносы, поэтому текст можно писать в guides.py как обычно. #}
+{% block jsonld %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "HowTo",
+      "name": {{ g.title|tojson }},
+      "description": {{ g.description|tojson }},
+      "totalTime": "PT2M",
+      "step": [
+        {% for title, paras in g.steps %}
+        {
+          "@type": "HowToStep",
+          "position": {{ loop.index }},
+          "name": {{ title|tojson }},
+          "text": {{ (paras|join(' '))|striptags|tojson }}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {% for q, a in g.faq %}
+        {
+          "@type": "Question",
+          "name": {{ q|tojson }},
+          "acceptedAnswer": { "@type": "Answer", "text": {{ a|striptags|tojson }} }
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+      ]
+    }
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+    <section class="container">
+        <p class="lead reveal">{{ g.lead }}</p>
+
+        <ol class="steps reveal">
+            {% for title, paras in g.steps %}
+            <li>
+                <h3>{{ title }}</h3>
+                {% for p in paras %}<p>{{ p|safe }}</p>{% endfor %}
+            </li>
+            {% endfor %}
+        </ol>
+
+        <div class="notice reveal" style="margin-top:56px;">
+            <strong>{{ trial_days }} дней бесплатно.</strong>
+            Карту привязывать не нужно, автопродления нет.
+            <a href="https://t.me/IKKvpnpbot?start=guide_{{ g.slug }}" target="_blank" rel="noopener">Открыть бота</a>
+        </div>
+    </section>
+
+    <section class="container">
+        <div class="section-head">
+            <h2 class="section-title">Если не работает</h2>
+            <div class="rule"></div>
+        </div>
+        <div class="faq-list reveal">
+            {% for title, text in g.trouble %}
+            <details>
+                <summary>{{ title }}</summary>
+                <div>{{ text|safe }}</div>
+            </details>
+            {% endfor %}
+        </div>
+        <p class="note reveal">Ничего не помогло — напишите
+            <a href="https://t.me/IKKvpnsupport_bot" target="_blank" rel="noopener">@IKKvpnsupport_bot</a>,
+            разберёмся вместе.</p>
+    </section>
+
+    <section class="container">
+        <div class="section-head">
+            <h2 class="section-title">Частые вопросы</h2>
+            <div class="rule"></div>
+        </div>
+        <div class="faq-list reveal">
+            {% for q, a in g.faq %}
+            <details>
+                <summary>{{ q }}</summary>
+                <div>{{ a|safe }}</div>
+            </details>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="container">
+        <div class="section-head">
+            <h2 class="section-title">Другие устройства</h2>
+            <div class="rule"></div>
+        </div>
+        <div class="guide-grid reveal">
+            {% for slug, name, sub in others %}
+            <a class="guide-tile" href="{{ url_for('guides.guide', slug=slug) }}">
+                <b>{{ name }}</b><span>{{ sub }}</span>
+            </a>
+            {% endfor %}
+        </div>
+        <p class="note reveal">Сколько это стоит — на странице
+            <a href="{{ url_for('guides.price') }}">цен на VPN</a> и в
+            <a href="{{ url_for('tariffs') }}">тарифах</a>.</p>
+    </section>
+{% endblock %}

@@ -14,6 +14,7 @@ from pay import available_providers
 from sub import legacy_suffix
 from sub import sub as sub_blueprint
 from admin import admin as admin_blueprint
+from guides import GUIDE_ORDER, guides as guides_blueprint
 
 app = Flask(__name__)
 # Секретный ключ берём из переменной окружения (для сессий/кассы).
@@ -39,6 +40,7 @@ app.register_blueprint(auth_blueprint)   # регистрация и вход п
 app.register_blueprint(pay_blueprint)    # оплата (Platega/Lolz)
 app.register_blueprint(sub_blueprint)    # прокси подписок VPN (чистый 443)
 app.register_blueprint(admin_blueprint)  # админ-панель управления подписками
+app.register_blueprint(guides_blueprint)  # инструкции и цены (страницы под поиск)
 
 
 @app.template_filter('ts')
@@ -223,13 +225,15 @@ def privacy_app():
 # мини-приложения для Telegram сюда не входят: они бесполезны в выдаче,
 # а /sub/* и /vpnsub/* — это ещё и персональные ссылки на подписку.
 SITEMAP_PAGES = [
-    ('home',       '1.0', 'weekly'),
-    ('tariffs',    '0.9', 'weekly'),
-    ('advantages', '0.8', 'monthly'),
-    ('bot',        '0.8', 'monthly'),
-    ('offer',      '0.3', 'yearly'),
-    ('terms',      '0.3', 'yearly'),
-    ('privacy',    '0.3', 'yearly'),
+    ('home',           '1.0', 'weekly'),
+    ('tariffs',        '0.9', 'weekly'),
+    ('guides.price',   '0.9', 'monthly'),
+    ('guides.index',   '0.9', 'monthly'),
+    ('advantages',     '0.8', 'monthly'),
+    ('bot',            '0.8', 'monthly'),
+    ('offer',          '0.3', 'yearly'),
+    ('terms',          '0.3', 'yearly'),
+    ('privacy',        '0.3', 'yearly'),
 ]
 
 
@@ -257,13 +261,19 @@ def robots():
 @app.route('/sitemap.xml')
 def sitemap():
     today = time.strftime('%Y-%m-%d')
-    urls = ''.join(
-        f'<url><loc>{_SITE_URL}{url_for(endpoint)}</loc>'
-        f'<lastmod>{today}</lastmod>'
-        f'<changefreq>{freq}</changefreq>'
-        f'<priority>{prio}</priority></url>'
-        for endpoint, prio, freq in SITEMAP_PAGES
-    )
+
+    def entry(loc, prio, freq):
+        return (f'<url><loc>{_SITE_URL}{loc}</loc>'
+                f'<lastmod>{today}</lastmod>'
+                f'<changefreq>{freq}</changefreq>'
+                f'<priority>{prio}</priority></url>')
+
+    urls = ''.join(entry(url_for(endpoint), prio, freq)
+                   for endpoint, prio, freq in SITEMAP_PAGES)
+    # Инструкции: по странице на устройство, адреса собираются из GUIDE_ORDER,
+    # чтобы новое устройство попадало в карту сайта само
+    urls += ''.join(entry(url_for('guides.guide', slug=slug), '0.8', 'monthly')
+                    for slug in GUIDE_ORDER)
     xml = ('<?xml version="1.0" encoding="UTF-8"?>'
            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
            f'{urls}</urlset>')

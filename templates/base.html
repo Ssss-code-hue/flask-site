@@ -35,7 +35,12 @@
     <!-- Фавиконка: IKK шрифтом логотипа (контуры Instrument Serif) -->
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=23">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=26">
+
+    <!-- Микроразметка страницы. Яндекс и Google по ней собирают расширенный
+         сниппет: у инструкций — список шагов, у вопросов — раскрывающиеся
+         ответы прямо в выдаче. Заполняют только страницы-инструкции. -->
+    {% block jsonld %}{% endblock %}
 </head>
 <body>
 
@@ -75,6 +80,7 @@
             <ul class="nav-links">
                 <li><a href="{{ url_for('home') }}" {% if request.endpoint == 'home' %}class="active"{% endif %}>Главная</a></li>
                 <li><a href="{{ url_for('advantages') }}" {% if request.endpoint == 'advantages' %}class="active"{% endif %}>Преимущества</a></li>
+                <li><a href="{{ url_for('guides.index') }}" {% if request.endpoint and request.endpoint.startswith('guides.') %}class="active"{% endif %}>Инструкции</a></li>
                 <li><a href="{{ url_for('tariffs') }}" {% if request.endpoint == 'tariffs' %}class="active"{% endif %}>Тарифы</a></li>
                 <li><a href="{{ url_for('bot') }}" {% if request.endpoint == 'bot' %}class="active"{% endif %}>Бот</a></li>
                 {% if session.get('uid') %}
@@ -122,6 +128,14 @@
         <div class="footer-logo">IKK<sup>®</sup></div>
         <p>© 2026 · IKK VPN · приватность прежде всего · связь:
            <a href="https://t.me/IKKvpnsupport_bot" target="_blank" rel="noopener">@IKKvpnsupport_bot</a></p>
+        <!-- Ссылки на инструкции: из подвала они видны поисковику с любой
+             страницы, а человеку не надо искать их в меню -->
+        <p class="footer-docs">
+           <a href="{{ url_for('guides.guide', slug='iphone') }}">VPN на iPhone</a> ·
+           <a href="{{ url_for('guides.guide', slug='android') }}">Android</a> ·
+           <a href="{{ url_for('guides.guide', slug='windows') }}">Windows</a> ·
+           <a href="{{ url_for('guides.guide', slug='tv') }}">телевизоре</a> ·
+           <a href="{{ url_for('guides.price') }}">Сколько стоит VPN</a></p>
         <!-- Документы доступны с любой страницы и без регистрации -->
         <p class="footer-docs">
            <a href="{{ url_for('offer') }}">Оферта</a> ·
