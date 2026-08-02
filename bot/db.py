@@ -133,6 +133,15 @@ def init_db():
             c.execute("ALTER TABLE users ADD COLUMN fetch_at INTEGER")
         if "fetch_ua" not in ucols:     # чем забрало — видно платформу
             c.execute("ALTER TABLE users ADD COLUMN fetch_ua TEXT")
+        # Когда человеку впервые показали ключ. Нужно, чтобы напомнить о
+        # подключении спустя несколько часов, а не сразу и не всем подряд.
+        if "key_at" not in ucols:
+            c.execute("ALTER TABLE users ADD COLUMN key_at INTEGER")
+        # Подтолкнули ли подключиться (одно напоминание на человека —
+        # второе читается как навязчивость и ведёт в блок)
+        if "connect_reminded" not in ucols:
+            c.execute("ALTER TABLE users ADD COLUMN connect_reminded "
+                      "INTEGER DEFAULT 0")
         # Поиск идёт по токену на каждый запрос подписки — без индекса это
         # полный обход таблицы на каждое открытие приложения
         c.execute("CREATE INDEX IF NOT EXISTS idx_users_sub_token "
@@ -191,11 +200,43 @@ def set_source(uid, source):
 
 
 def remember_sub_token(uid, token):
-    """Запоминает токен подписки — по нему запрос с сайта находит человека."""
+    """Запоминает токен подписки — по нему запрос с сайта находит человека.
+
+    Заодно отмечает момент первой выдачи ключа: отсюда считается пауза
+    перед напоминанием «ключ есть, а VPN не включён».
+    """
     if not token:
         return
     with _conn() as c:
-        c.execute("UPDATE users SET sub_token=? WHERE user_id=?", (token, uid))
+        c.execute("UPDATE users SET sub_token=?, "
+                  "key_at=COALESCE(key_at, ?) WHERE user_id=?",
+                  (token, int(time.time()), uid))
+
+
+def connect_reminder_candidates(now, after_seconds):
+    """Кому напомнить, что ключ есть, а VPN так и не включён.
+
+    Только те, кому ключ уже показывали (key_at) и с тех пор прошло
+    достаточно времени: напоминание через минуту после выдачи выглядит
+    так, будто за человеком следят.
+
+    Тех, кто получил ключ до появления замеров, здесь нет намеренно —
+    иначе при первом же запуске им всем разом улетела бы рассылка.
+    Для них есть ручная команда /broadcast_nc.
+    """
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT user_id FROM users "
+            "WHERE COALESCE(blocked,0)=0 AND COALESCE(connect_reminded,0)=0 "
+            "AND sub_until>? AND key_at IS NOT NULL AND key_at<?",
+            (now, now - after_seconds),
+        ).fetchall()
+        return [r["user_id"] for r in rows]
+
+
+def mark_connect_reminded(uid):
+    with _conn() as c:
+        c.execute("UPDATE users SET connect_reminded=1 WHERE user_id=?", (uid,))
 
 
 # Шаг воронки → колонка с временем ПЕРВОГО прохождения. Первое, а не

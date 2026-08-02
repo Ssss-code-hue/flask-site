@@ -1010,6 +1010,11 @@ RETURN_PROMO_DAYS = int(os.environ.get("RETURN_PROMO_DAYS", "5"))
 
 # За сколько дней до конца ПЛАТНОЙ подписки напоминать о продлении
 SUB_REMIND_BEFORE_DAYS = int(os.environ.get("SUB_REMIND_BEFORE_DAYS", "3"))
+# Через сколько часов после выдачи ключа напомнить, если человек так и не
+# подключился. Три часа — компромисс: человек успевает отвлечься и забыть,
+# но ещё помнит, зачем вообще заходил в бота.
+CONNECT_REMIND_AFTER_HOURS = int(os.environ.get("CONNECT_REMIND_AFTER_HOURS", "3"))
+CONNECT_REMIND_INTERVAL = 3600
 SUB_REMIND_INTERVAL = 6 * 3600
 
 # Через сколько дней пользования просить порекомендовать сервис
@@ -1055,6 +1060,46 @@ async def remind_trial_ending(bot):
                 db.mark_trial_reminded(uid)
         except Exception:
             logging.exception("Ошибка авторассылки напоминаний о триале")
+
+
+async def remind_not_connected(bot):
+    """Подталкивает тех, у кого ключ есть, а VPN так и не включён.
+
+    Замеры воронки показали, что теряем людей на самом первом шаге: ключ
+    выдан, а кнопку «Подключиться сейчас» человек не нажимал вовсе. У тех,
+    кто до страницы подключения дошёл, всё работает — значит чинить надо
+    не инструкцию, а сам переход к ней.
+
+    Одно напоминание на человека и не раньше чем через несколько часов:
+    сразу после выдачи оно выглядит как слежка, а второе — как навязчивость.
+    """
+    after = CONNECT_REMIND_AFTER_HOURS * 3600
+    while True:
+        await asyncio.sleep(CONNECT_REMIND_INTERVAL)
+        try:
+            now = int(time.time())
+            uids = db.connect_reminder_candidates(now, after)
+            if not uids:
+                continue
+            # Один запрос в панель на весь проход вместо запроса на каждого:
+            # у user_connected() на каждую проверку идёт свой логин
+            online = await asyncio.to_thread(online_usernames)
+            if online is None:
+                continue                       # панель молчит — повторим позже
+            for uid in uids:
+                if f"ikk_{uid}" in online:
+                    db.mark_connect_reminded(uid)   # уже пользуется, не трогаем
+                    continue
+                try:
+                    await send_banner_to(bot, uid, texts.NOT_CONNECTED,
+                                         connect_kb(sync_panel(uid)))
+                except TelegramForbiddenError:
+                    db.mark_blocked(uid)
+                except Exception:
+                    pass
+                db.mark_connect_reminded(uid)
+        except Exception:
+            logging.exception("Ошибка напоминания о подключении")
 
 
 async def remind_sub_ending(bot):
@@ -1137,6 +1182,7 @@ async def main():
                  PROMO_CODE, PROMO_DAYS, RETURN_PROMO_CODE, RETURN_PROMO_DAYS)
 
     asyncio.create_task(remind_trial_ending(bot))
+    asyncio.create_task(remind_not_connected(bot))
     asyncio.create_task(remind_sub_ending(bot))
     asyncio.create_task(ask_for_advocacy(bot))
     logging.info("Авторассылки включены: триал за %s дн., продление за %s дн., "
