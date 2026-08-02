@@ -44,6 +44,8 @@ import urllib.parse
 import requests
 from flask import Blueprint, Response, abort, request
 
+from bot import db
+
 log = logging.getLogger(__name__)
 sub = Blueprint("sub", __name__)
 
@@ -270,6 +272,11 @@ def proxy(subpath):
     # UA клиентов подписки нигде не задокументированы — пишем в лог, чтобы
     # видеть, чем на самом деле представляются iOS- и Android-сборки
     log.info("Подписка: apple=%s (legacy=%s) UA=%r", apple, bool(legacy), ua)
+    # Последний шаг воронки, который виден нам: приложение реально забрало
+    # подписку. Если сюда дошли, а в панели человек «не подключался» —
+    # проблема техническая, а не в том, что он забил. Токен — первый сегмент
+    # пути: дальше могут идти служебные хвосты вроде /info.
+    db.touch_funnel(subpath.split("/")[0], 'fetch', ua)
 
     upstream = f"{SUB_UPSTREAM}/sub/{subpath}"
     try:

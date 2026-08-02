@@ -47,8 +47,8 @@ from .keyboards import (back_kb, card_invoice_kb, connect_kb, devices_kb,
                         docs_kb, main_menu, offer_consent_kb, paid_kb,
                         pay_method_kb, plans_kb, promo_offer_kb, ref_share_kb,
                         renew_kb, sale_kb, trial_consent_kb)
-from .panel import (get_subscription_url, site_sub_url, sub_token,
-                    user_connected)
+from .panel import (get_subscription_url, online_usernames, site_sub_url,
+                    sub_token, user_connected)
 
 logging.basicConfig(level=logging.INFO)
 dp = Dispatcher()
@@ -158,7 +158,11 @@ def sync_panel(uid):
     u = db.get_user(uid)
     if not (u and u["sub_until"]):
         return None
-    return sub_token(get_subscription_url(uid, u["sub_until"]))
+    token = sub_token(get_subscription_url(uid, u["sub_until"]))
+    # Запоминаем токен: запросы подписки приходят на сайт без user_id, и без
+    # этой связки понять, кто именно открыл приложение, невозможно (см. /funnel)
+    db.remember_sub_token(uid, token)
+    return token
 
 
 def vpn_key(uid, token=None):
@@ -458,6 +462,73 @@ async def cmd_broadcast_lapsed(message: Message):
                                          days=RETURN_PROMO_DAYS)
     kb = promo_offer_kb(RETURN_PROMO_CODE, RETURN_PROMO_DAYS)
     await broadcast(message, [uid for uid, _ in users], lambda uid: (text, kb))
+
+
+@dp.message(Command("funnel"))
+async def cmd_funnel(message: Message):
+    """Где теряются люди между «выдали ключ» и «человек в сети» (owner-only).
+
+    Пять шагов подряд, каждый следующий — подмножество предыдущего:
+      ключ → открыл страницу → нажал «добавить» → приложение скачало → в сети.
+    Провал между двумя соседними и есть ответ, что чинить. Раньше видно было
+    только крайние точки, поэтому «не подключился» означало что угодно.
+
+    «В сети» берём из панели: наш сервер видит только скачивание подписки,
+    состоялось ли соединение — знает Marzban.
+    """
+    if not OWNER_ID or message.from_user.id != OWNER_ID:
+        return
+
+    rows = db.funnel_rows()
+    if not rows:
+        await message.answer("Ключей ещё никому не выдавали.")
+        return
+
+    online = online_usernames()            # None, если панель недоступна
+    steps = [("ключ выдан", lambda r: True),
+             ("открыл страницу", lambda r: r["page_at"]),
+             ("нажал «добавить»", lambda r: r["import_at"]),
+             ("приложение скачало", lambda r: r["fetch_at"])]
+
+    total = len(rows)
+    lines = ["📉 <b>Воронка подключения</b>", ""]
+    prev = total
+    for name, ok in steps:
+        n = sum(1 for r in rows if ok(r))
+        drop = f"  −{prev - n}" if prev - n else ""
+        lines.append(f"<code>{n:>3}</code>  {name}{drop}")
+        prev = n
+    if online is None:
+        lines.append("<code>  ?</code>  в сети — панель недоступна")
+    else:
+        n = sum(1 for r in rows if f"ikk_{r['user_id']}" in online)
+        drop = f"  −{prev - n}" if prev - n else ""
+        lines.append(f"<code>{n:>3}</code>  в сети{drop}")
+
+    # Кто застрял и на каком шаге — по ним и писать в личку
+    stuck = []
+    for r in rows:
+        if online is not None and f"ikk_{r['user_id']}" in online:
+            continue
+        if r["fetch_at"]:
+            where, extra = "скачал, но не подключился", (r["fetch_ua"] or "")[:28]
+        elif r["import_at"]:
+            where, extra = "жал «добавить», не скачал", ""
+        elif r["page_at"]:
+            where, extra = "открыл страницу, бросил", ""
+        else:
+            where, extra = "не открывал страницу", ""
+        who = f"@{r['username']}" if r["username"] else f"id{r['user_id']}"
+        stuck.append(f"• {who} — {where}" + (f" ({extra})" if extra else ""))
+
+    if stuck:
+        lines += ["", f"<b>Застряли ({len(stuck)}):</b>"] + stuck[:25]
+        if len(stuck) > 25:
+            lines.append(f"…и ещё {len(stuck) - 25}")
+
+    lines += ["", "<i>Замеры пишутся с момента установки обновления — "
+                  "у тех, кто получил ключ раньше, шаги будут пустыми.</i>"]
+    await message.answer("\n".join(lines))
 
 
 # ============ Пробный период ============

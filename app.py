@@ -133,6 +133,7 @@ def v2raytun_open(token):
     сама пытается открыть приложение, показывает кнопку-ссылку для ручного
     открытия и ссылку-подписку для копирования — надёжно на всех платформах."""
     tok = _actual_token(token)
+    db.touch_funnel(tok, 'import')     # нажал «Добавить подписку»
     # Apple-устройствам — подписка без XHTTP (см. sub.py)
     sub_url = f"{_SITE_URL}/sub/{tok}{legacy_suffix(request.headers.get('User-Agent'))}"
     return render_template('open_app.html',
@@ -180,6 +181,7 @@ def webapp():
     sub_url = None
     if token:
         token = _actual_token(token)
+        db.touch_funnel(token, 'page')   # открыл страницу подключения
         sub_url = f"{_SITE_URL}/sub/{token}{legacy_suffix(request.headers.get('User-Agent'))}"
     return render_template('webapp.html', sub_token=token, sub_url=sub_url,
                            support_bot=SUPPORT_BOT_USERNAME)

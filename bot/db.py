@@ -116,6 +116,27 @@ def init_db():
         # число пользователей, а какой ролик его дал, приходится угадывать.
         if "source" not in ucols:
             c.execute("ALTER TABLE users ADD COLUMN source TEXT")
+        # Воронка подключения. Между «выдали ключ» и «человек в сети» у нас не
+        # было ни одного замера: кнопка «Подключиться сейчас» — обычная
+        # URL-кнопка, о нажатии Telegram боту не сообщает. Поэтому на вопрос
+        # «почему половина не подключилась» ответить было нечем.
+        # Все три шага ниже происходят на нашем же сервере, надо лишь их
+        # записать. Токен подписки храним, чтобы сопоставить запрос с человеком:
+        # обратно из токена в user_id иначе не перейти.
+        if "sub_token" not in ucols:
+            c.execute("ALTER TABLE users ADD COLUMN sub_token TEXT")
+        if "page_at" not in ucols:      # открыл страницу подключения (/app)
+            c.execute("ALTER TABLE users ADD COLUMN page_at INTEGER")
+        if "import_at" not in ucols:    # нажал «Добавить подписку» (/v2raytun)
+            c.execute("ALTER TABLE users ADD COLUMN import_at INTEGER")
+        if "fetch_at" not in ucols:     # приложение забрало подписку (/sub)
+            c.execute("ALTER TABLE users ADD COLUMN fetch_at INTEGER")
+        if "fetch_ua" not in ucols:     # чем забрало — видно платформу
+            c.execute("ALTER TABLE users ADD COLUMN fetch_ua TEXT")
+        # Поиск идёт по токену на каждый запрос подписки — без индекса это
+        # полный обход таблицы на каждое открытие приложения
+        c.execute("CREATE INDEX IF NOT EXISTS idx_users_sub_token "
+                  "ON users(sub_token)")
         wcols0 = {r["name"] for r in c.execute("PRAGMA table_info(web_users)")}
         if "hy_token" not in wcols0:
             c.execute("ALTER TABLE web_users ADD COLUMN hy_token TEXT")
@@ -167,6 +188,47 @@ def set_source(uid, source):
     with _conn() as c:
         c.execute("UPDATE users SET source=? WHERE user_id=? "
                   "AND (source IS NULL OR source='')", (source, uid))
+
+
+def remember_sub_token(uid, token):
+    """Запоминает токен подписки — по нему запрос с сайта находит человека."""
+    if not token:
+        return
+    with _conn() as c:
+        c.execute("UPDATE users SET sub_token=? WHERE user_id=?", (token, uid))
+
+
+# Шаг воронки → колонка с временем ПЕРВОГО прохождения. Первое, а не
+# последнее: интересно, дошёл ли человек вообще, а не сколько раз повторил.
+_FUNNEL_STEPS = {"page": "page_at", "import": "import_at", "fetch": "fetch_at"}
+
+
+def touch_funnel(token, step, ua=None):
+    """Отмечает шаг воронки по токену подписки. Чужой токен молча игнорируем
+    (у пользователей сайта своя таблица, их здесь нет)."""
+    col = _FUNNEL_STEPS.get(step)
+    if not (token and col):
+        return
+    now = int(time.time())
+    with _conn() as c:
+        c.execute(f"UPDATE users SET {col}=COALESCE({col}, ?) "
+                  "WHERE sub_token=?", (now, token))
+        # UA нужен только на шаге скачивания и только первый — по нему видно
+        # платформу, на которой человек застрял
+        if step == "fetch" and ua:
+            c.execute("UPDATE users SET fetch_ua=? WHERE sub_token=? "
+                      "AND (fetch_ua IS NULL OR fetch_ua='')", (ua[:120], token))
+
+
+def funnel_rows():
+    """Все, кому выдавали ключ, с отметками шагов. Для отчёта /funnel."""
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT user_id, username, sub_until, trial_used, source, "
+            "       page_at, import_at, fetch_at, fetch_ua "
+            "FROM users WHERE sub_until>0 ORDER BY sub_until DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
 
 
 def source_stats():

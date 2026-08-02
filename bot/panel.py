@@ -210,6 +210,31 @@ def user_connected(user_id, prefix=None):
         return None
 
 
+def online_usernames():
+    """Имена всех, кто хоть раз выходил в сеть — одним запросом.
+
+    Отдельная функция, а не user_connected() в цикле: там на каждую проверку
+    идёт свой логин в панель, и на десятке пользователей это уже десяток
+    лишних авторизаций.
+
+    None — панель недоступна. Именно None, а не пустое множество: иначе отчёт
+    покажет «никто не подключался» и отправит чинить несуществующую поломку.
+    """
+    if not _configured():
+        return None
+    try:
+        r = requests.get(
+            f"{PANEL_URL}/api/users",
+            headers=_headers(_login()), timeout=TIMEOUT, verify=VERIFY,
+        )
+        r.raise_for_status()
+        return {u["username"] for u in r.json().get("users", [])
+                if u.get("online_at") or (u.get("used_traffic") or 0) > 0}
+    except Exception:
+        log.exception("panel: не удалось получить список пользователей")
+        return None
+
+
 def delete_panel_user(user_id, prefix=None):
     """Удаляет пользователя из Marzban — иначе его ключ работает и после
     удаления аккаунта. Возвращает True, если пользователя больше нет."""
