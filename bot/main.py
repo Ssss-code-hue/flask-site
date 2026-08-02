@@ -485,49 +485,60 @@ async def cmd_funnel(message: Message):
         return
 
     online = online_usernames()            # None, если панель недоступна
-    steps = [("ключ выдан", lambda r: True),
-             ("открыл страницу", lambda r: r["page_at"]),
-             ("нажал «добавить»", lambda r: r["import_at"]),
-             ("приложение скачало", lambda r: r["fetch_at"])]
-
     total = len(rows)
-    lines = ["📉 <b>Воронка подключения</b>", ""]
-    prev = total
-    for name, ok in steps:
-        n = sum(1 for r in rows if ok(r))
-        drop = f"  −{prev - n}" if prev - n else ""
-        lines.append(f"<code>{n:>3}</code>  {name}{drop}")
-        prev = n
+    lines = ["📉 <b>Воронка подключения</b>", "", f"Выдано ключей: <b>{total}</b>"]
+
+    # «В сети» приходит из панели и знает всю историю, а промежуточные шаги
+    # пишутся только с момента обновления. Ставить их в одну лесенку нельзя:
+    # вычитание даст отрицательный «провал» и картину, которой нет.
     if online is None:
-        lines.append("<code>  ?</code>  в сети — панель недоступна")
+        lines.append("В сети: <i>панель недоступна</i>")
+        offline = rows
     else:
-        n = sum(1 for r in rows if f"ikk_{r['user_id']}" in online)
-        drop = f"  −{prev - n}" if prev - n else ""
-        lines.append(f"<code>{n:>3}</code>  в сети{drop}")
+        offline = [r for r in rows if f"ikk_{r['user_id']}" not in online]
+        lines.append(f"В сети: <b>{total - len(offline)}</b> · "
+                     f"не подключились: <b>{len(offline)}</b>")
 
-    # Кто застрял и на каком шаге — по ним и писать в личку
-    stuck = []
-    for r in rows:
-        if online is not None and f"ikk_{r['user_id']}" in online:
-            continue
-        if r["fetch_at"]:
-            where, extra = "скачал, но не подключился", (r["fetch_ua"] or "")[:28]
-        elif r["import_at"]:
-            where, extra = "жал «добавить», не скачал", ""
-        elif r["page_at"]:
-            where, extra = "открыл страницу, бросил", ""
-        else:
-            where, extra = "не открывал страницу", ""
-        who = f"@{r['username']}" if r["username"] else f"id{r['user_id']}"
-        stuck.append(f"• {who} — {where}" + (f" ({extra})" if extra else ""))
+    # Измерить шаги можно только у тех, чей токен уже записан: он появляется,
+    # когда человек открывает ключ в боте после обновления.
+    measured = [r for r in rows if r["sub_token"]]
+    lines += ["", f"<b>Шаги</b> (замерено {len(measured)} из {total}):"]
+    if not measured:
+        lines.append("<i>пока пусто — после обновления ключ ещё никто "
+                     "не открывал</i>")
+    else:
+        steps = [("открыл страницу", "page_at"),
+                 ("нажал «добавить»", "import_at"),
+                 ("приложение скачало", "fetch_at")]
+        prev = len(measured)
+        for name, col in steps:
+            n = sum(1 for r in measured if r[col])
+            drop = f"  −{prev - n}" if prev > n else ""
+            lines.append(f"<code>{n:>3}</code>  {name}{drop}")
+            prev = n
 
-    if stuck:
-        lines += ["", f"<b>Застряли ({len(stuck)}):</b>"] + stuck[:25]
-        if len(stuck) > 25:
-            lines.append(f"…и ещё {len(stuck) - 25}")
+    # Кто не подключился и что про него известно — по этому списку и писать
+    if offline:
+        out = []
+        for r in offline:
+            if r["fetch_at"]:
+                where = "скачал ключ, но не подключился"
+                ua = (r["fetch_ua"] or "")[:28]
+                where += f" ({ua})" if ua else ""
+            elif r["import_at"]:
+                where = "жал «добавить», ключ не скачался"
+            elif r["page_at"]:
+                where = "открыл страницу и бросил"
+            elif r["sub_token"]:
+                where = "ключ не открывал"
+            else:
+                where = "замеров ещё нет"
+            who = f"@{r['username']}" if r["username"] else f"id{r['user_id']}"
+            out.append(f"• {who} — {where}")
+        lines += ["", f"<b>Не подключились ({len(offline)}):</b>"] + out[:25]
+        if len(out) > 25:
+            lines.append(f"…и ещё {len(out) - 25}")
 
-    lines += ["", "<i>Замеры пишутся с момента установки обновления — "
-                  "у тех, кто получил ключ раньше, шаги будут пустыми.</i>"]
     await message.answer("\n".join(lines))
 
 

@@ -224,7 +224,7 @@ def funnel_rows():
     """Все, кому выдавали ключ, с отметками шагов. Для отчёта /funnel."""
     with _conn() as c:
         rows = c.execute(
-            "SELECT user_id, username, sub_until, trial_used, source, "
+            "SELECT user_id, username, sub_until, trial_used, source, sub_token, "
             "       page_at, import_at, fetch_at, fetch_ua "
             "FROM users WHERE sub_until>0 ORDER BY sub_until DESC"
         ).fetchall()
