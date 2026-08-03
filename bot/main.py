@@ -3,6 +3,7 @@ import asyncio
 import json
 import logging
 import os
+import random
 import time
 import uuid
 from datetime import datetime
@@ -11,7 +12,8 @@ from pathlib import Path
 from aiogram import Bot, Dispatcher, F
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.exceptions import TelegramForbiddenError
+from aiogram.exceptions import (TelegramForbiddenError,
+                                TelegramRetryAfter)
 from aiogram.filters import Command, CommandStart
 from aiogram.types import (
     BotCommand,
@@ -462,6 +464,135 @@ async def cmd_broadcast_lapsed(message: Message):
                                          days=RETURN_PROMO_DAYS)
     kb = promo_offer_kb(RETURN_PROMO_CODE, RETURN_PROMO_DAYS)
     await broadcast(message, [uid for uid, _ in users], lambda uid: (text, kb))
+
+
+GIVEAWAY_CHANNEL = os.environ.get("GIVEAWAY_CHANNEL", "@IKKVPNnews")
+
+# Статусы, при которых человек считается подписанным. «restricted» — это
+# участник с ограничениями, он в канале, поэтому проверяется отдельно.
+_IN_CHANNEL = {"creator", "administrator", "member"}
+
+
+async def _is_subscribed(bot, uid):
+    """Подписан ли человек на канал розыгрыша. None — проверить не удалось.
+
+    Именно None, а не False: не сумев проверить, нельзя молча выкинуть
+    человека из розыгрыша — он выполнил условия и об этом не узнает.
+    """
+    for attempt in (1, 2):
+        try:
+            m = await bot.get_chat_member(chat_id=GIVEAWAY_CHANNEL, user_id=uid)
+        except TelegramRetryAfter as e:
+            if attempt == 1:
+                await asyncio.sleep(e.retry_after + 1)
+                continue
+            return None
+        except Exception:
+            return None
+        st = getattr(m, "status", None)
+        if st in _IN_CHANNEL:
+            return True
+        if st == "restricted":
+            return bool(getattr(m, "is_member", False))
+        return False
+    return None
+
+
+async def _send_chunks(message, header, items, footer=""):
+    """Длинный список — несколькими сообщениями: у Telegram лимит 4096."""
+    chunk, size = [], 0
+    first = True
+    for it in items:
+        if size + len(it) > 3500:
+            await message.answer(("" if first else "…\n") +
+                                 (header if first else "") + "\n".join(chunk))
+            chunk, size, first = [], 0, False
+        chunk.append(it)
+        size += len(it) + 1
+    tail = ((header if first else "") + "\n".join(chunk) + footer).strip()
+    if tail:
+        await message.answer(tail)
+
+
+@dp.message(Command("giveaway"))
+async def cmd_giveaway(message: Message):
+    """Розыгрыш среди пришедших по метке (owner-only).
+
+      /giveaway gamechan        — список участников с номерами
+      /giveaway gamechan pick   — выбрать победителя
+
+    Два шага намеренно. Список публикуется в канале ДО розыгрыша, чтобы
+    зрители видели, из кого выбирают, и могли сверить номер победителя.
+    Розыгрыш, где список показывают только вместе с итогом, доверия
+    не вызывает и справедливо.
+
+    Участник — тот, кто пришёл по метке, получил ключ И подписан на канал.
+    Подписка проверяется в момент запуска, а не при регистрации: иначе
+    в победители попадёт тот, кто отписался на следующий день.
+    """
+    if not OWNER_ID or message.from_user.id != OWNER_ID:
+        return
+
+    parts = (message.text or "").split()
+    if len(parts) < 2:
+        await message.answer(
+            "Как пользоваться:\n"
+            "<code>/giveaway gamechan</code> — список участников\n"
+            "<code>/giveaway gamechan pick</code> — выбрать победителя\n\n"
+            f"Канал для проверки подписки: {GIVEAWAY_CHANNEL}\n"
+            "Бот должен быть в нём администратором.")
+        return
+
+    source = _clean_source(parts[1])
+    do_pick = len(parts) > 2 and parts[2].lower() == "pick"
+
+    rows = db.giveaway_candidates(source)
+    if not rows:
+        await message.answer(f"По метке <code>{source}</code> ключ никто не брал.")
+        return
+
+    await message.answer(f"⏳ Проверяю подписку у {len(rows)} человек…")
+    eligible, not_subbed, unknown = [], 0, []
+    for uid, username in rows:
+        sub = await _is_subscribed(message.bot, uid)
+        if sub is True:
+            eligible.append((uid, username))
+        elif sub is False:
+            not_subbed += 1
+        else:
+            unknown.append((uid, username))
+        await asyncio.sleep(0.05)          # не упираемся в лимиты Telegram
+
+    def who(uid, username):
+        return f"@{username}" if username else f"id{uid}"
+
+    head = (f"🎲 <b>Розыгрыш · метка {source}</b>\n\n"
+            f"Взяли ключ: <b>{len(rows)}</b>\n"
+            f"Из них подписаны: <b>{len(eligible)}</b>\n"
+            f"Не подписаны: {not_subbed}\n")
+    if unknown:
+        head += (f"⚠️ Не удалось проверить: {len(unknown)} — "
+                 "бот не админ в канале или человек скрыт\n")
+    if not eligible:
+        await message.answer(head + "\nУчастников нет.")
+        return
+
+    if not do_pick:
+        items = [f"{i}. {who(u, n)}" for i, (u, n) in enumerate(eligible, 1)]
+        await _send_chunks(
+            message, head + "\n<b>Участники:</b>\n", items,
+            "\n\n<i>Опубликуйте этот список в канале до розыгрыша, "
+            "затем запустите</i> <code>/giveaway " + source + " pick</code>")
+        return
+
+    # Победитель. SystemRandom, а не обычный random: тот детерминирован
+    # от зерна, и при вопросе «а не подкручено ли» ответить было бы нечем.
+    i = random.SystemRandom().randrange(len(eligible))
+    uid, username = eligible[i]
+    await message.answer(
+        head + f"\n🏆 <b>Победитель — №{i + 1} из {len(eligible)}</b>\n"
+               f"{who(uid, username)}  (<code>{uid}</code>)\n\n"
+        "<i>Номер совпадает с опубликованным списком.</i>")
 
 
 @dp.message(Command("funnel"))

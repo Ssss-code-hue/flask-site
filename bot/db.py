@@ -261,6 +261,27 @@ def touch_funnel(token, step, ua=None):
                       "AND (fetch_ua IS NULL OR fetch_ua='')", (ua[:120], token))
 
 
+def giveaway_candidates(source):
+    """Пришедшие по метке и получившие ключ — сырой список для розыгрыша.
+
+    Подписку на канал здесь не проверяем: её знает только Telegram, это
+    делает бот. Заблокировавших бота не берём — приз им не вручить.
+
+    Порядок по user_id и потому неизменный: список публикуется ДО розыгрыша,
+    и номера в нём обязаны совпасть с номерами в момент выбора победителя.
+    Сортировка по времени выдачи ключа этого не гарантирует — продление
+    сдвинуло бы человека в списке.
+    """
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT user_id, username FROM users "
+            "WHERE source=? AND sub_until>0 AND COALESCE(blocked,0)=0 "
+            "ORDER BY user_id",
+            (source,),
+        ).fetchall()
+        return [(r["user_id"], r["username"]) for r in rows]
+
+
 def funnel_rows():
     """Все, кому выдавали ключ, с отметками шагов. Для отчёта /funnel."""
     with _conn() as c:
