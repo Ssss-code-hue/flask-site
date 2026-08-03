@@ -42,11 +42,17 @@ from .config import (
     SITE_URL,
     SUPPORT_BOT_USERNAME,
     TRIAL_DAYS,
+    GIVEAWAY_CHANNEL,
+    GIVEAWAY_PRIZE,
+    GIVEAWAY_TAG,
+    GIVEAWAY_UNTIL,
+    giveaway_active,
     plan_days,
     sale_active,
 )
 from .keyboards import (back_kb, card_invoice_kb, connect_kb, devices_kb,
-                        docs_kb, main_menu, offer_consent_kb, paid_kb,
+                        docs_kb, giveaway_kb, giveaway_post_kb, main_menu,
+                        offer_consent_kb, paid_kb,
                         pay_method_kb, plans_kb, promo_offer_kb, ref_share_kb,
                         renew_kb, sale_kb, trial_consent_kb)
 from .panel import (get_subscription_url, online_usernames, site_sub_url,
@@ -252,6 +258,14 @@ async def cmd_start(message: Message):
                 db.mark_blocked(ref_id)
             except Exception:
                 logging.exception("Реферал: не смог уведомить %s", ref_id)
+
+    # Пришёл по рекламной ссылке розыгрыша — показываем сразу его условия,
+    # а не общее приветствие. Человек кликнул из поста про подарок и ждёт
+    # увидеть подарок; обычное меню он читать не станет и уйдёт.
+    if giveaway_active() and _clean_source(param) in {GIVEAWAY_TAG, "giveaway"}:
+        text, kb, _ = await _giveaway_screen(uid, message.bot)
+        await send_banner(message, text, kb)
+        return
 
     await send_welcome(message)
 
@@ -466,8 +480,6 @@ async def cmd_broadcast_lapsed(message: Message):
     await broadcast(message, [uid for uid, _ in users], lambda uid: (text, kb))
 
 
-GIVEAWAY_CHANNEL = os.environ.get("GIVEAWAY_CHANNEL", "@IKKVPNnews")
-
 # Статусы, при которых человек считается подписанным. «restricted» — это
 # участник с ограничениями, он в канале, поэтому проверяется отдельно.
 _IN_CHANNEL = {"creator", "administrator", "member"}
@@ -514,46 +526,137 @@ async def _send_chunks(message, header, items, footer=""):
         await message.answer(tail)
 
 
+async def _giveaway_screen(uid, bot):
+    """Текст и клавиатура экрана розыгрыша по текущему состоянию человека.
+
+    Возвращает (текст, клавиатура, участвует_ли). Вынесено отдельно, потому
+    что этот же экран показывается из трёх мест: по ссылке из рекламы,
+    по кнопке под постом в канале и из меню бота.
+    """
+    if not giveaway_active():
+        return texts.GIVEAWAY_OFF.format(channel=GIVEAWAY_CHANNEL), None, False
+
+    common = dict(prize=GIVEAWAY_PRIZE, channel=GIVEAWAY_CHANNEL,
+                  until=GIVEAWAY_UNTIL or "скоро", days=TRIAL_DAYS)
+
+    u = db.get_user(uid)
+    has_key = bool(u and u["sub_until"])
+    subscribed = await _is_subscribed(bot, uid)
+
+    if subscribed is None:
+        return (texts.GIVEAWAY_CHECK_FAILED,
+                giveaway_kb(need_key=not has_key), False)
+    if not has_key:
+        return (texts.GIVEAWAY_NEED_KEY.format(**common),
+                giveaway_kb(need_key=True, need_sub=not subscribed), False)
+    if not subscribed:
+        return (texts.GIVEAWAY_NEED_SUB.format(**common),
+                giveaway_kb(need_sub=True), False)
+
+    db.mark_giveaway_entry(uid)
+    count = len(db.giveaway_entries())
+    return (texts.GIVEAWAY_OK.format(count=count,
+                                     people=_plural_people(count), **common),
+            giveaway_kb(), True)
+
+
+def _plural_people(n):
+    """1 человек, 2 человека, 5 человек."""
+    if n % 100 in (11, 12, 13, 14):
+        return "человек"
+    if n % 10 == 1:
+        return "человек"
+    if n % 10 in (2, 3, 4):
+        return "человека"
+    return "человек"
+
+
+@dp.callback_query(F.data == "gw_check")
+async def cb_giveaway_check(cq: CallbackQuery):
+    """Проверка условий по кнопке — и из бота, и из-под поста в своём канале.
+
+    Под постом в канале сообщение чужое (его опубликовал бот от имени
+    канала), редактировать его нельзя — поэтому отвечаем в личку. Если
+    человек не начинал диалог с ботом, личку Telegram не пропустит, и тогда
+    показываем всплывающее окно с просьбой открыть бота.
+    """
+    text, kb, joined = await _giveaway_screen(cq.from_user.id, cq.bot)
+    in_channel = cq.message is None or cq.message.chat.type == "channel"
+    if in_channel:
+        try:
+            await send_banner_to(cq.bot, cq.from_user.id, text, kb)
+            await cq.answer("Проверил — ответил вам в личке ✅" if joined
+                            else "Проверил — написал вам в личке")
+        except Exception:
+            await cq.answer(
+                "Откройте бота @" + BOT_USERNAME + " и нажмите «Старт», "
+                "потом вернитесь сюда", show_alert=True)
+        return
+    await show_screen(cq, text, kb)
+    await cq.answer("Вы в списке участников ✅" if joined else "Проверил")
+
+
+@dp.message(Command("giveaway_post"))
+async def cmd_giveaway_post(message: Message):
+    """Публикует пост розыгрыша в свой канал — с живой кнопкой проверки.
+
+    Именно командой, а не через сторонний постер: callback-кнопка работает
+    только у того бота, который опубликовал сообщение. Пост из чужого
+    постера кнопку покажет, но нажатие уйдёт не нам.
+    """
+    if not OWNER_ID or message.from_user.id != OWNER_ID:
+        return
+    if not giveaway_active():
+        await message.answer("Розыгрыш выключен: не задан GIVEAWAY_PRIZE.")
+        return
+    text = texts.GIVEAWAY_POST.format(prize=GIVEAWAY_PRIZE, days=TRIAL_DAYS,
+                                      until=GIVEAWAY_UNTIL or "скоро")
+    try:
+        await message.bot.send_message(GIVEAWAY_CHANNEL, text,
+                                       reply_markup=giveaway_post_kb(BOT_USERNAME))
+        await message.answer(f"✅ Опубликовано в {GIVEAWAY_CHANNEL}.")
+    except Exception as e:
+        await message.answer(
+            f"Не вышло опубликовать: {e}\n\n"
+            f"Проверьте, что бот — администратор в {GIVEAWAY_CHANNEL} "
+            "и умеет отправлять сообщения.")
+
+
 @dp.message(Command("giveaway"))
 async def cmd_giveaway(message: Message):
-    """Розыгрыш среди пришедших по метке (owner-only).
+    """Список участников и выбор победителя (owner-only).
 
-      /giveaway gamechan        — список участников с номерами
-      /giveaway gamechan pick   — выбрать победителя
+      /giveaway               — список участников с номерами
+      /giveaway pick          — выбрать победителя
+      /giveaway gamechan      — только пришедшие по этой метке
 
     Два шага намеренно. Список публикуется в канале ДО розыгрыша, чтобы
-    зрители видели, из кого выбирают, и могли сверить номер победителя.
-    Розыгрыш, где список показывают только вместе с итогом, доверия
-    не вызывает и справедливо.
+    зрители видели, из кого выбирают, и сверили номер победителя. Розыгрыш,
+    где список показывают вместе с итогом, доверия не вызывает — и
+    справедливо, там можно нарисовать что угодно.
 
-    Участник — тот, кто пришёл по метке, получил ключ И подписан на канал.
-    Подписка проверяется в момент запуска, а не при регистрации: иначе
-    в победители попадёт тот, кто отписался на следующий день.
+    Участник — тот, кто нажал «Проверить и участвовать» и прошёл проверку.
+    Подписку перепроверяем прямо сейчас: иначе победителем окажется тот,
+    кто отписался на следующий день после регистрации.
     """
     if not OWNER_ID or message.from_user.id != OWNER_ID:
         return
 
-    parts = (message.text or "").split()
-    if len(parts) < 2:
-        await message.answer(
-            "Как пользоваться:\n"
-            "<code>/giveaway gamechan</code> — список участников\n"
-            "<code>/giveaway gamechan pick</code> — выбрать победителя\n\n"
-            f"Канал для проверки подписки: {GIVEAWAY_CHANNEL}\n"
-            "Бот должен быть в нём администратором.")
-        return
+    args = [a.lower() for a in (message.text or "").split()[1:]]
+    do_pick = "pick" in args
+    tags = [a for a in args if a != "pick"]
+    source = _clean_source(tags[0]) if tags else None
 
-    source = _clean_source(parts[1])
-    do_pick = len(parts) > 2 and parts[2].lower() == "pick"
-
-    rows = db.giveaway_candidates(source)
+    rows = db.giveaway_entries()
+    if source and source != "all":
+        rows = [r for r in rows if r[2] == source]
     if not rows:
-        await message.answer(f"По метке <code>{source}</code> ключ никто не брал.")
+        await message.answer("Участников пока нет.")
         return
 
     await message.answer(f"⏳ Проверяю подписку у {len(rows)} человек…")
     eligible, not_subbed, unknown = [], 0, []
-    for uid, username in rows:
+    for uid, username, _src in rows:
         sub = await _is_subscribed(message.bot, uid)
         if sub is True:
             eligible.append((uid, username))
@@ -566,10 +669,10 @@ async def cmd_giveaway(message: Message):
     def who(uid, username):
         return f"@{username}" if username else f"id{uid}"
 
-    head = (f"🎲 <b>Розыгрыш · метка {source}</b>\n\n"
-            f"Взяли ключ: <b>{len(rows)}</b>\n"
-            f"Из них подписаны: <b>{len(eligible)}</b>\n"
-            f"Не подписаны: {not_subbed}\n")
+    head = (f"🎲 <b>Розыгрыш{f' · метка {source}' if source else ''}</b>\n\n"
+            f"Подтвердили участие: <b>{len(rows)}</b>\n"
+            f"Подписка на канал сейчас: <b>{len(eligible)}</b>\n"
+            f"Отписались после регистрации: {not_subbed}\n")
     if unknown:
         head += (f"⚠️ Не удалось проверить: {len(unknown)} — "
                  "бот не админ в канале или человек скрыт\n")
@@ -582,7 +685,8 @@ async def cmd_giveaway(message: Message):
         await _send_chunks(
             message, head + "\n<b>Участники:</b>\n", items,
             "\n\n<i>Опубликуйте этот список в канале до розыгрыша, "
-            "затем запустите</i> <code>/giveaway " + source + " pick</code>")
+            "затем запустите</i> <code>/giveaway"
+            + (f" {source}" if source else "") + " pick</code>")
         return
 
     # Победитель. SystemRandom, а не обычный random: тот детерминирован

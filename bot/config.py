@@ -86,3 +86,22 @@ def plan_days(code):
     if code == SALE_PLAN and sale_active():
         days += SALE_BONUS_DAYS
     return days
+
+
+# ============ Розыгрыш ============
+# Одна активная акция за раз: держать несколько параллельно смысла нет,
+# а конфигом из переменных её можно включить и выключить без правки кода.
+# Пустой GIVEAWAY_PRIZE = розыгрыша нет, кнопки не показываются нигде.
+GIVEAWAY_PRIZE = os.environ.get("GIVEAWAY_PRIZE", "")
+GIVEAWAY_CHANNEL = os.environ.get("GIVEAWAY_CHANNEL", "@IKKVPNnews")
+GIVEAWAY_UNTIL = os.environ.get("GIVEAWAY_UNTIL", "")     # текстом, для сообщений
+# Метка из рекламной ссылки — нужна только для отчёта «откуда пришли
+# участники». На право участвовать не влияет: в свой канал люди приходят
+# без метки, и отсекать их было бы несправедливо.
+GIVEAWAY_TAG = os.environ.get("GIVEAWAY_TAG", "gamechan")
+
+
+def giveaway_active():
+    """Идёт ли розыгрыш. Название приза — обязательное поле: без него
+    сообщения получились бы с дырой вместо главного слова."""
+    return bool(GIVEAWAY_PRIZE)

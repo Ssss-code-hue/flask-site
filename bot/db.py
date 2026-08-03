@@ -142,6 +142,11 @@ def init_db():
         if "connect_reminded" not in ucols:
             c.execute("ALTER TABLE users ADD COLUMN connect_reminded "
                       "INTEGER DEFAULT 0")
+        # Когда человек подтвердил участие в розыгрыше. Время, а не флаг:
+        # по нему строится порядок участников, а он должен быть неизменным —
+        # список публикуется до розыгрыша, и номера обязаны совпасть.
+        if "giveaway_at" not in ucols:
+            c.execute("ALTER TABLE users ADD COLUMN giveaway_at INTEGER")
         # Поиск идёт по токену на каждый запрос подписки — без индекса это
         # полный обход таблицы на каждое открытие приложения
         c.execute("CREATE INDEX IF NOT EXISTS idx_users_sub_token "
@@ -261,25 +266,49 @@ def touch_funnel(token, step, ua=None):
                       "AND (fetch_ua IS NULL OR fetch_ua='')", (ua[:120], token))
 
 
-def giveaway_candidates(source):
-    """Пришедшие по метке и получившие ключ — сырой список для розыгрыша.
+def mark_giveaway_entry(uid):
+    """Отмечает участие в розыгрыше.
+
+    COALESCE: место в списке определяет ПЕРВОЕ нажатие. Иначе человек,
+    зашедший перепроверить статус, уезжал бы в конец очереди — а список
+    к тому моменту уже опубликован.
+    """
+    with _conn() as c:
+        c.execute("UPDATE users SET giveaway_at=COALESCE(giveaway_at, ?) "
+                  "WHERE user_id=?", (int(time.time()), uid))
+
+
+def is_giveaway_entry(uid):
+    u = get_user(uid)
+    return bool(u and u["giveaway_at"])
+
+
+def giveaway_entries():
+    """Подтвердившие участие — в порядке подтверждения.
 
     Подписку на канал здесь не проверяем: её знает только Telegram, это
-    делает бот. Заблокировавших бота не берём — приз им не вручить.
-
-    Порядок по user_id и потому неизменный: список публикуется ДО розыгрыша,
-    и номера в нём обязаны совпасть с номерами в момент выбора победителя.
-    Сортировка по времени выдачи ключа этого не гарантирует — продление
-    сдвинуло бы человека в списке.
+    делает бот перед розыгрышем. Заблокировавших бота не берём — приз им
+    не вручить. Ключ обязателен: это второе условие акции.
     """
     with _conn() as c:
         rows = c.execute(
-            "SELECT user_id, username FROM users "
-            "WHERE source=? AND sub_until>0 AND COALESCE(blocked,0)=0 "
-            "ORDER BY user_id",
-            (source,),
+            "SELECT user_id, username, source FROM users "
+            "WHERE giveaway_at IS NOT NULL AND sub_until>0 "
+            "AND COALESCE(blocked,0)=0 "
+            "ORDER BY giveaway_at, user_id"
         ).fetchall()
-        return [(r["user_id"], r["username"]) for r in rows]
+        return [(r["user_id"], r["username"], r["source"]) for r in rows]
+
+
+def giveaway_reset():
+    """Очищает список участников — перед новой акцией.
+
+    Без этого во второй розыгрыш автоматически попадут все участники
+    первого, и победителем окажется человек, который про новую акцию
+    даже не слышал.
+    """
+    with _conn() as c:
+        c.execute("UPDATE users SET giveaway_at=NULL")
 
 
 def funnel_rows():

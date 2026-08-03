@@ -12,7 +12,7 @@ except ImportError:                     # на старой aiogram — обой
 import lolz
 import platega
 
-from .config import (PLANS, PRIVACY_URL, REFERRAL_BONUS_DAYS,
+from .config import (GIVEAWAY_CHANNEL, PLANS, PRIVACY_URL, REFERRAL_BONUS_DAYS,
                      SALE_BONUS_DAYS, SALE_PLAN, plan_days, sale_active,
                      SUPPORT_BOT_USERNAME, TERMS_URL, TRIAL_DAYS,
                      WEBAPP_URL, OFFER_URL)
@@ -67,6 +67,42 @@ def ref_share_kb(link, bonus_days=REFERRAL_BONUS_DAYS):
              f"&text={quote(pitch, safe='')}")
     kb.button(text="📤 Отправить другу", url=share)
     kb.button(text="◀ Меню", callback_data="menu")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def giveaway_kb(need_key=False, need_sub=False):
+    """Клавиатура экрана розыгрыша.
+
+    Кнопка проверки есть всегда — она же кнопка «повторить». Недостающий
+    шаг подсвечиваем отдельной кнопкой, чтобы человеку не приходилось
+    искать канал или триал самому: каждый лишний поиск теряет участника.
+    """
+    kb = InlineKeyboardBuilder()
+    if need_key:
+        kb.button(text=f"🆓 Включить {TRIAL_DAYS} дней бесплатно",
+                  callback_data="trial")
+    if need_sub:
+        ch = GIVEAWAY_CHANNEL.lstrip("@")
+        kb.button(text="📢 Подписаться на канал", url=f"https://t.me/{ch}")
+    kb.button(text="✅ Проверить и участвовать", callback_data="gw_check")
+    kb.button(text="◀ Меню", callback_data="menu")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def giveaway_post_kb(bot_username):
+    """Кнопка под постом розыгрыша.
+
+    В СВОЁМ канале пост публикует наш бот, поэтому callback до него дойдёт
+    и проверка отработает прямо там. В купленном канале постит их админ —
+    нажатие ушло бы его боту, поэтому туда идёт обычная ссылка в бота.
+    """
+    kb = InlineKeyboardBuilder()
+    kb.button(text="✅ Проверить подписки и участвовать",
+              callback_data="gw_check")
+    kb.button(text="🤖 Открыть бота",
+              url=f"https://t.me/{bot_username}?start=giveaway")
     kb.adjust(1)
     return kb.as_markup()
 
