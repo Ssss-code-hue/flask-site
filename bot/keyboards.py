@@ -71,6 +71,78 @@ def ref_share_kb(link, bonus_days=REFERRAL_BONUS_DAYS):
     return kb.as_markup()
 
 
+def admin_kb():
+    """Главный экран панели владельца."""
+    kb = InlineKeyboardBuilder()
+    kb.button(text="📊 Статистика", callback_data="adm:stats")
+    kb.button(text="📉 Воронка подключения", callback_data="adm:funnel")
+    kb.button(text="🚦 Источники", callback_data="adm:sources")
+    kb.button(text="🎁 Розыгрыш", callback_data="adm:gw")
+    kb.button(text="📢 Рассылки", callback_data="adm:bc")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def admin_back_kb(refresh=None):
+    """«Обновить» + «Назад» под отчётом.
+
+    Обновление отдельной кнопкой, потому что цифры смотрят по нескольку
+    раз подряд — гонять команду заново неудобно.
+    """
+    kb = InlineKeyboardBuilder()
+    if refresh:
+        kb.button(text="🔄 Обновить", callback_data=refresh)
+    kb.button(text="◀ В панель", callback_data="adm:home")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+# Рассылки: код действия → (подпись кнопки, кому уходит).
+# Держим одним словарём, чтобы кнопка, экран подтверждения и запуск
+# не разъехались в трёх разных местах.
+BROADCASTS = {
+    "lapsed": ("Вернитесь (+промокод)", "у кого подписка закончилась"),
+    "nc":     ("Вы не подключились", "с активной подпиской, но без единого подключения"),
+    "ref":    ("Про рефералов", "всем живым"),
+    "promo":  ("Промокод", "всем живым"),
+    "sale":   ("Акция", "всем живым"),
+}
+
+
+def admin_broadcasts_kb():
+    kb = InlineKeyboardBuilder()
+    for code, (title, _) in BROADCASTS.items():
+        kb.button(text=f"📢 {title}", callback_data=f"adm:bc:{code}")
+    kb.button(text="◀ В панель", callback_data="adm:home")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def admin_confirm_kb(code):
+    """Подтверждение рассылки.
+
+    Обязательный второй шаг: в панели кнопки стоят вплотную, и случайное
+    нажатие означало бы сообщение всем пользователям сразу. Отменить
+    отправленное нельзя.
+    """
+    kb = InlineKeyboardBuilder()
+    kb.button(text="✅ Да, разослать", callback_data=f"adm:go:{code}")
+    kb.button(text="◀ Отмена", callback_data="adm:bc")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def admin_giveaway_kb(active):
+    kb = InlineKeyboardBuilder()
+    if active:
+        kb.button(text="👥 Список участников", callback_data="adm:gw:list")
+        kb.button(text="🏆 Выбрать победителя", callback_data="adm:gw:pick")
+        kb.button(text="📮 Опубликовать пост в канал", callback_data="adm:gw:post")
+    kb.button(text="◀ В панель", callback_data="adm:home")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
 def giveaway_kb(need_key=False, need_sub=False):
     """Клавиатура экрана розыгрыша.
 

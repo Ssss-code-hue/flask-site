@@ -51,7 +51,9 @@ from .config import (
     plan_days,
     sale_active,
 )
-from .keyboards import (back_kb, card_invoice_kb, connect_kb, devices_kb,
+from .keyboards import (BROADCASTS, admin_back_kb, admin_broadcasts_kb,
+                        admin_confirm_kb, admin_giveaway_kb, admin_kb,
+                        back_kb, card_invoice_kb, connect_kb, devices_kb,
                         docs_kb, giveaway_kb, giveaway_post_kb, main_menu,
                         offer_consent_kb, paid_kb,
                         pay_method_kb, plans_kb, promo_offer_kb, ref_share_kb,
@@ -336,18 +338,23 @@ async def cmd_sources(message: Message):
     """
     if not OWNER_ID or message.from_user.id != OWNER_ID:
         return
+    await message.answer(_sources_text())
+
+
+def _sources_text():
+    """Отчёт «откуда приходят». Вынесен из команды, потому что тот же текст
+    показывает кнопка в панели — иначе два места разъедутся при правке."""
     rows = db.source_stats()
     if not rows:
-        await message.answer("Пользователей пока нет.")
-        return
-    lines = ["📊 <b>Откуда приходят</b>\n",
+        return "Пользователей пока нет."
+    lines = ["🚦 <b>Откуда приходят</b>\n",
              "<code>источник      всего  ключ  опл.</code>"]
     for src, total, activated, paid in rows:
         lines.append(f"<code>{src[:12]:<12} {total:>5} {activated:>5} {paid:>5}</code>")
     lines.append("\n<b>ключ</b> — активировали подписку (триал или оплата)")
     lines.append("<b>опл.</b> — заплатили хотя бы раз")
     lines.append(f"\nСсылка с меткой: <code>https://t.me/{BOT_USERNAME}?start=yt</code>")
-    await message.answer("\n".join(lines))
+    return "\n".join(lines)
 
 
 @dp.message(Command("broadcast_nc"))
@@ -357,6 +364,10 @@ async def cmd_broadcast_nc(message: Message):
     поэтому все настройки (панель, база) уже на месте."""
     if not OWNER_ID or message.from_user.id != OWNER_ID:
         return
+    await _bc_nc(message)
+
+
+async def _bc_nc(message):
     now = int(time.time())
     users = db.active_users(now)
     await message.answer(f"⏳ Проверяю {len(users)} активных подписок…")
@@ -389,6 +400,10 @@ async def cmd_broadcast_promo(message: Message):
     Каждому — баннер, текст и кнопка активации в одно нажатие."""
     if not OWNER_ID or message.from_user.id != OWNER_ID:
         return
+    await _bc_promo(message)
+
+
+async def _bc_promo(message):
     users = db.all_user_ids()
     await message.answer(f"⏳ Рассылаю промокод {PROMO_CODE} по {len(users)} пользователям…")
     text = texts.PROMO_BROADCAST.format(code=PROMO_CODE, days=PROMO_DAYS)
@@ -415,6 +430,10 @@ async def cmd_broadcast_sale(message: Message):
     """
     if not OWNER_ID or message.from_user.id != OWNER_ID:
         return
+    await _bc_sale(message)
+
+
+async def _bc_sale(message):
     if not sale_active():
         await message.answer(
             f"⛔ Акция закончилась {_sale_until_ru()} — рассылка отменена.\n"
@@ -442,6 +461,10 @@ async def cmd_broadcast_ref(message: Message):
     Ссылка у каждого своя, поэтому текст и кнопки собираем на каждого."""
     if not OWNER_ID or message.from_user.id != OWNER_ID:
         return
+    await _bc_ref(message)
+
+
+async def _bc_ref(message):
     users = db.all_user_ids()
     await message.answer(
         f"⏳ Рассылаю про рефералы (+{REFERRAL_BONUS_DAYS} дн.) "
@@ -464,6 +487,10 @@ async def cmd_broadcast_lapsed(message: Message):
     """
     if not OWNER_ID or message.from_user.id != OWNER_ID:
         return
+    await _bc_lapsed(message)
+
+
+async def _bc_lapsed(message):
     users = db.lapsed_users(int(time.time()))
     if not users:
         await message.answer("Некому слать: у всех подписка активна.")
@@ -662,6 +689,10 @@ async def cmd_giveaway_post(message: Message):
     """
     if not OWNER_ID or message.from_user.id != OWNER_ID:
         return
+    await _publish_giveaway_post(message)
+
+
+async def _publish_giveaway_post(message):
     if not giveaway_active():
         await message.answer("Розыгрыш выключен: не задан GIVEAWAY_PRIZE.")
         return
@@ -697,9 +728,13 @@ async def cmd_giveaway(message: Message):
     """
     if not OWNER_ID or message.from_user.id != OWNER_ID:
         return
+    await _giveaway_report(message, args=(message.text or '').split()[1:])
 
-    args = [a.lower() for a in (message.text or "").split()[1:]]
-    do_pick = "pick" in args
+
+async def _giveaway_report(message, args=(), pick=False):
+
+    args = [a.lower() for a in args]
+    do_pick = pick or "pick" in args
     tags = [a for a in args if a != "pick"]
     source = _clean_source(tags[0]) if tags else None
 
@@ -755,6 +790,134 @@ async def cmd_giveaway(message: Message):
         "<i>Номер совпадает с опубликованным списком.</i>")
 
 
+# ============ Панель владельца ============
+ADMIN_HOME = (
+    "🛠 <b>Панель управления</b>\n\n"
+    "Аналитика, розыгрыш и рассылки. Всё то же, что командами, "
+    "только не надо их помнить.\n\n"
+    "Выберите раздел 👇"
+)
+
+
+def _is_owner(x):
+    return bool(OWNER_ID) and x.from_user.id == OWNER_ID
+
+
+async def _run_broadcast(message, code):
+    """Запуск рассылки из панели. Владельца проверили до вызова."""
+    fn = {"lapsed": _bc_lapsed, "nc": _bc_nc, "ref": _bc_ref,
+          "promo": _bc_promo, "sale": _bc_sale}.get(code)
+    if not fn:
+        await message.answer("Неизвестная рассылка.")
+        return
+    await fn(message)
+    await message.answer("Вернуться в панель — /admin")
+
+
+@dp.message(Command("admin"))
+async def cmd_admin(message: Message):
+    """Единая панель вместо восьми команд наизусть (owner-only)."""
+    if not _is_owner(message):
+        return
+    await message.answer(ADMIN_HOME, reply_markup=admin_kb())
+
+
+async def _admin_show(cq, text, refresh=None):
+    """Показать отчёт в панели.
+
+    Отчёты длинные и легко перерастают лимит подписи к фото, поэтому
+    экран панели — обычный текст: его можно переписывать целиком.
+    """
+    try:
+        await cq.message.edit_text(text, reply_markup=admin_back_kb(refresh))
+    except TelegramBadRequest as e:
+        if "not modified" in str(e):
+            return
+        # длиннее лимита или сообщение не редактируется — шлём новым
+        await cq.message.answer(text, reply_markup=admin_back_kb(refresh))
+
+
+@dp.callback_query(F.data.startswith("adm:"))
+async def cb_admin(cq: CallbackQuery):
+    """Все кнопки панели. Одна точка входа — проверка владельца тоже одна."""
+    if not _is_owner(cq):
+        await cq.answer("Не для вас", show_alert=True)
+        return
+    action = cq.data[4:]
+
+    if action == "home":
+        await cq.message.edit_text(ADMIN_HOME, reply_markup=admin_kb())
+        await cq.answer()
+        return
+
+    if action == "stats":
+        await cq.answer("Считаю…")
+        await _admin_show(cq, _stats_text(), "adm:stats")
+        return
+
+    if action == "funnel":
+        await cq.answer("Спрашиваю панель…")
+        await _admin_show(cq, await _funnel_text(), "adm:funnel")
+        return
+
+    if action == "sources":
+        await cq.answer("Считаю…")
+        await _admin_show(cq, _sources_text(), "adm:sources")
+        return
+
+    # ---------- Розыгрыш ----------
+    if action == "gw":
+        n = len(db.giveaway_entries())
+        text = (f"🎁 <b>Розыгрыш: {GIVEAWAY_PRIZE}</b>\n\n"
+                f"Подтвердили участие: <b>{n}</b>\n"
+                f"Канал: {GIVEAWAY_CHANNEL}\n"
+                f"Итоги: {GIVEAWAY_UNTIL or 'не заданы'}"
+                ) if giveaway_active() else (
+            "🎁 <b>Розыгрыш выключен</b>\n\n"
+            "Чтобы включить, задайте <code>GIVEAWAY_PRIZE</code> "
+            "в настройках бота.")
+        await cq.message.edit_text(text, reply_markup=admin_giveaway_kb(giveaway_active()))
+        await cq.answer()
+        return
+
+    if action in ("gw:list", "gw:pick"):
+        await cq.answer("Проверяю подписки…")
+        await _giveaway_report(cq.message, pick=action.endswith("pick"))
+        return
+
+    if action == "gw:post":
+        await cq.answer("Публикую…")
+        await _publish_giveaway_post(cq.message)
+        return
+
+    # ---------- Рассылки ----------
+    if action == "bc":
+        await cq.message.edit_text(
+            "📢 <b>Рассылки</b>\n\nВыберите, что разослать. "
+            "Перед отправкой спрошу подтверждение.",
+            reply_markup=admin_broadcasts_kb())
+        await cq.answer()
+        return
+
+    if action.startswith("bc:"):
+        code = action[3:]
+        title, whom = BROADCASTS.get(code, ("?", "?"))
+        await cq.message.edit_text(
+            f"📢 <b>{title}</b>\n\nУйдёт: {whom}.\n\n"
+            "⚠️ Отменить отправленное нельзя. Рассылать?",
+            reply_markup=admin_confirm_kb(code))
+        await cq.answer()
+        return
+
+    if action.startswith("go:"):
+        code = action[3:]
+        await cq.answer("Запускаю…")
+        await _run_broadcast(cq.message, code)
+        return
+
+    await cq.answer()
+
+
 @dp.message(Command("stats"))
 async def cmd_stats(message: Message):
     """Своя статистика бота (owner-only).
@@ -767,6 +930,12 @@ async def cmd_stats(message: Message):
     """
     if not OWNER_ID or message.from_user.id != OWNER_ID:
         return
+    await message.answer(_stats_text())
+
+
+def _stats_text():
+    """Сводка бота. Общая для команды /stats и кнопки в панели —
+    иначе два места разъедутся при первой же правке."""
     s = db.owner_stats()
     live = s["total"] - s["blocked"]
     lines = [
@@ -789,7 +958,7 @@ async def cmd_stats(message: Message):
         "он считает только тех, кто за 30 дней что-то нажимал. Тот, кто "
         "взял ключ и просто пользуется VPN, туда не попадает.</i>",
     ]
-    await message.answer("\n".join(lines))
+    return "\n".join(lines)
 
 
 @dp.message(Command("funnel"))
@@ -807,12 +976,20 @@ async def cmd_funnel(message: Message):
     if not OWNER_ID or message.from_user.id != OWNER_ID:
         return
 
+    await message.answer(await _funnel_text())
+
+
+async def _funnel_text():
+    """Воронка подключения. Общая для команды /funnel и кнопки в панели.
+
+    Запрос в панель Marzban блокирующий — уводим его в поток, иначе на
+    время ответа встаёт весь бот и остальные пользователи ждут.
+    """
     rows = db.funnel_rows()
     if not rows:
-        await message.answer("Ключей ещё никому не выдавали.")
-        return
+        return "Ключей ещё никому не выдавали."
 
-    online = online_usernames()            # None, если панель недоступна
+    online = await asyncio.to_thread(online_usernames)   # None — панель молчит
     total = len(rows)
     lines = ["📉 <b>Воронка подключения</b>", "", f"Выдано ключей: <b>{total}</b>"]
 
@@ -867,7 +1044,7 @@ async def cmd_funnel(message: Message):
         if len(out) > 25:
             lines.append(f"…и ещё {len(out) - 25}")
 
-    await message.answer("\n".join(lines))
+    return "\n".join(lines)
 
 
 # ============ Пробный период ============
