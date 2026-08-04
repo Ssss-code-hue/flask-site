@@ -743,6 +743,43 @@ async def cmd_giveaway(message: Message):
         "<i>Номер совпадает с опубликованным списком.</i>")
 
 
+@dp.message(Command("stats"))
+async def cmd_stats(message: Message):
+    """Своя статистика бота (owner-only).
+
+    Нужна потому, что «N пользователей в месяц» в профиле бота — это MAU
+    Telegram: те, кто ЗА 30 ДНЕЙ что-то нажимал. Человек, взявший ключ и
+    молча пользующийся VPN, оттуда выпадает, оставаясь клиентом. Своей
+    цифры до этого было негде посмотреть, и рост приходилось оценивать
+    по чужой метрике, которая измеряет не то.
+    """
+    if not OWNER_ID or message.from_user.id != OWNER_ID:
+        return
+    s = db.owner_stats()
+    live = s["total"] - s["blocked"]
+    lines = [
+        "📊 <b>Статистика бота</b>", "",
+        f"<code>{s['total']:>4}</code>  всего запускали бота",
+        f"<code>{live:>4}</code>  из них не заблокировали",
+        "",
+        f"<code>{s['new_7']:>4}</code>  пришло за 7 дней",
+        f"<code>{s['new_30']:>4}</code>  пришло за 30 дней",
+        "",
+        f"<code>{s['with_key']:>4}</code>  получали ключ",
+        f"<code>{s['active']:>4}</code>  с действующей подпиской",
+        f"<code>{s['paying']:>4}</code>  когда-либо платили",
+    ]
+    if s["giveaway"]:
+        lines.append(f"<code>{s['giveaway']:>4}</code>  участвуют в розыгрыше")
+    lines += [
+        "",
+        "<i>«Пользователей в месяц» в профиле бота — это счётчик Telegram: "
+        "он считает только тех, кто за 30 дней что-то нажимал. Тот, кто "
+        "взял ключ и просто пользуется VPN, туда не попадает.</i>",
+    ]
+    await message.answer("\n".join(lines))
+
+
 @dp.message(Command("funnel"))
 async def cmd_funnel(message: Message):
     """Где теряются люди между «выдали ключ» и «человек в сети» (owner-only).

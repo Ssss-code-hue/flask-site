@@ -847,6 +847,40 @@ def delete_email_code(email):
         c.execute("DELETE FROM email_codes WHERE email=?", (email,))
 
 
+def owner_stats():
+    """Сводка для команды /stats.
+
+    Отдельно от stats(): та отдаётся наружу через API и сознательно
+    короткая. Здесь же то, по чему принимаются решения, — с разбивкой
+    по срокам, чтобы был виден рост, а не одно число.
+
+    Про «пользователей в месяц» в профиле бота: Telegram считает тех, кто
+    ЗА 30 ДНЕЙ что-то нажимал. Человек, который взял ключ и молча им
+    пользуется, оттуда выпадает, оставаясь клиентом. Поэтому здесь
+    считаем и приход, и оплаты — их Telegram не видит вовсе.
+    """
+    now = int(time.time())
+    d7, d30 = now - 7 * 86400, now - 30 * 86400
+    with _conn() as c:
+        def one(sql, *a):
+            return c.execute(sql, a).fetchone()[0] or 0
+
+        paid_ids = ("SELECT user_id FROM payments "
+                    "UNION SELECT user_id FROM bot_invoices WHERE status='paid'")
+        return {
+            "total":       one("SELECT COUNT(*) FROM users"),
+            "new_7":       one("SELECT COUNT(*) FROM users WHERE created_at>?", d7),
+            "new_30":      one("SELECT COUNT(*) FROM users WHERE created_at>?", d30),
+            "with_key":    one("SELECT COUNT(*) FROM users WHERE sub_until>0"),
+            "active":      one("SELECT COUNT(*) FROM users WHERE sub_until>?", now),
+            "paying":      one(f"SELECT COUNT(*) FROM ({paid_ids})"),
+            "blocked":     one("SELECT COUNT(*) FROM users "
+                               "WHERE COALESCE(blocked,0)=1"),
+            "giveaway":    one("SELECT COUNT(*) FROM users "
+                               "WHERE giveaway_at IS NOT NULL"),
+        }
+
+
 def stats():
     now = int(time.time())
     with _conn() as c:
