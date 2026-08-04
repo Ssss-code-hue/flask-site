@@ -500,9 +500,15 @@ async def _is_subscribed(bot, uid):
                 await asyncio.sleep(e.retry_after + 1)
                 continue
             return None
-        except Exception:
+        except Exception as e:
+            # Молчать здесь нельзя: самая частая причина — бот не админ
+            # в канале, и без этой строки в журнале искать нечего.
+            logging.warning("Розыгрыш: не смог проверить подписку %s на %s — %s",
+                            uid, GIVEAWAY_CHANNEL, e)
             return None
         st = getattr(m, "status", None)
+        logging.info("Розыгрыш: подписка %s на %s — статус %s",
+                     uid, GIVEAWAY_CHANNEL, st)
         if st in _IN_CHANNEL:
             return True
         if st == "restricted":
@@ -576,58 +582,62 @@ def _plural_people(n):
 async def cb_giveaway_check(cq: CallbackQuery):
     """Проверка условий по кнопке — и из бота, и из-под поста в своём канале.
 
-    Под постом в канале сообщение чужое (его опубликовал бот от имени
-    канала), редактировать его нельзя — поэтому отвечаем в личку. Если
-    человек не начинал диалог с ботом, личку Telegram не пропустит, и тогда
-    показываем всплывающее окно с просьбой открыть бота.
+    На callback Telegram принимает ровно ОДИН ответ, и пока он не пришёл,
+    кнопка крутит часики. Поэтому здесь единственный вызов answer, он же
+    последний, и до него ни один путь не имеет права оборваться.
+
+    Результат всегда показываем всплывающим окном: если условия с прошлого
+    раза не изменились, экран остаётся прежним, и без окна нажатие выглядит
+    как «ничего не произошло».
     """
-    # Часики снимаем ПЕРВЫМ делом. Дальше идёт запрос в Telegram про подписку,
-    # а у callback свой таймаут: ответив в конце, получаем вечную загрузку
-    # на кнопке, даже когда проверка отработала.
+    uid = cq.from_user.id
+    where = cq.message.chat.type if cq.message else "нет сообщения"
+    logging.info("Розыгрыш: нажатие от %s, чат %s", uid, where)
+
+    alert = None
     try:
-        await cq.answer("Проверяю…")
+        # Проверка ходит в Telegram, и зависший запрос держал бы часики
+        # до самого таймаута — ограничиваем ожидание сами.
+        text, kb, joined = await asyncio.wait_for(
+            _giveaway_screen(uid, cq.bot), timeout=8)
+    except asyncio.TimeoutError:
+        logging.warning("Розыгрыш: проверка не уложилась в 8 с (uid %s)", uid)
+        text, kb, joined = texts.GIVEAWAY_CHECK_FAILED, giveaway_kb(), False
+        alert = "Telegram не ответил вовремя. Попробуйте ещё раз."
     except Exception:
-        pass                      # просроченный callback — работу всё равно доделаем
+        logging.exception("Розыгрыш: проверка условий сорвалась (uid %s)", uid)
+        text, kb, joined = texts.GIVEAWAY_CHECK_FAILED, giveaway_kb(), False
+        alert = "Не получилось проверить. Попробуйте через минуту."
+
+    if alert is None:
+        alert = ("Вы в списке участников ✅" if joined
+                 else "Условия ещё не выполнены — смотрите сообщение")
+
+    # Под постом в канале сообщение опубликовано от имени канала,
+    # редактировать его нельзя — отвечаем в личку.
+    if cq.message is None or where == "channel":
+        try:
+            await send_banner_to(cq.bot, uid, text, kb)
+        except Exception as e:
+            logging.warning("Розыгрыш: личка недоступна для %s — %s", uid, e)
+            alert = (f"Откройте @{BOT_USERNAME}, нажмите «Старт» "
+                     "и вернитесь сюда")
+    else:
+        try:
+            await show_screen(cq, text, kb)
+        except TelegramBadRequest as e:
+            # «not modified» — условия те же, экран менять нечего.
+            # Остальное стоит увидеть в журнале.
+            if "not modified" not in str(e):
+                logging.exception("Розыгрыш: не смог обновить экран (uid %s)", uid)
+        except Exception:
+            logging.exception("Розыгрыш: не смог обновить экран (uid %s)", uid)
 
     try:
-        text, kb, joined = await _giveaway_screen(cq.from_user.id, cq.bot)
-    except Exception:
-        logging.exception("Розыгрыш: проверка условий сорвалась")
-        try:
-            await send_banner_to(cq.bot, cq.from_user.id,
-                                 texts.GIVEAWAY_CHECK_FAILED, giveaway_kb())
-        except Exception:
-            pass
-        return
-
-    # Под постом в канале сообщение опубликовано от имени канала —
-    # редактировать его нельзя, поэтому отвечаем в личку.
-    if cq.message is None or cq.message.chat.type == "channel":
-        try:
-            await send_banner_to(cq.bot, cq.from_user.id, text, kb)
-        except Exception:
-            # личка закрыта: человек не начинал диалог с ботом
-            try:
-                await cq.answer(
-                    f"Откройте @{BOT_USERNAME}, нажмите «Старт» "
-                    "и вернитесь сюда", show_alert=True)
-            except Exception:
-                pass
-        return
-
-    # Экран мог не измениться (условия те же) — Telegram на это отвечает
-    # ошибкой «message is not modified». Она безобидна, но без перехвата
-    # роняет хендлер, и кнопка снова крутится.
-    try:
-        await show_screen(cq, text, kb)
-    except TelegramBadRequest as e:
-        if "not modified" not in str(e):
-            logging.exception("Розыгрыш: не смог обновить экран")
-    if joined:
-        try:
-            await cq.answer("Вы в списке участников ✅", show_alert=True)
-        except Exception:
-            pass
+        await cq.answer(alert, show_alert=True)
+    except Exception as e:
+        logging.warning("Розыгрыш: ответ на нажатие не прошёл (uid %s) — %s",
+                        uid, e)
 
 
 @dp.message(Command("giveaway_post"))
