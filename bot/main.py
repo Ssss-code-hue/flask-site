@@ -567,6 +567,18 @@ async def _giveaway_screen(uid, bot):
             giveaway_kb(), True)
 
 
+def _month_price():
+    """Цена месяца строкой — рублями, если касса настроена, иначе звёздами.
+
+    Обещать оплату картой при выключенной кассе нельзя: человек нажмёт
+    и упрётся в тупик ровно в тот момент, когда решился заплатить.
+    """
+    p = PLANS.get("1m", {})
+    if platega.is_configured() or lolz.can_invoice():
+        return f"{p.get('rub')} ₽"
+    return f"{p.get('stars')} ⭐"
+
+
 def _plural_people(n):
     """1 человек, 2 человека, 5 человек."""
     if n % 100 in (11, 12, 13, 14):
@@ -1347,11 +1359,20 @@ def _plural_days(n):
 
 
 async def remind_trial_ending(bot):
-    """Авторассылка «пробный период заканчивается» с кнопкой подключения.
+    """Напоминание об окончании триала — своё для каждого случая.
 
     Шлётся один раз каждому, у кого до конца триала осталось не больше
-    TRIAL_REMIND_BEFORE_DAYS дней. Возвращает мёртвые триалы и подталкивает
-    подключиться, пока доступ ещё бесплатный."""
+    TRIAL_REMIND_BEFORE_DAYS дней.
+
+    Раньше тех, кто уже подключился, пропускали «чтобы не беспокоить» —
+    и это стоило почти всех денег. Человек 15 дней пользовался VPN, потом
+    доступ молча пропадал, и предложить продлить было некому. На 42
+    пользователей приходился ОДИН платящий.
+
+    Теперь наоборот: кто пользуется — тому и предлагаем оплату, это самая
+    тёплая аудитория. Кто не подключился — тому прежний текст с кнопкой
+    подключения: продавать человеку, не видевшему сервис, бессмысленно.
+    """
     within = TRIAL_REMIND_BEFORE_DAYS * 86400
     while True:
         await asyncio.sleep(TRIAL_REMIND_INTERVAL)
@@ -1362,17 +1383,22 @@ async def remind_trial_ending(bot):
                 connected = await asyncio.to_thread(user_connected, uid)
                 if connected is None:
                     continue                      # панель недоступна — повторим позже
-                if connected:
-                    db.mark_trial_reminded(uid)   # уже пользуется — не беспокоим
-                    continue
                 days = max(1, round((sub_until - now) / 86400))
-                text = texts.TRIAL_ENDING.format(
-                    ending="ся" if days == 1 else "ось",
-                    days=days, word=_plural_days(days))
+                common = dict(ending="ся" if days == 1 else "ось",
+                              days=days, word=_plural_days(days))
+                if connected:
+                    text = texts.TRIAL_ENDING_ACTIVE.format(
+                        date=fmt_date(sub_until), price=_month_price(), **common)
+                    kb = renew_kb()
+                else:
+                    text = texts.TRIAL_ENDING.format(**common)
+                    kb = connect_kb(token)
                 try:
-                    await send_banner_to(bot, uid, text, connect_kb(token))
+                    await send_banner_to(bot, uid, text, kb)
+                except TelegramForbiddenError:
+                    db.mark_blocked(uid)
                 except Exception:
-                    pass                          # заблокировал бота / удалил чат
+                    logging.exception("Триал: не смог напомнить %s", uid)
                 db.mark_trial_reminded(uid)
         except Exception:
             logging.exception("Ошибка авторассылки напоминаний о триале")
