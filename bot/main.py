@@ -12,7 +12,8 @@ from pathlib import Path
 from aiogram import Bot, Dispatcher, F
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.exceptions import (TelegramForbiddenError,
+from aiogram.exceptions import (TelegramBadRequest,
+                                TelegramForbiddenError,
                                 TelegramRetryAfter)
 from aiogram.filters import Command, CommandStart
 from aiogram.types import (
@@ -580,20 +581,53 @@ async def cb_giveaway_check(cq: CallbackQuery):
     человек не начинал диалог с ботом, личку Telegram не пропустит, и тогда
     показываем всплывающее окно с просьбой открыть бота.
     """
-    text, kb, joined = await _giveaway_screen(cq.from_user.id, cq.bot)
-    in_channel = cq.message is None or cq.message.chat.type == "channel"
-    if in_channel:
+    # Часики снимаем ПЕРВЫМ делом. Дальше идёт запрос в Telegram про подписку,
+    # а у callback свой таймаут: ответив в конце, получаем вечную загрузку
+    # на кнопке, даже когда проверка отработала.
+    try:
+        await cq.answer("Проверяю…")
+    except Exception:
+        pass                      # просроченный callback — работу всё равно доделаем
+
+    try:
+        text, kb, joined = await _giveaway_screen(cq.from_user.id, cq.bot)
+    except Exception:
+        logging.exception("Розыгрыш: проверка условий сорвалась")
+        try:
+            await send_banner_to(cq.bot, cq.from_user.id,
+                                 texts.GIVEAWAY_CHECK_FAILED, giveaway_kb())
+        except Exception:
+            pass
+        return
+
+    # Под постом в канале сообщение опубликовано от имени канала —
+    # редактировать его нельзя, поэтому отвечаем в личку.
+    if cq.message is None or cq.message.chat.type == "channel":
         try:
             await send_banner_to(cq.bot, cq.from_user.id, text, kb)
-            await cq.answer("Проверил — ответил вам в личке ✅" if joined
-                            else "Проверил — написал вам в личке")
         except Exception:
-            await cq.answer(
-                "Откройте бота @" + BOT_USERNAME + " и нажмите «Старт», "
-                "потом вернитесь сюда", show_alert=True)
+            # личка закрыта: человек не начинал диалог с ботом
+            try:
+                await cq.answer(
+                    f"Откройте @{BOT_USERNAME}, нажмите «Старт» "
+                    "и вернитесь сюда", show_alert=True)
+            except Exception:
+                pass
         return
-    await show_screen(cq, text, kb)
-    await cq.answer("Вы в списке участников ✅" if joined else "Проверил")
+
+    # Экран мог не измениться (условия те же) — Telegram на это отвечает
+    # ошибкой «message is not modified». Она безобидна, но без перехвата
+    # роняет хендлер, и кнопка снова крутится.
+    try:
+        await show_screen(cq, text, kb)
+    except TelegramBadRequest as e:
+        if "not modified" not in str(e):
+            logging.exception("Розыгрыш: не смог обновить экран")
+    if joined:
+        try:
+            await cq.answer("Вы в списке участников ✅", show_alert=True)
+        except Exception:
+            pass
 
 
 @dp.message(Command("giveaway_post"))
