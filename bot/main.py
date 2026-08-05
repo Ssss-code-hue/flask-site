@@ -29,7 +29,7 @@ from aiogram.types import (
 import lolz
 import platega
 
-from . import db, texts
+from . import alerts, db, texts
 from .config import (
     BOT_TOKEN,
     BOT_USERNAME,
@@ -824,6 +824,43 @@ async def _giveaway_report(message, args=(), pick=False):
         head + f"\n🏆 <b>Победитель — №{i + 1} из {len(eligible)}</b>\n"
                f"{who(uid, username)}  (<code>{uid}</code>)\n\n"
         "<i>Номер совпадает с опубликованным списком.</i>")
+
+
+@dp.errors()
+async def on_error(event):
+    """Ловит всё, что упало в любом хендлере, и шлёт владельцу.
+
+    Один обработчик на весь бот: оборачивать каждый хендлер в try
+    пришлось бы вручную, и первый же новый хендлер про это забыл бы.
+
+    Возвращаем True — aiogram считает ошибку обработанной и не роняет
+    опрос. Пользователь при этом всё равно останется без ответа, но
+    остальные продолжат пользоваться ботом.
+    """
+    uid = None
+    try:
+        upd = event.update
+        for part in (upd.message, upd.callback_query, upd.pre_checkout_query):
+            if part and part.from_user:
+                uid = part.from_user.id
+                break
+    except Exception:
+        pass
+    where = "обработка сообщения" if uid else "бот"
+    logging.exception("Необработанная ошибка у %s", uid, exc_info=event.exception)
+    await alerts.report(event.bot if hasattr(event, "bot") else bot_instance[0],
+                        OWNER_ID, where, event.exception, uid)
+    return True
+
+
+# Ссылка на живой Bot нужна оповещениям из фоновых задач: там нет ни
+# message, ни callback, а слать владельцу всё равно надо.
+bot_instance = [None]
+
+
+async def alert(where, exc, uid=None):
+    """Короткий вызов для мест, где ошибку ловим сами (оплата, ключи)."""
+    await alerts.report(bot_instance[0], OWNER_ID, where, exc, uid)
 
 
 # ============ Панель владельца ============
@@ -1722,6 +1759,7 @@ async def main():
         raise SystemExit("Ошибка: задайте переменную окружения BOT_TOKEN (токен от @BotFather).")
     db.init_db()
     bot = Bot(BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    bot_instance[0] = bot          # для оповещений из фоновых задач
 
     # в меню слева от поля ввода — только «старт»; остальная навигация
     # кнопками в сообщении (команды /buy и т.д. работают, если их ввести)
@@ -1750,6 +1788,12 @@ async def main():
                  ADVOCACY_AFTER_DAYS)
 
     logging.info("IKK VPN bot запущен")
+    if OWNER_ID:
+        try:
+            await bot.send_message(
+                OWNER_ID, "🟢 Бот перезапущен. Оповещения о сбоях включены.")
+        except Exception:
+            logging.exception("Не смог сообщить владельцу о старте")
     await dp.start_polling(bot)
 
 
