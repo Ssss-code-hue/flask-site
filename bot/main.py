@@ -479,6 +479,35 @@ async def _bc_ref(message):
     await broadcast(message, users, make)
 
 
+# Номинал подарка за приглашение. Выдаётся ВРУЧНУЮ по скриншоту: за
+# автоматическую выдачу человек заведёт второй аккаунт и перейдёт по
+# своей же ссылке за минуту, а подарок стоит настоящих денег.
+REF_GIFT_STARS = int(os.environ.get("REF_GIFT_STARS", "25"))
+
+
+async def _bc_gift(message):
+    """Акция «подарок за приглашение друга».
+
+    Ссылка у каждого своя, поэтому текст собирается на каждого отдельно.
+    Скриншот человек присылает в бот поддержки — там уже есть тикеты,
+    и обращение придёт владельцу с возможностью ответить.
+    """
+    users = db.all_user_ids()
+    await message.answer(
+        f"⏳ Рассылаю про подарок ({REF_GIFT_STARS} ⭐) "
+        f"по {len(users)} пользователям…\n\n"
+        f"Скриншоты придут в @{SUPPORT_BOT_USERNAME} тикетами.")
+
+    def make(uid):
+        link = f"https://t.me/{BOT_USERNAME}?start=ref_{uid}"
+        return (texts.REF_GIFT_BROADCAST.format(
+            stars=REF_GIFT_STARS, days=REFERRAL_BONUS_DAYS,
+            support=f"@{SUPPORT_BOT_USERNAME}", link=link),
+            ref_share_kb(link))
+
+    await broadcast(message, users, make)
+
+
 @dp.message(Command("broadcast_lapsed"))
 async def cmd_broadcast_lapsed(message: Message):
     """Рассылка «вернитесь» тем, у кого подписка уже закончилась (owner-only).
@@ -879,7 +908,7 @@ def _is_owner(x):
 async def _run_broadcast(message, code):
     """Запуск рассылки из панели. Владельца проверили до вызова."""
     fn = {"lapsed": _bc_lapsed, "nc": _bc_nc, "ref": _bc_ref,
-          "promo": _bc_promo, "sale": _bc_sale}.get(code)
+          "promo": _bc_promo, "sale": _bc_sale, "gift": _bc_gift}.get(code)
     if not fn:
         await message.answer("Неизвестная рассылка.")
         return
