@@ -44,6 +44,8 @@ from .config import (
     SUPPORT_BOT_USERNAME,
     TRIAL_DAYS,
     GIVEAWAY_CHANNEL,
+    GIVEAWAY_MAX_ENTRIES,
+    GIVEAWAY_MIN_MINUTES,
     GIVEAWAY_PRIZE,
     GIVEAWAY_TAG,
     GIVEAWAY_UNTIL,
@@ -571,10 +573,34 @@ async def _giveaway_screen(uid, bot):
         return texts.GIVEAWAY_OFF.format(channel=GIVEAWAY_CHANNEL), None, False
 
     common = dict(prize=GIVEAWAY_PRIZE, channel=GIVEAWAY_CHANNEL,
-                  until=GIVEAWAY_UNTIL or "скоро", days=TRIAL_DAYS)
+                  until=GIVEAWAY_UNTIL or "скоро", days=TRIAL_DAYS,
+                  limit=GIVEAWAY_MAX_ENTRIES)
 
     u = db.get_user(uid)
     has_key = bool(u and u["sub_until"])
+    already_in = bool(u and u["giveaway_at"])
+
+    # Потолок проверяем раньше всего, но уже попавших он не выкидывает:
+    # место занято, и отбирать его закрытием набора нечестно.
+    if not already_in and db.giveaway_count() >= GIVEAWAY_MAX_ENTRIES:
+        logging.info("Розыгрыш: %s пришёл к закрытому набору", uid)
+        return (texts.GIVEAWAY_FULL.format(limit=GIVEAWAY_MAX_ENTRIES,
+                                           days=TRIAL_DAYS,
+                                           channel=GIVEAWAY_CHANNEL),
+                giveaway_kb(), False)
+
+    # Пауза после первого запуска бота. Скрипт её пересидит, но массовая
+    # регистрация аккаунтов растягивается во времени — а растянутая
+    # регистрация видна в отчёте, в отличие от мгновенной.
+    created = (u["created_at"] if u else 0) or 0
+    waited = (int(time.time()) - created) // 60
+    if not already_in and created and waited < GIVEAWAY_MIN_MINUTES:
+        logging.info("Розыгрыш: %s жмёт участие через %s мин. после старта",
+                     uid, waited)
+        return (texts.GIVEAWAY_TOO_FRESH.format(
+            minutes=GIVEAWAY_MIN_MINUTES,
+            left=max(1, GIVEAWAY_MIN_MINUTES - waited)), giveaway_kb(), False)
+
     subscribed = await _is_subscribed(bot, uid)
 
     if subscribed is None:
@@ -588,7 +614,7 @@ async def _giveaway_screen(uid, bot):
                 giveaway_kb(need_sub=True), False)
 
     db.mark_giveaway_entry(uid)
-    count = len(db.giveaway_entries())
+    count = db.giveaway_count()
     return (texts.GIVEAWAY_OK.format(count=count,
                                      people=_plural_people(count), **common),
             giveaway_kb(), True)
@@ -697,7 +723,8 @@ async def _publish_giveaway_post(message):
         await message.answer("Розыгрыш выключен: не задан GIVEAWAY_PRIZE.")
         return
     text = texts.GIVEAWAY_POST.format(prize=GIVEAWAY_PRIZE, days=TRIAL_DAYS,
-                                      until=GIVEAWAY_UNTIL or "скоро")
+                                      until=GIVEAWAY_UNTIL or "скоро",
+                                      limit=GIVEAWAY_MAX_ENTRIES)
     try:
         await message.bot.send_message(GIVEAWAY_CHANNEL, text,
                                        reply_markup=giveaway_post_kb(BOT_USERNAME))
@@ -760,7 +787,16 @@ async def _giveaway_report(message, args=(), pick=False):
     def who(uid, username):
         return f"@{username}" if username else f"id{uid}"
 
+    susp = db.giveaway_suspicious()
+    # Участник, ни разу не открывавший страницу подключения, пришёл
+    # только за подарком. Единицы — норма, большинство — накрутка.
+    warn = ""
+    if susp["no_touch"] >= 5 and susp["no_touch"] * 2 >= len(rows):
+        warn = (f"⚠️ {susp['no_touch']} из {len(rows)} даже не открывали "
+                "подключение — пришли только за подарком\n")
     head = (f"🎲 <b>Розыгрыш{f' · метка {source}' if source else ''}</b>\n\n"
+            f"Мест занято: <b>{db.giveaway_count()}</b> из {GIVEAWAY_MAX_ENTRIES}\n"
+            f"{warn}"
             f"Подтвердили участие: <b>{len(rows)}</b>\n"
             f"Подписка на канал сейчас: <b>{len(eligible)}</b>\n"
             f"Отписались после регистрации: {not_subbed}\n")
@@ -867,11 +903,15 @@ async def cb_admin(cq: CallbackQuery):
 
     # ---------- Розыгрыш ----------
     if action == "gw":
-        n = len(db.giveaway_entries())
+        n = db.giveaway_count()
+        susp = db.giveaway_suspicious()
         text = (f"🎁 <b>Розыгрыш: {GIVEAWAY_PRIZE}</b>\n\n"
-                f"Подтвердили участие: <b>{n}</b>\n"
+                f"Участников: <b>{n}</b> из {GIVEAWAY_MAX_ENTRIES}\n"
+                f"Пришло за час: {susp['recent']}\n"
+                f"Не открывали подключение: {susp['no_touch']}\n\n"
                 f"Канал: {GIVEAWAY_CHANNEL}\n"
-                f"Итоги: {GIVEAWAY_UNTIL or 'не заданы'}"
+                f"Итоги: {GIVEAWAY_UNTIL or 'не заданы'}\n"
+                f"Пауза перед участием: {GIVEAWAY_MIN_MINUTES} мин."
                 ) if giveaway_active() else (
             "🎁 <b>Розыгрыш выключен</b>\n\n"
             "Чтобы включить, задайте <code>GIVEAWAY_PRIZE</code> "

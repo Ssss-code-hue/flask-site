@@ -300,6 +300,40 @@ def giveaway_entries():
         return [(r["user_id"], r["username"], r["source"]) for r in rows]
 
 
+def giveaway_count():
+    """Сколько мест уже занято. Отдельным запросом, а не len(entries):
+    проверка потолка идёт на каждое нажатие кнопки."""
+    with _conn() as c:
+        return c.execute(
+            "SELECT COUNT(*) FROM users WHERE giveaway_at IS NOT NULL"
+        ).fetchone()[0] or 0
+
+
+def giveaway_suspicious(window_hours=1):
+    """Признаки накрутки среди участников.
+
+    `no_touch` — участники, которые ни разу не открывали страницу
+    подключения. Это и есть рабочий признак: накрутчику нужна отметка
+    об участии, а настраивать VPN на полусотне аккаунтов он не станет.
+    Живой человек, пришедший за подарком, чаще всего ключ хотя бы
+    попробует — ради него он и заходил.
+
+    Первым признаком было «участвовал в течение часа после запуска бота»,
+    но при обязательной паузе перед участием туда попадает и честный
+    человек, пришедший по рекламе, — тревога горела бы всегда.
+
+    `recent` — пришло за последний час, чтобы видеть всплески.
+    """
+    with _conn() as c:
+        no_touch = c.execute(
+            "SELECT COUNT(*) FROM users WHERE giveaway_at IS NOT NULL "
+            "AND page_at IS NULL").fetchone()[0] or 0
+        recent = c.execute(
+            "SELECT COUNT(*) FROM users WHERE giveaway_at > ?",
+            (int(time.time()) - window_hours * 3600,)).fetchone()[0] or 0
+        return {"no_touch": no_touch, "recent": recent}
+
+
 def giveaway_reset():
     """Очищает список участников — перед новой акцией.
 
