@@ -1010,6 +1010,30 @@ async def cmd_stats(message: Message):
     await message.answer(_stats_text())
 
 
+def _backup_line():
+    """Строка о свежести резервной копии.
+
+    Бэкап по расписанию молчалив: сломается — узнаешь в тот момент, когда
+    копия понадобится, то есть в худший из возможных. Поэтому его возраст
+    показывается там, куда и так смотрят каждый день.
+    """
+    d = Path(os.environ.get("BACKUP_DIR", "/root/backups"))
+    try:
+        files = sorted(d.glob("*.db"), key=lambda f: f.stat().st_mtime)
+    except OSError:
+        files = []
+    if not files:
+        return "💾 Копий базы нет — резервное копирование не настроено"
+    last = files[-1].stat()
+    hours = (time.time() - last.st_mtime) / 3600
+    if hours > 48:
+        return (f"⚠️ Последняя копия базы {hours / 24:.0f} дн. назад — "
+                "похоже, копирование сломалось")
+    when = f"{hours:.0f} ч назад" if hours >= 1 else "меньше часа назад"
+    return (f"💾 Копия базы: {when}, {last.st_size / 1024:.0f} КБ · "
+            f"всего копий {len(files)}")
+
+
 def _stats_text():
     """Сводка бота. Общая для команды /stats и кнопки в панели —
     иначе два места разъедутся при первой же правке."""
@@ -1030,6 +1054,8 @@ def _stats_text():
     if s["giveaway"]:
         lines.append(f"<code>{s['giveaway']:>4}</code>  участвуют в розыгрыше")
     lines += [
+        "",
+        _backup_line(),
         "",
         "<i>«Пользователей в месяц» в профиле бота — это счётчик Telegram: "
         "он считает только тех, кто за 30 дней что-то нажимал. Тот, кто "
