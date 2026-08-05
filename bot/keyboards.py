@@ -164,7 +164,7 @@ def giveaway_kb(need_key=False, need_sub=False):
     return kb.as_markup()
 
 
-def giveaway_post_kb(bot_username):
+def giveaway_post_kb(bot_username, gift_stars=None):
     """Кнопка под постом розыгрыша.
 
     В СВОЁМ канале пост публикует наш бот, поэтому callback до него дойдёт
@@ -174,6 +174,9 @@ def giveaway_post_kb(bot_username):
     kb = InlineKeyboardBuilder()
     kb.button(text="✅ Проверить подписки и участвовать",
               callback_data="gw_check")
+    if gift_stars:
+        kb.button(text=f"🎁 Пригласи друга — подарок {gift_stars} ⭐",
+                  url=f"https://t.me/{bot_username}?start=gift")
     kb.button(text="🤖 Открыть бота",
               url=f"https://t.me/{bot_username}?start=giveaway")
     kb.adjust(1)

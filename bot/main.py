@@ -264,12 +264,29 @@ async def cmd_start(message: Message):
             except Exception:
                 logging.exception("Реферал: не смог уведомить %s", ref_id)
 
-    # Пришёл по рекламной ссылке розыгрыша — показываем сразу его условия,
-    # а не общее приветствие. Человек кликнул из поста про подарок и ждёт
-    # увидеть подарок; обычное меню он читать не станет и уйдёт.
-    if giveaway_active() and _clean_source(param) in {GIVEAWAY_TAG, "giveaway"}:
-        text, kb, _ = await _giveaway_screen(uid, message.bot)
-        await send_banner(message, text, kb)
+    # Пришёл по ссылке из рекламы — показываем сразу то, за чем шёл, а не
+    # общее приветствие. Человек кликнул из поста про подарок и ждёт увидеть
+    # подарок; обычное меню он читать не станет и уйдёт.
+    tag = _clean_source(param)
+
+    # Кнопка «Пригласи друга и получи подарок» — сразу личная ссылка
+    if tag == "gift":
+        await send_banner(message, _gift_text(uid), ref_share_kb(_ref_link(uid)))
+        return
+
+    if giveaway_active() and tag in {GIVEAWAY_TAG, "giveaway"}:
+        # Показываем УСЛОВИЯ, а не результат проверки. Человек только что
+        # пришёл по ссылке из поста; встретить его отказом «ещё рано» или
+        # «нет ключа» — верный способ потерять. Проверка сработает, когда
+        # он сам нажмёт кнопку.
+        u = db.get_user(uid)
+        await send_banner(
+            message,
+            texts.GIVEAWAY_INTRO.format(
+                prize=GIVEAWAY_PRIZE, channel=GIVEAWAY_CHANNEL,
+                until=GIVEAWAY_UNTIL or "скоро", days=TRIAL_DAYS,
+                limit=GIVEAWAY_MAX_ENTRIES),
+            giveaway_kb(need_key=not (u and u["sub_until"]), need_sub=True))
         return
 
     await send_welcome(message)
@@ -485,6 +502,19 @@ async def _bc_ref(message):
 REF_GIFT_STARS = int(os.environ.get("REF_GIFT_STARS", "25"))
 
 
+def _ref_link(uid):
+    return f"https://t.me/{BOT_USERNAME}?start=ref_{uid}"
+
+
+def _gift_text(uid):
+    """Экран акции с личной ссылкой. Тот же текст, что в рассылке:
+    человек может прийти и оттуда, и по кнопке из поста — условия
+    должны совпадать слово в слово, иначе будут вопросы."""
+    return texts.REF_GIFT_BROADCAST.format(
+        stars=REF_GIFT_STARS, days=REFERRAL_BONUS_DAYS,
+        support=f"@{SUPPORT_BOT_USERNAME}", link=_ref_link(uid))
+
+
 async def _bc_gift(message):
     """Акция «подарок за приглашение друга».
 
@@ -499,11 +529,7 @@ async def _bc_gift(message):
         f"Скриншоты придут в @{SUPPORT_BOT_USERNAME} тикетами.")
 
     def make(uid):
-        link = f"https://t.me/{BOT_USERNAME}?start=ref_{uid}"
-        return (texts.REF_GIFT_BROADCAST.format(
-            stars=REF_GIFT_STARS, days=REFERRAL_BONUS_DAYS,
-            support=f"@{SUPPORT_BOT_USERNAME}", link=link),
-            ref_share_kb(link))
+        return _gift_text(uid), ref_share_kb(_ref_link(uid))
 
     await broadcast(message, users, make)
 
@@ -756,7 +782,7 @@ async def _publish_giveaway_post(message):
                                       limit=GIVEAWAY_MAX_ENTRIES)
     try:
         await message.bot.send_message(GIVEAWAY_CHANNEL, text,
-                                       reply_markup=giveaway_post_kb(BOT_USERNAME))
+                                       reply_markup=giveaway_post_kb(BOT_USERNAME, REF_GIFT_STARS))
         await message.answer(f"✅ Опубликовано в {GIVEAWAY_CHANNEL}.")
     except Exception as e:
         await message.answer(
