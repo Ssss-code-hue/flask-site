@@ -603,6 +603,45 @@ async def cmd_broadcast_lapsed(message: Message):
     await _bc_lapsed(message)
 
 
+async def _bc_sale_return(message):
+    """Акция «месяц + бонусные дни» тем, у кого подписка закончилась.
+
+    Самая тёплая аудитория из неплатящих: человек уже пробовал сервис и
+    знает, что получает. Ему нужен не рассказ, а повод вернуться.
+
+    Отправка невозможна при выключенной акции — и это главное здесь.
+    Пообещать бонус, которого plan_days() не начислит, значит взять
+    деньги и выдать меньше обещанного. Проверка не косметическая.
+    """
+    if not sale_active():
+        await message.answer(
+            f"⛔ Акция не активна (закончилась {_sale_until_ru()}) — "
+            "рассылка отменена.\n\n"
+            "Иначе люди заплатят, а бонусные дни не начислятся: их даёт "
+            "<code>plan_days()</code>, и он смотрит на ту же дату.\n\n"
+            "Задайте <code>SALE_UNTIL</code> и <code>SALE_BONUS_DAYS</code> "
+            "в настройках бота и перезапустите его.")
+        return
+
+    users = db.lapsed_users(int(time.time()))
+    if not users:
+        await message.answer("Некому слать: ни у кого подписка не заканчивалась.")
+        return
+
+    p = PLANS.get(SALE_PLAN, {})
+    base, total = p.get("days", 30), plan_days(SALE_PLAN)
+    await message.answer(
+        f"⏳ Рассылаю возврат с акцией (+{SALE_BONUS_DAYS} дн., "
+        f"итого {total} дн. за {_month_price()}, по {_sale_until_ru()}) "
+        f"по {len(users)} ушедшим…")
+
+    text = texts.SALE_RETURN.format(bonus=SALE_BONUS_DAYS, price=_month_price(),
+                                    total=total, base=base,
+                                    until=_sale_until_ru())
+    kb = sale_kb()
+    await broadcast(message, [uid for uid, _ in users], lambda uid: (text, kb))
+
+
 async def _bc_lapsed(message):
     users = db.lapsed_users(int(time.time()))
     if not users:
@@ -991,7 +1030,7 @@ async def _run_broadcast(message, code):
     """Запуск рассылки из панели. Владельца проверили до вызова."""
     fn = {"lapsed": _bc_lapsed, "nc": _bc_nc, "ref": _bc_ref,
           "promo": _bc_promo, "sale": _bc_sale, "gift": _bc_gift,
-          "howru": _bc_howsitgoing}.get(code)
+          "howru": _bc_howsitgoing, "salert": _bc_sale_return}.get(code)
     if not fn:
         await message.answer("Неизвестная рассылка.")
         return
