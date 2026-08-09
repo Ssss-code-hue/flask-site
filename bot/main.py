@@ -57,11 +57,12 @@ from .keyboards import (BROADCASTS, admin_back_kb, admin_broadcasts_kb,
                         admin_confirm_kb, admin_giveaway_kb, admin_kb,
                         back_kb, card_invoice_kb, connect_kb, devices_kb,
                         docs_kb, giveaway_kb, giveaway_post_kb, main_menu,
+                        support_kb,
                         offer_consent_kb, paid_kb,
                         pay_method_kb, plans_kb, promo_offer_kb, ref_share_kb,
                         renew_kb, sale_kb, trial_consent_kb)
 from .panel import (get_subscription_url, online_usernames, site_sub_url,
-                    sub_token, user_connected)
+                    sub_token, traffic_by_username, user_connected)
 
 logging.basicConfig(level=logging.INFO)
 dp = Dispatcher()
@@ -393,6 +394,51 @@ async def cmd_broadcast_nc(message: Message):
     if not OWNER_ID or message.from_user.id != OWNER_ID:
         return
     await _bc_nc(message)
+
+
+# Порог «почти не пользовался», МБ. Меньше — хватило на рукопожатие и пару
+# попыток, но не на работу. Больше — человек уже пользуется, и вопрос
+# «всё ли работает» будет выглядеть странно.
+TINY_TRAFFIC_MB = int(os.environ.get("TINY_TRAFFIC_MB", "100"))
+
+
+async def _bc_howsitgoing(message):
+    """Вопрос тем, кто подключился, но израсходовал считанные килобайты.
+
+    Три недели гадали, что с этой группой: поломка, потеря интереса или
+    тихое отключение VPN. Все технические версии проверены и не
+    подтвердились — остаётся спросить самих людей.
+
+    Рассылка ничего не продаёт: продажа превратит честный вопрос в
+    рекламу, и отвечать перестанут.
+    """
+    traffic = await asyncio.to_thread(traffic_by_username)
+    if traffic is None:
+        await message.answer("Панель недоступна — расход трафика не узнать. "
+                             "Попробуйте позже.")
+        return
+
+    limit = TINY_TRAFFIC_MB * 1024 * 1024
+    users = []
+    for uid, _ in db.active_users(int(time.time())):
+        used = traffic.get(f"ikk_{uid}")
+        if used and used < limit:     # подключался, но почти не пользовался
+            users.append(uid)
+
+    if not users:
+        await message.answer(
+            "Некому слать: либо ни у кого нет подключений, либо у всех "
+            f"расход больше {TINY_TRAFFIC_MB} МБ.")
+        return
+
+    await message.answer(
+        f"⏳ Спрашиваю «всё ли работает» у {len(users)} чел. — это те, кто "
+        f"подключился, но израсходовал меньше {TINY_TRAFFIC_MB} МБ.\n\n"
+        f"Ответы придут в @{SUPPORT_BOT_USERNAME} тикетами.")
+
+    text = texts.HOWS_IT_GOING.format(support=f"@{SUPPORT_BOT_USERNAME}")
+    kb = support_kb()
+    await broadcast(message, users, lambda uid: (text, kb))
 
 
 async def _bc_nc(message):
@@ -943,7 +989,8 @@ def _is_owner(x):
 async def _run_broadcast(message, code):
     """Запуск рассылки из панели. Владельца проверили до вызова."""
     fn = {"lapsed": _bc_lapsed, "nc": _bc_nc, "ref": _bc_ref,
-          "promo": _bc_promo, "sale": _bc_sale, "gift": _bc_gift}.get(code)
+          "promo": _bc_promo, "sale": _bc_sale, "gift": _bc_gift,
+          "howru": _bc_howsitgoing}.get(code)
     if not fn:
         await message.answer("Неизвестная рассылка.")
         return

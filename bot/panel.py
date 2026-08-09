@@ -235,6 +235,30 @@ def online_usernames():
         return None
 
 
+def traffic_by_username():
+    """Расход трафика по всем пользователям панели: имя → байты.
+
+    Одним запросом, а не по одному на человека: у каждого вызова свой
+    логин в панель, и на сотне пользователей это сотня авторизаций.
+
+    None — панель недоступна. Именно None, а не пустой словарь: иначе
+    рассылка решит, что никто ничего не потратил, и уйдёт всем подряд.
+    """
+    if not _configured():
+        return None
+    try:
+        r = requests.get(
+            f"{PANEL_URL}/api/users",
+            headers=_headers(_login()), timeout=TIMEOUT, verify=VERIFY,
+        )
+        r.raise_for_status()
+        return {u["username"]: (u.get("used_traffic") or 0)
+                for u in r.json().get("users", [])}
+    except Exception:
+        log.exception("panel: не удалось получить расход трафика")
+        return None
+
+
 def delete_panel_user(user_id, prefix=None):
     """Удаляет пользователя из Marzban — иначе его ключ работает и после
     удаления аккаунта. Возвращает True, если пользователя больше нет."""

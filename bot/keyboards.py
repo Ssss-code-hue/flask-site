@@ -71,6 +71,17 @@ def ref_share_kb(link, bonus_days=REFERRAL_BONUS_DAYS):
     return kb.as_markup()
 
 
+def support_kb():
+    """Кнопка прямо в поддержку. Просить «напишите мне» и не дать кнопку
+    значит потерять половину ответов: искать бота вручную никто не станет."""
+    kb = InlineKeyboardBuilder()
+    kb.button(text="💬 Написать в поддержку",
+              url=f"https://t.me/{SUPPORT_BOT_USERNAME}")
+    kb.button(text="◀ Меню", callback_data="menu")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
 def admin_kb():
     """Главный экран панели владельца."""
     kb = InlineKeyboardBuilder()
@@ -104,6 +115,7 @@ def admin_back_kb(refresh=None):
 BROADCASTS = {
     "lapsed": ("Вернитесь (+промокод)", "у кого подписка закончилась"),
     "nc":     ("Вы не подключились", "с активной подпиской, но без единого подключения"),
+    "howru":  ("Всё ли работает?", "подключились, но израсходовали меньше 100 МБ"),
     "ref":    ("Про рефералов", "всем живым"),
     "gift":   ("Подарок за приглашение", "всем живым · выдача вручную по скриншоту"),
     "promo":  ("Промокод", "всем живым"),

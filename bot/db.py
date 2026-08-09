@@ -450,10 +450,17 @@ def mark_trial_used(uid):
 
 
 def active_users(now):
-    """Все пользователи с активной подпиской — для разовой рассылки."""
+    """Пользователи с активной подпиской, не заблокировавшие бота.
+
+    Заблокировавших исключаем, как и в all_user_ids: сообщение им всё
+    равно не дойдёт, а рассылка будет стучаться в мёртвые чаты и портить
+    статистику доставки. Раньше здесь этого условия не было, и рассылки
+    по активной подписке считали их адресатами.
+    """
     with _conn() as c:
         rows = c.execute(
-            "SELECT user_id, sub_until FROM users WHERE sub_until>?", (now,)
+            "SELECT user_id, sub_until FROM users "
+            "WHERE sub_until>? AND COALESCE(blocked,0)=0", (now,)
         ).fetchall()
         return [(r["user_id"], r["sub_until"]) for r in rows]
 
