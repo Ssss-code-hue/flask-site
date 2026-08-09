@@ -157,9 +157,18 @@ async def show_screen(cq: CallbackQuery, text, reply_markup=None, **kwargs):
 
 
 def ref_text(uid):
+    """Экран рефералов.
+
+    Раньше «заработано» считалось как переходы × бонус, хотя дни идут
+    только за оплативших. Человек с 29 переходами видел «290 дней»,
+    которых у него не было, — и приходил за ними. Теперь показываем
+    факт: сколько пришло и за скольких начислено.
+    """
     link = f"https://t.me/{BOT_USERNAME}?start=ref_{uid}"
     n = db.count_referrals(uid)
-    return texts.REF.format(link=link, days=REFERRAL_BONUS_DAYS, count=n, earned=n * REFERRAL_BONUS_DAYS)
+    paid = db.count_paid_referrals(uid)
+    return texts.REF.format(link=link, days=REFERRAL_BONUS_DAYS,
+                            count=n, paid=paid, earned=paid * REFERRAL_BONUS_DAYS)
 
 
 def sync_panel(uid):
@@ -993,6 +1002,11 @@ async def cb_admin(cq: CallbackQuery):
         await _admin_show(cq, _sources_text(), "adm:sources")
         return
 
+    if action == "refs":
+        await cq.answer("Считаю…")
+        await _admin_show(cq, _referrals_text(), "adm:refs")
+        return
+
     # ---------- Розыгрыш ----------
     if action == "gw":
         n = db.giveaway_count()
@@ -1048,6 +1062,42 @@ async def cb_admin(cq: CallbackQuery):
         return
 
     await cq.answer()
+
+
+def _referrals_text():
+    """Кто кого привёл — с качеством приглашённых (owner-only).
+
+    Одного числа приглашений недостаточно: человек может нагнать сотню
+    переходов, из которых ключ не откроет никто. Поэтому рядом стоят
+    «пользуются» и «платят» — по ним и видно, работа это или клики.
+    """
+    rows = db.referral_leaders()
+    if not rows:
+        return "По реферальным ссылкам ещё никто не приходил."
+    lines = ["🤝 <b>Кто приводит людей</b>\n",
+             "<code>кто          пришло  ключ  польз.  опл.</code>"]
+    for r in rows:
+        who = (f"@{r['username']}" if r["username"] else f"id{r['uid']}")[:12]
+        lines.append(f"<code>{who:<12} {r['invited']:>6} {r['with_key']:>5} "
+                     f"{r['used']:>6} {r['paying']:>5}</code>")
+    lines += [
+        "",
+        "<b>ключ</b> — взяли подписку в боте",
+        "<b>польз.</b> — реально скачали ключ в приложение",
+        "<b>опл.</b> — заплатили хотя бы раз",
+        "",
+        "<i>Смотреть надо на «польз.»: большое «пришло» при нулевом "
+        "«польз.» значит, что люди кликали, но VPN им не нужен.</i>",
+    ]
+    return "\n".join(lines)
+
+
+@dp.message(Command("referrals"))
+async def cmd_referrals(message: Message):
+    """Кто сколько привёл и какого качества (owner-only)."""
+    if not OWNER_ID or message.from_user.id != OWNER_ID:
+        return
+    await message.answer(_referrals_text())
 
 
 @dp.message(Command("stats"))

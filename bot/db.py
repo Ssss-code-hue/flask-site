@@ -595,6 +595,50 @@ def count_referrals(uid):
         ).fetchone()["n"]
 
 
+def count_paid_referrals(uid):
+    """Приглашённые, которые заплатили. Именно за них начисляются дни —
+    в отличие от общего числа переходов."""
+    with _conn() as c:
+        return c.execute(
+            "SELECT COUNT(*) FROM users u WHERE u.referred_by=? AND ("
+            " EXISTS(SELECT 1 FROM payments p WHERE p.user_id=u.user_id)"
+            " OR EXISTS(SELECT 1 FROM bot_invoices b"
+            "           WHERE b.user_id=u.user_id AND b.status='paid'))",
+            (uid,)).fetchone()[0] or 0
+
+
+def referral_leaders(limit=30):
+    """Кто кого привёл — с качеством, а не только количеством.
+
+    Одного числа приглашений мало: человек может нагнать сотню переходов,
+    из которых ключ не откроет никто. Разница между колонками и есть
+    разница между работой и накруткой.
+
+    invited  — всего пришло по ссылке
+    with_key — из них взяли ключ
+    used     — из них реально скачали подписку в приложение
+    paying   — из них хотя бы раз платили
+    """
+    with _conn() as c:
+        rows = c.execute("""
+            SELECT r.referred_by AS uid,
+                   (SELECT username FROM users WHERE user_id=r.referred_by) AS username,
+                   COUNT(*) AS invited,
+                   SUM(CASE WHEN r.sub_until>0 THEN 1 ELSE 0 END) AS with_key,
+                   SUM(CASE WHEN r.fetch_at IS NOT NULL THEN 1 ELSE 0 END) AS used,
+                   SUM(CASE WHEN EXISTS(SELECT 1 FROM payments p
+                                        WHERE p.user_id=r.user_id)
+                             OR EXISTS(SELECT 1 FROM bot_invoices b
+                                       WHERE b.user_id=r.user_id AND b.status='paid')
+                            THEN 1 ELSE 0 END) AS paying
+            FROM users r
+            WHERE r.referred_by IS NOT NULL
+            GROUP BY r.referred_by
+            ORDER BY paying DESC, used DESC, invited DESC
+            LIMIT ?""", (limit,)).fetchall()
+        return [dict(r) for r in rows]
+
+
 def get_payments(uid):
     """История платежей пользователя (свежие сверху)."""
     with _conn() as c:

@@ -77,6 +77,7 @@ def admin_kb():
     kb.button(text="📊 Статистика", callback_data="adm:stats")
     kb.button(text="📉 Воронка подключения", callback_data="adm:funnel")
     kb.button(text="🚦 Источники", callback_data="adm:sources")
+    kb.button(text="🤝 Кто приводит людей", callback_data="adm:refs")
     kb.button(text="🎁 Розыгрыш", callback_data="adm:gw")
     kb.button(text="📢 Рассылки", callback_data="adm:bc")
     kb.adjust(1)
