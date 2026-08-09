@@ -12,7 +12,7 @@ except ImportError:                     # на старой aiogram — обой
 import lolz
 import platega
 
-from .config import (GIVEAWAY_CHANNEL, PLANS, PRIVACY_URL, REFERRAL_BONUS_DAYS,
+from .config import (CONTACT_USERNAME, GIVEAWAY_CHANNEL, PLANS, PRIVACY_URL, REFERRAL_BONUS_DAYS,
                      SALE_BONUS_DAYS, SALE_PLAN, plan_days, sale_active,
                      SUPPORT_BOT_USERNAME, TERMS_URL, TRIAL_DAYS,
                      WEBAPP_URL, OFFER_URL)
@@ -72,11 +72,14 @@ def ref_share_kb(link, bonus_days=REFERRAL_BONUS_DAYS):
 
 
 def support_kb():
-    """Кнопка прямо в поддержку. Просить «напишите мне» и не дать кнопку
-    значит потерять половину ответов: искать бота вручную никто не станет."""
+    """Кнопка в личку владельцу. Просить «напишите мне» и не дать кнопку
+    значит потерять половину ответов: искать аккаунт вручную никто не станет.
+
+    Ведёт к человеку, а не в бот поддержки: там тикеты, и разговор
+    получается формальным, а тут нужен живой ответ."""
     kb = InlineKeyboardBuilder()
-    kb.button(text="💬 Написать в поддержку",
-              url=f"https://t.me/{SUPPORT_BOT_USERNAME}")
+    kb.button(text="💬 Написать мне лично",
+              url=f"https://t.me/{CONTACT_USERNAME}")
     kb.button(text="◀ Меню", callback_data="menu")
     kb.adjust(1)
     return kb.as_markup()
@@ -115,7 +118,7 @@ def admin_back_kb(refresh=None):
 BROADCASTS = {
     "lapsed": ("Вернитесь (+промокод)", "у кого подписка закончилась"),
     "nc":     ("Вы не подключились", "с активной подпиской, но без единого подключения"),
-    "howru":  ("Всё ли работает?", "подключились, но израсходовали меньше 100 МБ"),
+    "howru":  ("Всё ли работает?", "подключились, но израсходовали меньше 100 МБ · ответы придут в личку"),
     "ref":    ("Про рефералов", "всем живым"),
     "gift":   ("Подарок за приглашение", "всем живым · выдача вручную по скриншоту"),
     "promo":  ("Промокод", "всем живым"),

@@ -32,6 +32,7 @@ import platega
 from . import alerts, db, texts
 from .config import (
     BOT_TOKEN,
+    CONTACT_USERNAME,
     BOT_USERNAME,
     OWNER_ID,
     PLANS,
@@ -434,9 +435,9 @@ async def _bc_howsitgoing(message):
     await message.answer(
         f"⏳ Спрашиваю «всё ли работает» у {len(users)} чел. — это те, кто "
         f"подключился, но израсходовал меньше {TINY_TRAFFIC_MB} МБ.\n\n"
-        f"Ответы придут в @{SUPPORT_BOT_USERNAME} тикетами.")
+        f"Ответы придут вам в личку — @{CONTACT_USERNAME}.")
 
-    text = texts.HOWS_IT_GOING.format(support=f"@{SUPPORT_BOT_USERNAME}")
+    text = texts.HOWS_IT_GOING.format(support=f"@{CONTACT_USERNAME}")
     kb = support_kb()
     await broadcast(message, users, lambda uid: (text, kb))
 
