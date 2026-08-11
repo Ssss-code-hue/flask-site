@@ -8,6 +8,7 @@ from flasgger import Swagger
 from api import api as api_blueprint
 from auth import TRIAL_DAYS, auth as auth_blueprint
 from bot import db
+from bot.config import REFERRAL_BONUS_DAYS
 from bot.panel import WEB_PREFIX, get_subscription_url, sub_token
 from pay import pay as pay_blueprint
 from pay import available_providers
@@ -81,7 +82,13 @@ def inject_seo():
     # Нужны каждому шаблону: canonical и og:url собираются в base.html,
     # trial_days — в описании страницы. Без context_processor пришлось бы
     # передавать их в каждый render_template и однажды забыть.
-    return {'site_url': _SITE_URL, 'trial_days': TRIAL_DAYS}
+    #
+    # Сроки отдаются сюда, потому что раньше они были зашиты в разметку:
+    # на главной стояло «15 дней», а в инструкциях подставлялось значение
+    # из настройки — и сайт противоречил сам себе, обещая разное на
+    # соседних страницах. Теперь число одно и меняется в одном месте.
+    return {'site_url': _SITE_URL, 'trial_days': TRIAL_DAYS,
+            'referral_days': REFERRAL_BONUS_DAYS}
 
 
 _SITE_URL = os.environ.get('SITE_URL', 'https://ikkvpn.com').rstrip('/')

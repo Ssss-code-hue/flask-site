@@ -16,7 +16,20 @@ iPhone», не ищет наш сервис — он ищет решение. Т
 
 from flask import Blueprint, abort, render_template
 
+from auth import TRIAL_DAYS
+
 guides = Blueprint('guides', __name__)
+
+
+def _fill(text):
+    """Подставляет срок пробного периода в тексты инструкций.
+
+    Держать число в тексте нельзя: оно задаётся настройкой и однажды
+    разъедется с остальным сайтом — так уже случилось, когда на главной
+    обещали 15 дней, а в инструкции подставлялось 5.
+    """
+    return text.replace('{trial}', str(TRIAL_DAYS)) if '{trial}' in text else text
+
 
 BOT_URL = 'https://t.me/IKKvpnpbot'
 SUPPORT_URL = 'https://t.me/IKKvpnsupport_bot'
@@ -92,7 +105,7 @@ GUIDES = {
              'IKEv2, L2TP и IPSec. Современные протоколы вроде VLESS через него '
              'не настраиваются, поэтому нужен клиент.'),
             ('Сколько это стоит?',
-             'Первые 15 дней бесплатно и без карты, дальше 50 ₽ в месяц. '
+             'Первые {trial} дней бесплатно и без карты, дальше 50 ₽ в месяц. '
              'Подробности — на странице <a href="/tariffs">тарифов</a>.'),
         ],
         'trouble': [
@@ -413,7 +426,12 @@ def guide(slug):
     if not data:
         abort(404)
     others = [(s, *GUIDE_TILES[s]) for s in GUIDE_ORDER if s != slug]
-    return render_template('guide.html', g=data, others=others)
+    # Копия с подставленными числами: сам GUIDES не трогаем, он общий
+    # для всех запросов и переживает перезагрузку страницы
+    page = dict(data)
+    page['faq'] = [(q, _fill(a)) for q, a in data['faq']]
+    page['steps'] = [(t, [_fill(x) for x in paras]) for t, paras in data['steps']]
+    return render_template('guide.html', g=page, others=others)
 
 
 @guides.route('/vpn-price')

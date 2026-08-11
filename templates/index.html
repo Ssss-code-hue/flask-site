@@ -16,7 +16,7 @@
             Быстрые серверы, современное шифрование и живая поддержка —
             цифровое пространство для спокойной работы и жизни в сети.</p>
         <a href="{{ url_for('tariffs') }}" class="hero-cta liquid-glass animate-fade-rise-delay-2">Выбрать тариф</a>
-        <p class="hero-hint animate-fade-rise-delay-2">Первые 15 дней — бесплатно</p>
+        <p class="hero-hint animate-fade-rise-delay-2">Первые {{ trial_days }} дней — бесплатно</p>
     </section>
 {% endblock %}
 
@@ -83,7 +83,7 @@
             </div>
             <div class="card reveal">
                 <span class="index">VI</span>
-                <h3>15 дней бесплатно</h3>
+                <h3>{{ trial_days }} дней бесплатно</h3>
                 <p>Пробный период без оплаты и привязки карты — попробуйте и решите сами.</p>
             </div>
             <div class="card reveal">
@@ -199,7 +199,7 @@
                 <a href="{{ url_for('tariffs') }}" class="btn">Выбрать</a>
             </div>
         </div>
-        <p class="note reveal">Первые 15 дней — бесплатно. Оплата картой, через СБП или звёздами в боте.</p>
+        <p class="note reveal">Первые {{ trial_days }} дней — бесплатно. Оплата картой, через СБП или звёздами в боте.</p>
     </section>
 
     <!-- ================= КОНТАКТ ================= -->
