@@ -770,6 +770,14 @@ async def _giveaway_screen(uid, bot):
             giveaway_kb(), True)
 
 
+def _sale_kwargs():
+    """Числа акции для текстов напоминаний. Берутся из тех же функций,
+    что и начисление, — поэтому обещание не может разойтись с фактом."""
+    p = PLANS.get(SALE_PLAN, {})
+    return dict(until=_sale_until_ru(), price=_month_price(),
+                total=plan_days(SALE_PLAN), base=p.get("days", 30))
+
+
 def _month_price():
     """Цена месяца строкой — рублями, если касса настроена, иначе звёздами.
 
@@ -1859,8 +1867,14 @@ async def remind_trial_ending(bot):
                 common = dict(ending="ся" if days == 1 else "ось",
                               days=days, word=_plural_days(days))
                 if connected:
-                    text = texts.TRIAL_ENDING_ACTIVE.format(
-                        date=fmt_date(sub_until), price=_month_price(), **common)
+                    # Пока идёт акция, зовём ею: человеку, который уже
+                    # пользуется, выгода понятнее любого описания сервиса.
+                    if sale_active():
+                        text = texts.TRIAL_ENDING_SALE.format(
+                            date=fmt_date(sub_until), **_sale_kwargs(), **common)
+                    else:
+                        text = texts.TRIAL_ENDING_ACTIVE.format(
+                            date=fmt_date(sub_until), price=_month_price(), **common)
                     kb = renew_kb()
                 else:
                     text = texts.TRIAL_ENDING.format(**common)
@@ -1930,9 +1944,15 @@ async def remind_sub_ending(bot):
             now = int(time.time())
             for uid, sub_until in db.expiry_reminder_candidates(now, within):
                 days = max(1, round((sub_until - now) / 86400))
-                text = texts.SUB_ENDING.format(
-                    ending="ся" if days == 1 else "ось",
-                    days=days, word=_plural_days(days), date=fmt_date(sub_until))
+                common = dict(ending="ся" if days == 1 else "ось",
+                              days=days, word=_plural_days(days),
+                              date=fmt_date(sub_until))
+                # Продление в разгар акции выгоднее — и об этом стоит
+                # сказать ровно тогда, когда человек и так решает, платить ли
+                if sale_active():
+                    text = texts.SUB_ENDING_SALE.format(**_sale_kwargs(), **common)
+                else:
+                    text = texts.SUB_ENDING.format(**common)
                 try:
                     await send_banner_to(bot, uid, text, renew_kb())
                 except TelegramForbiddenError:
