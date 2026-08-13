@@ -446,11 +446,17 @@ async def _bc_nc(message):
     now = int(time.time())
     users = db.active_users(now)
     await message.answer(f"⏳ Проверяю {len(users)} активных подписок…")
-    sent = skipped = blocked = failed = 0
+    # «Уже пользуется» и «панель не ответила» — разные вещи, и в одном
+    # счётчике они читаются как «не дошло». Первое — норма, этому человеку
+    # писать нечего; второе — сбой, и его надо повторить.
+    sent = already = unknown = blocked = failed = 0
     for uid, sub_until in users:
         connected = await asyncio.to_thread(user_connected, uid)
-        if connected is None or connected:
-            skipped += 1                       # уже пользуется / панель молчит
+        if connected:
+            already += 1                       # подключался — писать нечего
+            continue
+        if connected is None:
+            unknown += 1                       # панель не ответила
             continue
         token = sync_panel(uid)
         text = texts.NOT_CONNECTED_NUDGE.format(date=fmt_date(sub_until))
@@ -464,9 +470,20 @@ async def _bc_nc(message):
             logging.exception("Рассылка: сбой у пользователя %s", uid)
             failed += 1
         await asyncio.sleep(0.1)
-    await message.answer(
-        f"✅ Готово.\nДоставлено: {sent}\nПропущено (подключены/недоступны): "
-        f"{skipped}\nЗаблокировали бота: {blocked}\nПрочие ошибки: {failed}")
+    report = [
+        "✅ <b>Готово.</b>", "",
+        f"<b>{sent}</b> — отправлено (не подключались)",
+        f"<b>{already}</b> — пропущено: уже пользуются VPN, писать нечего",
+    ]
+    if unknown:
+        report.append(f"⚠️ <b>{unknown}</b> — панель не ответила, "
+                      "статус неизвестен. Стоит повторить рассылку")
+    if blocked:
+        report.append(f"<b>{blocked}</b> — заблокировали бота")
+    if failed:
+        report.append(f"<b>{failed}</b> — прочие ошибки, причина в журнале")
+    report += ["", f"<i>Проверено подписок: {len(users)}</i>"]
+    await message.answer("\n".join(report))
 
 
 @dp.message(Command("broadcast_promo"))
