@@ -932,6 +932,52 @@ def delete_email_code(email):
         c.execute("DELETE FROM email_codes WHERE email=?", (email,))
 
 
+def meta_get(key, default=None):
+    """Мелкие постоянные отметки бота: когда что последний раз делали.
+
+    В памяти такое держать нельзя — бот перезапускается по нескольку раз
+    в день при каждом обновлении, и «уже отправлено сегодня» сбрасывалось
+    бы вместе с ним.
+    """
+    with _conn() as c:
+        c.execute("CREATE TABLE IF NOT EXISTS meta "
+                  "(key TEXT PRIMARY KEY, value TEXT)")
+        r = c.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
+        return r["value"] if r else default
+
+
+def meta_set(key, value):
+    with _conn() as c:
+        c.execute("CREATE TABLE IF NOT EXISTS meta "
+                  "(key TEXT PRIMARY KEY, value TEXT)")
+        c.execute("INSERT INTO meta(key, value) VALUES(?,?) "
+                  "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                  (key, str(value)))
+
+
+def period_summary(since):
+    """Что произошло с момента since — для суточной сводки владельцу.
+
+    Раньше про каждый пробный период приходило отдельное сообщение. При
+    двух десятках активаций в день это перестаёт читаться и начинает
+    мешать: важное (оплаты, сбои) тонет в потоке однотипных строк.
+    """
+    with _conn() as c:
+        def one(sql, *a):
+            return c.execute(sql, a).fetchone()[0] or 0
+
+        return {
+            "new_users": one("SELECT COUNT(*) FROM users WHERE created_at>?", since),
+            "trials":    one("SELECT COUNT(*) FROM users WHERE key_at>?", since),
+            "connected": one("SELECT COUNT(*) FROM users WHERE fetch_at>?", since),
+            "payments":  one("SELECT COUNT(*) FROM payments WHERE created_at>?", since)
+                         + one("SELECT COUNT(*) FROM bot_invoices "
+                               "WHERE status='paid' AND created_at>?", since),
+            "blocked":   one("SELECT COUNT(*) FROM users "
+                             "WHERE COALESCE(blocked,0)=1 AND created_at>?", since),
+        }
+
+
 def owner_stats():
     """Сводка для команды /stats.
 

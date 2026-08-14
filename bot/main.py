@@ -1446,13 +1446,10 @@ async def cb_trial_go(cq: CallbackQuery):
         await cq.answer()
         if REFERRAL_ON_TRIAL:
             await reward_referrer(cq.bot, cq.from_user.id, reason="триал")
-        if OWNER_ID:
-            try:
-                who = (f"@{cq.from_user.username}" if cq.from_user.username
-                       else f"id{cq.from_user.id}")
-                await cq.bot.send_message(OWNER_ID, f"🆓 Пробный период активирован: {who}")
-            except Exception:
-                pass
+        # Владельцу про каждый триал больше не пишем: при двух десятках
+        # активаций в день поток перестаёт читаться, а важное — оплаты
+        # и сбои — в нём тонет. Вместо этого раз в сутки уходит сводка
+        # (см. daily_digest).
     else:
         await cq.answer(
             "🆓 Пробный период уже был использован. "
@@ -1907,6 +1904,44 @@ async def remind_trial_ending(bot):
             logging.exception("Ошибка авторассылки напоминаний о триале")
 
 
+DIGEST_HOUR = int(os.environ.get("DIGEST_HOUR", "21"))     # час по времени сервера
+DIGEST_ENABLED = os.environ.get("DIGEST_ENABLED", "1") != "0"
+
+
+async def daily_digest(bot):
+    """Одна сводка в сутки вместо сообщения на каждый пробный период.
+
+    Считаем по базе, а не по счётчику в памяти: перезапуск бота не должен
+    терять статистику, а он случается чаще, чем раз в сутки.
+    """
+    while True:
+        await asyncio.sleep(300)
+        if not (DIGEST_ENABLED and OWNER_ID):
+            continue
+        try:
+            now = datetime.now()
+            # Дата последней отправки лежит в базе, а не в памяти: бот
+            # перезапускается при каждом обновлении, и сводка уходила бы
+            # по второму разу за те же сутки.
+            if now.hour != DIGEST_HOUR or db.meta_get("digest_date") == str(now.date()):
+                continue
+            s = db.period_summary(int(time.time()) - 86400)
+            db.meta_set("digest_date", now.date())
+            if not any(s.values()):
+                continue                 # пустой день — не тревожим
+            lines = [f"📅 <b>Сводка за сутки</b>", "",
+                     f"<code>{s['new_users']:>4}</code>  новых пользователей",
+                     f"<code>{s['trials']:>4}</code>  получили ключ",
+                     f"<code>{s['connected']:>4}</code>  впервые подключились",
+                     f"<code>{s['payments']:>4}</code>  оплат"]
+            if s["blocked"]:
+                lines.append(f"<code>{s['blocked']:>4}</code>  заблокировали бота")
+            lines += ["", "Подробнее — /admin"]
+            await bot.send_message(OWNER_ID, "\n".join(lines))
+        except Exception:
+            logging.exception("Ошибка суточной сводки")
+
+
 async def remind_not_connected(bot):
     """Подталкивает тех, у кого ключ есть, а VPN так и не включён.
 
@@ -2035,6 +2070,7 @@ async def main():
 
     asyncio.create_task(remind_trial_ending(bot))
     asyncio.create_task(remind_not_connected(bot))
+    asyncio.create_task(daily_digest(bot))
     asyncio.create_task(remind_sub_ending(bot))
     asyncio.create_task(ask_for_advocacy(bot))
     logging.info("Авторассылки включены: триал за %s дн., продление за %s дн., "
