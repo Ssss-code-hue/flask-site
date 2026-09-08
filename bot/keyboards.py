@@ -13,7 +13,7 @@ import lolz
 import platega
 
 from .config import (CONTACT_USERNAME, GIVEAWAY_CHANNEL, PLANS, PRIVACY_URL, REFERRAL_BONUS_DAYS,
-                     SALE_BONUS_DAYS, SALE_PLAN, plan_days, sale_active,
+                     SALE_HERO_PLAN, plan_days, sale_active, sale_bonus,
                      SUPPORT_BOT_USERNAME, TERMS_URL, TRIAL_DAYS,
                      WEBAPP_URL, OFFER_URL)
 
@@ -280,8 +280,9 @@ def plans_kb():
     card = card_available()     # показываем ₽ только когда карта включена
     for code, p in PLANS.items():
         price = f"{p['stars']} ⭐ / {p['rub']} ₽" if card else f"{p['stars']} ⭐"
-        # пока идёт акция — сразу видно, на каком тарифе бонус
-        bonus = f" +{SALE_BONUS_DAYS} дн. 🎁" if code == SALE_PLAN and sale_active() else ""
+        # пока идёт акция — сразу видно, сколько дарит каждый тариф
+        days = sale_bonus(code)
+        bonus = f" +{days} дн. 🎁" if days else ""
         kb.button(text=f"{p['title']}{bonus} — {price}", callback_data=f"plan:{code}")
     kb.button(text="◀ Назад", callback_data="buy")
     kb.adjust(1)
@@ -289,11 +290,16 @@ def plans_kb():
 
 
 def sale_kb():
-    """Кнопка из рассылки об акции — ведёт в обычную покупку через оферту."""
+    """Кнопка из рассылки об акции — ведёт в обычную покупку через оферту.
+
+    На кнопке стоит тариф, на который делаем упор (сейчас год), но ведёт
+    она на список тарифов: там у каждого подписан свой бонус, и человек
+    выбирает сам, а не упирается в один вариант.
+    """
     kb = InlineKeyboardBuilder()
-    p = PLANS.get(SALE_PLAN, {})
+    p = PLANS.get(SALE_HERO_PLAN, {})
     price = f"{p.get('rub')} ₽" if card_available() else f"{p.get('stars')} ⭐"
-    kb.button(text=f"🎁 Забрать {plan_days(SALE_PLAN)} дней за {price}",
+    kb.button(text=f"🎁 {p.get('title')} — {plan_days(SALE_HERO_PLAN)} дней за {price}",
               callback_data="buy")
     kb.button(text="◀ Меню", callback_data="menu")
     kb.adjust(1)

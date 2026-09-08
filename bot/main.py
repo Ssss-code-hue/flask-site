@@ -38,8 +38,7 @@ from .config import (
     PLANS,
     REFERRAL_BONUS_DAYS,
     REFERRAL_ON_TRIAL,
-    SALE_BONUS_DAYS,
-    SALE_PLAN,
+    SALE_BONUS,
     SALE_UNTIL,
     SITE_URL,
     SUPPORT_BOT_USERNAME,
@@ -53,6 +52,7 @@ from .config import (
     giveaway_active,
     plan_days,
     sale_active,
+    sale_bonus,
 )
 from .keyboards import (BROADCASTS, admin_back_kb, admin_broadcasts_kb,
                         admin_confirm_kb, admin_giveaway_kb, admin_kb,
@@ -532,17 +532,12 @@ async def _bc_sale(message):
             f"Чтобы продлить, поменяйте SALE_UNTIL в bot/config.py.")
         return
 
-    p = PLANS.get(SALE_PLAN, {})
-    base, total = p.get("days", 30), plan_days(SALE_PLAN)
-    price = f"{p.get('rub')} ₽" if (platega.is_configured() or lolz.can_invoice()) \
-        else f"{p.get('stars')} ⭐"
     users = db.all_user_ids()
     await message.answer(
-        f"⏳ Рассылаю акцию (+{SALE_BONUS_DAYS} дн. к месяцу, по {_sale_until_ru()}) "
+        f"⏳ Рассылаю акцию (год +{sale_bonus('12m')} дн., 3 месяца "
+        f"+{sale_bonus('3m')}, месяц +{sale_bonus('1m')}, по {_sale_until_ru()}) "
         f"по {len(users)} пользователям…")
-    text = texts.SALE_BROADCAST.format(bonus=SALE_BONUS_DAYS, price=price,
-                                       total=total, base=base,
-                                       until=_sale_until_ru())
+    text = texts.SALE_BROADCAST.format(until=_sale_until_ru(), **_sale_plans_kwargs())
     kb = sale_kb()
     await broadcast(message, users, lambda uid: (text, kb))
 
@@ -645,14 +640,14 @@ async def _bc_sale_return(message):
         await message.answer("Некому слать: ни у кого подписка не заканчивалась.")
         return
 
-    p = PLANS.get(SALE_PLAN, {})
-    base, total = p.get("days", 30), plan_days(SALE_PLAN)
+    p = PLANS.get("1m", {})
+    base, total = p.get("days", 30), plan_days("1m")
     await message.answer(
-        f"⏳ Рассылаю возврат с акцией (+{SALE_BONUS_DAYS} дн., "
+        f"⏳ Рассылаю возврат с акцией (+{sale_bonus('1m')} дн., "
         f"итого {total} дн. за {_month_price()}, по {_sale_until_ru()}) "
         f"по {len(users)} ушедшим…")
 
-    text = texts.SALE_RETURN.format(bonus=SALE_BONUS_DAYS, price=_month_price(),
+    text = texts.SALE_RETURN.format(bonus=sale_bonus("1m"), price=_month_price(),
                                     total=total, base=base,
                                     until=_sale_until_ru())
     kb = sale_kb()
@@ -788,11 +783,49 @@ async def _giveaway_screen(uid, bot):
 
 
 def _sale_kwargs():
-    """Числа акции для текстов напоминаний. Берутся из тех же функций,
-    что и начисление, — поэтому обещание не может разойтись с фактом."""
-    p = PLANS.get(SALE_PLAN, {})
+    """Числа акции для напоминаний о конце подписки — по месячному тарифу.
+
+    Напоминание приходит тому, у кого срок вот-вот кончится: ему решать
+    про ближайший месяц, а не про год. Числа берутся из тех же функций,
+    что и начисление, — поэтому обещание не может разойтись с фактом.
+    """
+    p = PLANS.get("1m", {})
     return dict(until=_sale_until_ru(), price=_month_price(),
-                total=plan_days(SALE_PLAN), base=p.get("days", 30))
+                total=plan_days("1m"), base=p.get("days", 30))
+
+
+def _plan_price(code):
+    """Цена тарифа строкой — рублями, если касса настроена, иначе звёздами."""
+    p = PLANS.get(code, {})
+    if platega.is_configured() or lolz.can_invoice():
+        return f"{p.get('rub', 0)} ₽"
+    return f"{p.get('stars', 0)} ⭐"
+
+
+def _per_day(code):
+    """Во сколько обходится день по тарифу — с учётом бонусных дней."""
+    days = plan_days(code) or 1
+    p = PLANS.get(code, {})
+    card = platega.is_configured() or lolz.can_invoice()
+    value = (p.get("rub", 0) if card else p.get("stars", 0)) / days
+    return f"{value:.2f}".replace(".", ",") + (" ₽" if card else " ⭐")
+
+
+def _sale_plans_kwargs():
+    """Числа акции по всем трём тарифам для рассылки.
+
+    Префиксы: y — год, q — три месяца, m — месяц. Всё считается теми же
+    функциями, что и начисление: пообещать 455 дней и выдать 365 нельзя.
+    """
+    out = {}
+    for prefix, code in (("y", "12m"), ("q", "3m"), ("m", "1m")):
+        p = PLANS.get(code, {})
+        out[f"{prefix}_price"] = _plan_price(code)
+        out[f"{prefix}_base"] = p.get("days", 30)
+        out[f"{prefix}_total"] = plan_days(code)
+        out[f"{prefix}_bonus"] = sale_bonus(code)
+    out["y_perday"] = _per_day("12m")
+    return out
 
 
 def _month_price():
