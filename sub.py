@@ -119,6 +119,34 @@ def legacy_suffix(ua):
     return "?legacy=1" if is_apple_ua(ua) else ""
 
 
+# --- сервер на техработах --------------------------------------------
+#
+# Узел может лежать, а в приложении он всё равно виден и выглядит рабочим:
+# человек выбирает его, не подключается и идёт писать в поддержку. Список
+# серверов приходит с подпиской, поэтому пометку удобнее ставить здесь —
+# она доедет до всех сама, без обновления приложения и без правок в панели.
+#
+# Именно пометка, а не удаление: у клиента сервер уже выбран, и молча
+# исчезнувший пункт читается как «сломался ключ». А с подписью человек
+# видит причину и сам переключается на рабочий.
+#
+# MAINT_SERVERS — куски имён через запятую («netherlands,нидерланды»),
+# регистр не важен. Пустое значение = техработ нет, ничего не помечаем.
+MAINT_SERVERS = [s.strip().lower() for s in
+                 os.environ.get("MAINT_SERVERS", "").split(",") if s.strip()]
+MAINT_LABEL = os.environ.get("MAINT_LABEL", "⛔ Техработы")
+
+
+def _maint_name(name):
+    """Подписывает имя сервера, если он в списке на техработах."""
+    if not (MAINT_SERVERS and name):
+        return name
+    low = name.lower()
+    if MAINT_LABEL.lower() in low or not any(s in low for s in MAINT_SERVERS):
+        return name
+    return f"{MAINT_LABEL} · {name}"
+
+
 def _is_xhttp_link(link):
     """XHTTP ли этот vless://-URI (по параметру type, а не по названию)."""
     try:
@@ -142,6 +170,12 @@ def _fix_vless_link(link, apple=False):
         # у Apple XHTTP-ссылок не остаётся, так что extra правим только им
         if not apple and q.get("type") == "xhttp":
             q["extra"] = json.dumps(XHTTP_EXTRA, separators=(",", ":"))
+
+        if frag:
+            name = urllib.parse.unquote(frag)
+            marked = _maint_name(name)
+            if marked != name:
+                frag = urllib.parse.quote(marked, safe="")
 
         new = urllib.parse.urlunsplit((
             parts.scheme, parts.netloc, parts.path,
@@ -203,6 +237,8 @@ def _fix_json_configs(data, apple=False):
     for cfg in cfgs:
         if not isinstance(cfg, dict):
             continue
+        if cfg.get("remarks"):
+            cfg["remarks"] = _maint_name(cfg["remarks"])
         for ob in cfg.get("outbounds") or []:
             ss = (ob or {}).get("streamSettings") or {}
             if not apple and ss.get("network") == "xhttp":
