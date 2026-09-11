@@ -319,15 +319,51 @@ async def reward_referrer(bot, uid, reason="оплата"):
     token = sync_panel(ref_id)
     logging.info("Реферал: +%s дн. пользователю %s за %s приглашённого %s",
                  REFERRAL_BONUS_DAYS, ref_id, reason, uid)
+    text = texts.REF_BONUS.format(days=REFERRAL_BONUS_DAYS, date=fmt_date(new_until))
+    # Звёзды обещаны за оплату — триал (REFERRAL_ON_TRIAL) их не даёт
+    paid = bool(REF_PAID_STARS) and reason != "триал"
+    if paid:
+        text += texts.REF_PAID_EARNED.format(stars=REF_PAID_STARS)
     try:
-        await send_banner_to(
-            bot, ref_id,
-            texts.REF_BONUS.format(days=REFERRAL_BONUS_DAYS, date=fmt_date(new_until)),
-            connect_kb(token))
+        await send_banner_to(bot, ref_id, text, connect_kb(token))
     except TelegramForbiddenError:
         db.mark_blocked(ref_id)
     except Exception:
         logging.exception("Реферал: бонус начислен, но %s не уведомлён", ref_id)
+    if paid:
+        await _notify_paid_referral(bot, ref_id, uid, reason)
+
+
+async def _notify_paid_referral(bot, ref_id, uid, reason):
+    """Владельцу: кому вручить звёзды за приглашённого.
+
+    Выдача ручная, поэтому здесь всё, что нужно для решения: кто привёл,
+    кого, как тот заплатил и давно ли он в боте. Свежий аккаунт, оплативший
+    сразу после пригласившего, — повод присмотреться: 100 ⭐ стоят дороже
+    месяца подписки, и второй аккаунт окупается.
+    """
+    if not OWNER_ID:
+        return
+
+    def who(x):
+        u = db.get_user(x)
+        name = f"@{u['username']}" if u and u["username"] else f"id{x}"
+        return f'<a href="tg://user?id={x}">{name}</a>', u
+
+    ref, _ = who(ref_id)
+    inv, u = who(uid)
+    since = fmt_date(u["created_at"]) if u and u["created_at"] else "?"
+    try:
+        await bot.send_message(
+            OWNER_ID,
+            f"💸 <b>Реферал оплатил</b>\n\n"
+            f"Пригласил: {ref}\n"
+            f"Оплатил: {inv} {reason.replace('оплату ', '')}, в боте с {since}\n\n"
+            f"Вручить <b>{REF_PAID_STARS} ⭐</b> подарком Telegram тому, кто "
+            f"пригласил. Перед выдачей проверьте, что это не второй аккаунт "
+            f"того же человека.")
+    except Exception:
+        logging.exception("Реферал: не смог сообщить владельцу про звёзды для %s", ref_id)
 
 
 # ============ Команды-функции (видны в меню слева от поля ввода) ============
@@ -598,6 +634,59 @@ async def _bc_gift(message):
 
     def make(uid):
         return _gift_text(uid), ref_share_kb(_ref_link(uid))
+
+    await broadcast(message, users, make)
+
+
+# Звёзды за приглашённого, который ОПЛАТИЛ. 0 — акция выключена: рассылка
+# не уходит, и никому ничего не обещается. Вручаются тоже вручную, подарком
+# Telegram: переводить звёзды пользователю бот не умеет, а автоматическая
+# выдача превратила бы акцию в обмен — месяц со второго аккаунта стоит
+# 50 ₽, а подарок на 100 ⭐ дороже.
+REF_PAID_STARS = int(os.environ.get("REF_PAID_STARS", "0"))
+
+
+@dp.message(Command("broadcast_paidref"))
+async def cmd_broadcast_paidref(message: Message):
+    """Рассылка «звёзды за оплатившего друга» ВСЕМ пользователям (owner-only)."""
+    if not OWNER_ID or message.from_user.id != OWNER_ID:
+        return
+    await _bc_paidref(message)
+
+
+async def _bc_paidref(message):
+    """Акция «звёзды за приглашённого, который оплатил».
+
+    Отказывает в двух случаях, когда обещание нельзя было бы выполнить:
+    акция не включена или награда за приглашённого переведена на триал —
+    тогда бот отмечает реферала ещё до оплаты и об оплате уже не узнает.
+    """
+    if not REF_PAID_STARS:
+        await message.answer(
+            "⛔ Акция не включена — рассылка отменена.\n\n"
+            "Задайте <code>REF_PAID_STARS</code> (сколько звёзд за оплатившего) "
+            "в настройках бота и перезапустите его.")
+        return
+    if REFERRAL_ON_TRIAL:
+        await message.answer(
+            "⛔ Включён <code>REFERRAL_ON_TRIAL</code>: награда за приглашённого "
+            "срабатывает на пробном периоде, и об оплатах бот не узнает — "
+            "звёзды засчитать будет не за что.\n\n"
+            "Уберите эту переменную и перезапустите бота.")
+        return
+
+    users = db.all_user_ids()
+    await message.answer(
+        f"⏳ Рассылаю «{REF_PAID_STARS} ⭐ за оплатившего друга» "
+        f"по {len(users)} пользователям…\n\n"
+        "О каждой оплате по реферальной ссылке придёт сообщение сюда — "
+        "с тем, кому вручить звёзды.")
+
+    def make(uid):
+        link = _ref_link(uid)
+        return (texts.REF_PAID_BROADCAST.format(
+                    stars=REF_PAID_STARS, days=REFERRAL_BONUS_DAYS, link=link),
+                ref_share_kb(link))
 
     await broadcast(message, users, make)
 
@@ -1088,7 +1177,8 @@ async def _run_broadcast(message, code):
     """Запуск рассылки из панели. Владельца проверили до вызова."""
     fn = {"lapsed": _bc_lapsed, "nc": _bc_nc, "ref": _bc_ref,
           "promo": _bc_promo, "sale": _bc_sale, "gift": _bc_gift,
-          "howru": _bc_howsitgoing, "salert": _bc_sale_return}.get(code)
+          "howru": _bc_howsitgoing, "salert": _bc_sale_return,
+          "paidref": _bc_paidref}.get(code)
     if not fn:
         await message.answer("Неизвестная рассылка.")
         return
