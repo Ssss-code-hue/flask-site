@@ -304,6 +304,17 @@ async def _send_classic(bot, chat_id, text, reply_markup=None):
     await bot.send_message(chat_id, text, reply_markup=reply_markup)
 
 
+# Рассылки заканчиваются так же, как главное меню: разделителем и
+# «Выберите действие:». Отдельной разметки не нужно — rich_html() сам
+# превращает короткую последнюю строку в призыв под разделителем.
+BROADCAST_CTA = "Выберите действие:"
+
+
+def with_cta(text):
+    text = text.rstrip()
+    return text if text.endswith(BROADCAST_CTA) else f"{text}\n\n{BROADCAST_CTA}"
+
+
 async def broadcast(message: Message, users, make_message):
     """Общая механика рассылок: отправка, подсчёт, отчёт владельцу.
 
@@ -315,7 +326,7 @@ async def broadcast(message: Message, users, make_message):
         # Письмо собирается тем же make_message, но уходит только в чат
         # владельца: ссылка внутри — его собственная.
         text, kb = make_message(OWNER_ID)
-        await send_banner_to(message.bot, message.chat.id, text, kb)
+        await send_banner_to(message.bot, message.chat.id, with_cta(text), kb)
         await message.answer(f"Пример письма — выше. Настоящая рассылка ушла бы "
                              f"<b>{len(users)}</b> получателям.")
         return
@@ -323,7 +334,7 @@ async def broadcast(message: Message, users, make_message):
     for uid in users:
         text, kb = make_message(uid)
         try:
-            await send_banner_to(message.bot, uid, text, kb)
+            await send_banner_to(message.bot, uid, with_cta(text), kb)
             sent += 1
         except TelegramForbiddenError:
             db.mark_blocked(uid)
@@ -703,7 +714,7 @@ async def _bc_nc(message):
     if _PREVIEW.get():
         # Без обхода панели по всем подпискам — это сотни запросов ради примера
         text = texts.NOT_CONNECTED_NUDGE.format(date=fmt_date(now + 7 * 86400))
-        await send_banner_to(message.bot, message.chat.id, text, connect_kb(PREVIEW_TOKEN))
+        await send_banner_to(message.bot, message.chat.id, with_cta(text), connect_kb(PREVIEW_TOKEN))
         await message.answer(
             f"Пример письма — выше. Настоящая рассылка проверит {len(users)} "
             "активных подписок и напишет тем, кто ни разу не подключался.")
@@ -724,7 +735,7 @@ async def _bc_nc(message):
         token = sync_panel(uid)
         text = texts.NOT_CONNECTED_NUDGE.format(date=fmt_date(sub_until))
         try:
-            await send_banner_to(message.bot, uid, text, connect_kb(token))
+            await send_banner_to(message.bot, uid, with_cta(text), connect_kb(token))
             sent += 1
         except TelegramForbiddenError:
             db.mark_blocked(uid)
