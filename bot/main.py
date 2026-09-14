@@ -232,10 +232,58 @@ async def _send_rich(bot, chat_id, text, reply_markup=None, animated=None):
 
 async def send_banner_to(bot, chat_id, text, reply_markup=None):
     """Отправляет в чат НОВОЕ сообщение с баннером IKK VPN сверху."""
-    global _banner_file_id
     if RICH_MESSAGES and not _rich_disabled:
         if await _send_rich(bot, chat_id, text, reply_markup):
             return
+    await _send_classic(bot, chat_id, text, reply_markup)
+
+
+# Письмо: рассылки и напоминания. Уходят тем, кто давно не открывал бота, —
+# у них чаще старое приложение, которое богатое сообщение не покажет
+# («не поддерживается вашей версией»). Поэтому письмо идёт проверенным
+# способом — баннер с подписью, — а красоту даёт сама вёрстка: тема жирным,
+# текст курсивом, подпись команды.
+LETTER_SIGN = "С заботой о вашем интернете,\nкоманда IKK VPN"
+_letter_anim_id = None
+
+
+def letter_html(text):
+    """Оформляет текст бота как письмо, не меняя слов.
+
+    Первая короткая строка — тема (жирным), абзацы — курсивом, выделенное
+    внутри остаётся жирным курсивом. Вложенный <i> снимается: курсив внутри
+    курсива Telegram не различает.
+    """
+    parts = [p.strip() for p in text.strip().split("\n\n") if p.strip()]
+    out = []
+    if len(parts) > 1 and _short_line(parts[0]):
+        out.append(f"<b>{_unbold(parts.pop(0))}</b>")
+    out += ["<i>" + re.sub(r"</?i>", "", p) + "</i>" for p in parts]
+    out.append(f"<i>— {LETTER_SIGN}</i>")
+    return "\n\n".join(out)
+
+
+async def send_letter_to(bot, chat_id, text, reply_markup=None):
+    """Отправляет письмо: баннер (анимацией, если включена) и текст-письмо."""
+    global _letter_anim_id
+    text, reply_markup = letter_html(text), paint(reply_markup)
+    if BANNER_ANIMATED and BANNER_ANIM.exists() and len(text) <= CAPTION_LIMIT:
+        try:
+            sent = await bot.send_animation(chat_id, _letter_anim_id or FSInputFile(BANNER_ANIM),
+                                            caption=text, reply_markup=reply_markup)
+            if not _letter_anim_id and sent.animation:
+                _letter_anim_id = sent.animation.file_id
+            return
+        except TelegramForbiddenError:
+            raise
+        except Exception:
+            logging.exception("Письмо с анимацией не ушло — шлём с картинкой")
+    await _send_classic(bot, chat_id, text, reply_markup)
+
+
+async def _send_classic(bot, chat_id, text, reply_markup=None):
+    """Фото с подписью — понимает любая версия Telegram."""
+    global _banner_file_id
     if BANNER.exists() and len(text) <= CAPTION_LIMIT:
         try:
             photo = _banner_file_id or FSInputFile(BANNER)
@@ -264,7 +312,7 @@ async def broadcast(message: Message, users, make_message):
     for uid in users:
         text, kb = make_message(uid)
         try:
-            await send_banner_to(message.bot, uid, text, kb)
+            await send_letter_to(message.bot, uid, text, kb)
             sent += 1
         except TelegramForbiddenError:
             db.mark_blocked(uid)
@@ -312,7 +360,7 @@ async def show_screen(cq: CallbackQuery, text, reply_markup=None, **kwargs):
             if "not modified" not in str(e):
                 raise
         return
-    if m.photo:
+    if m.photo or m.animation:
         await m.edit_caption(caption=text, reply_markup=reply_markup)
     else:
         await m.edit_text(text, reply_markup=reply_markup, **kwargs)
@@ -657,7 +705,7 @@ async def _bc_nc(message):
         token = sync_panel(uid)
         text = texts.NOT_CONNECTED_NUDGE.format(date=fmt_date(sub_until))
         try:
-            await send_banner_to(message.bot, uid, text, connect_kb(token))
+            await send_letter_to(message.bot, uid, text, connect_kb(token))
             sent += 1
         except TelegramForbiddenError:
             db.mark_blocked(uid)
@@ -2208,7 +2256,7 @@ async def remind_trial_ending(bot):
                     text = texts.TRIAL_ENDING.format(**common)
                     kb = connect_kb(token)
                 try:
-                    await send_banner_to(bot, uid, text, kb)
+                    await send_letter_to(bot, uid, text, kb)
                 except TelegramForbiddenError:
                     db.mark_blocked(uid)
                 except Exception:
@@ -2285,7 +2333,7 @@ async def remind_not_connected(bot):
                     db.mark_connect_reminded(uid)   # уже пользуется, не трогаем
                     continue
                 try:
-                    await send_banner_to(bot, uid, texts.NOT_CONNECTED,
+                    await send_letter_to(bot, uid, texts.NOT_CONNECTED,
                                          connect_kb(sync_panel(uid)))
                 except TelegramForbiddenError:
                     db.mark_blocked(uid)
@@ -2320,7 +2368,7 @@ async def remind_sub_ending(bot):
                 else:
                     text = texts.SUB_ENDING.format(**common)
                 try:
-                    await send_banner_to(bot, uid, text, renew_kb())
+                    await send_letter_to(bot, uid, text, renew_kb())
                 except TelegramForbiddenError:
                     db.mark_blocked(uid)
                 except Exception:
@@ -2347,7 +2395,7 @@ async def ask_for_advocacy(bot):
                 text = texts.REF_ASK.format(days=ADVOCACY_AFTER_DAYS,
                                             bonus=REFERRAL_BONUS_DAYS, link=link)
                 try:
-                    await send_banner_to(bot, uid, text, ref_share_kb(link))
+                    await send_letter_to(bot, uid, text, ref_share_kb(link))
                 except TelegramForbiddenError:
                     db.mark_blocked(uid)
                 except Exception:
