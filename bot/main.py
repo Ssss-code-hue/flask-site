@@ -4,9 +4,11 @@ import json
 import logging
 import os
 import random
+import re
 import time
 import uuid
 from datetime import datetime
+from html import escape as html_escape
 from pathlib import Path
 
 from aiogram import Bot, Dispatcher, F
@@ -20,6 +22,11 @@ from aiogram.types import (
     BotCommand,
     CallbackQuery,
     FSInputFile,
+    InlineKeyboardMarkup,
+    InputMediaAnimation,
+    InputMediaPhoto,
+    InputRichMessage,
+    InputRichMessageMedia,
     LabeledPrice,
     MenuButtonCommands,
     Message,
@@ -80,15 +87,135 @@ def fmt_date(ts):
 # Файл загружается один раз, дальше используем file_id из кэша.
 BANNER = Path(__file__).parent / "assets" / "banner.png"
 _banner_file_id = None
+# Анимированный вариант того же баннера. Уходит только в богатых сообщениях:
+# подпись к фото анимацию не покажет.
+BANNER_ANIM = Path(__file__).parent / "assets" / "banner.mp4"
+# file_id баннера внутри богатых сообщений — у фото с подписью он другой
+_rich_banner_ids = {}
 
 # Лимит подписи к фото у Telegram. У обычного сообщения он 4096, поэтому
 # редкий длинный текст отправляем без баннера, а не теряем совсем.
 CAPTION_LIMIT = 1024
 
+# Богатые сообщения (Bot API 10.1): баннер блоком сверху, под ним заголовок,
+# тонкие разделители и абзацы — тот же текст из texts.py, разложенный по
+# секциям, — и цветные кнопки. Функция у Telegram свежая, как её покажут
+# старые клиенты, не описано, поэтому включается переменной, а при ошибке
+# сообщение уходит по-старому: доставка важнее оформления.
+RICH_MESSAGES = os.environ.get("BOT_RICH_MESSAGES", "0") == "1"
+BANNER_ANIMATED = os.environ.get("BOT_BANNER_ANIM", "0") == "1"
+_rich_disabled = False      # Telegram отверг разметку — до перезапуска не пробуем
+
+_TAGS = re.compile(r"<[^>]+>")
+
+
+def _short_line(part):
+    return "\n" not in part and len(_TAGS.sub("", part)) <= 60
+
+
+def rich_html(text):
+    """Раскладывает текст бота по блокам богатого сообщения, не меняя слов.
+
+    Тексты в texts.py устроены одинаково: первая строка — заголовок, дальше
+    абзацы через пустую строку, в конце короткий призыв («Выберите
+    действие:»). Заголовок становится заголовком секции, а между ним, телом
+    и призывом встают разделители.
+    """
+    parts = [p.strip() for p in text.strip().split("\n\n") if p.strip()]
+    blocks = []
+    if len(parts) > 1 and _short_line(parts[0]):
+        title = re.sub(r"</?b>", "", parts.pop(0))     # заголовок и так жирный
+        blocks.append(f"<h3>{title}</h3><hr/>")
+    tail = parts.pop() if len(parts) > 1 and _short_line(parts[-1]) else None
+    blocks += ["<p>" + p.replace("\n", "<br/>") + "</p>" for p in parts]
+    if tail:
+        blocks.append(f"<hr/><p>{tail}</p>")
+    return "".join(blocks)
+
+
+def _rich_message(text, animated=None):
+    """Богатое сообщение: баннер блоком сверху, текст по секциям."""
+    animated = BANNER_ANIMATED if animated is None else animated
+    path = BANNER_ANIM if animated and BANNER_ANIM.exists() else BANNER
+    if not path.exists():
+        return InputRichMessage(html=rich_html(text))
+    kind = "animation" if path == BANNER_ANIM else "photo"
+    src = _rich_banner_ids.get(kind) or FSInputFile(path)
+    if kind == "animation":
+        tag = '<video src="tg://video?id=banner"></video>'
+        media = InputMediaAnimation(media=src)
+    else:
+        tag = '<img src="tg://photo?id=banner"/>'
+        media = InputMediaPhoto(media=src)
+    return InputRichMessage(html=tag + rich_html(text),
+                            media=[InputRichMessageMedia(id="banner", media=media)])
+
+
+def _remember_banner(msg):
+    """Запоминает file_id баннера из богатого сообщения — второй раз не грузим."""
+    rich = getattr(msg, "rich_message", None)
+    for block in (rich.blocks if rich else []):
+        if getattr(block, "animation", None):
+            _rich_banner_ids.setdefault("animation", block.animation.file_id)
+        elif getattr(block, "photo", None):
+            _rich_banner_ids.setdefault("photo", block.photo[-1].file_id)
+
+
+def _has_animation(msg):
+    rich = getattr(msg, "rich_message", None)
+    return any(getattr(b, "animation", None) for b in (rich.blocks if rich else []))
+
+
+# Главные действия — зелёные, остальное синее, «◀ Назад» без цвета: так
+# навигация не спорит за внимание с тем, ради чего экран открыт.
+_GREEN = {"buy", "trial", "trial_go", "renew"}
+
+
+def paint(markup):
+    """Цветные кнопки (поле style). Уже заданный цвет не трогаем."""
+    if not isinstance(markup, InlineKeyboardMarkup):
+        return markup
+    for row in markup.inline_keyboard:
+        for b in row:
+            if b.style or b.text.startswith("◀"):
+                continue
+            data = b.callback_data or ""
+            green = data in _GREEN or data.startswith("pay") or b.pay
+            b.style = "success" if green else "primary"
+    return markup
+
+
+async def _send_rich(bot, chat_id, text, reply_markup=None, animated=None):
+    """True — ушло богатым сообщением; False — слать по-старому."""
+    global _rich_disabled
+    try:
+        sent = await bot.send_rich_message(
+            chat_id=chat_id, rich_message=_rich_message(text, animated),
+            reply_markup=paint(reply_markup))
+    except TelegramForbiddenError:
+        raise
+    except TelegramBadRequest as e:
+        # Разметку не приняли — у следующего не примут так же. Выключаем
+        # до перезапуска и говорим владельцу один раз, а не на каждое сообщение.
+        if "pars" in str(e).lower() or "rich" in str(e).lower():
+            _rich_disabled = True
+            await alert("Богатые сообщения выключены до перезапуска", e, chat_id)
+        else:
+            logging.warning("Богатое сообщение не ушло %s: %s", chat_id, e)
+        return False
+    except Exception:
+        logging.exception("Богатое сообщение не ушло — шлём по-старому")
+        return False
+    _remember_banner(sent)
+    return True
+
 
 async def send_banner_to(bot, chat_id, text, reply_markup=None):
     """Отправляет в чат НОВОЕ сообщение с баннером IKK VPN сверху."""
     global _banner_file_id
+    if RICH_MESSAGES and not _rich_disabled:
+        if await _send_rich(bot, chat_id, text, reply_markup):
+            return
     if BANNER.exists() and len(text) <= CAPTION_LIMIT:
         try:
             photo = _banner_file_id or FSInputFile(BANNER)
@@ -152,6 +279,19 @@ async def show_screen(cq: CallbackQuery, text, reply_markup=None, **kwargs):
     Все экраны бота умещаются в лимит подписи (1024 символа).
     """
     m = cq.message
+    if getattr(m, "rich_message", None):
+        # Баннер оставляем того же вида, что был у сообщения, — иначе
+        # картинка сменится на анимацию прямо по нажатию кнопки.
+        _remember_banner(m)
+        try:
+            await cq.bot.edit_message_text(
+                chat_id=m.chat.id, message_id=m.message_id,
+                rich_message=_rich_message(text, _has_animation(m)),
+                reply_markup=paint(reply_markup))
+        except TelegramBadRequest as e:
+            if "not modified" not in str(e):
+                raise
+        return
     if m.photo:
         await m.edit_caption(caption=text, reply_markup=reply_markup)
     else:
@@ -1192,6 +1332,37 @@ async def cmd_admin(message: Message):
     if not _is_owner(message):
         return
     await message.answer(ADMIN_HOME, reply_markup=admin_kb())
+
+
+@dp.message(Command("style_preview"))
+async def cmd_style_preview(message: Message):
+    """Главное меню в новом оформлении — только владельцу (owner-only).
+
+    Чтобы увидеть богатые сообщения и цветные кнопки в настоящем Telegram
+    до того, как включать их всем: оба варианта баннера подряд. Кнопки под
+    предпросмотром рабочие — заодно проверяется переключение экранов.
+    """
+    if not _is_owner(message):
+        return
+    variants = [(False, "статичный баннер")]
+    if BANNER_ANIM.exists():
+        variants.append((True, "анимированный баннер"))
+    for animated, label in variants:
+        try:
+            sent = await message.bot.send_rich_message(
+                chat_id=message.chat.id,
+                rich_message=_rich_message(texts.WELCOME, animated),
+                reply_markup=paint(main_menu()))
+            _remember_banner(sent)
+        except Exception as e:
+            await message.answer(f"⛔ Не вышло ({label}):\n"
+                                 f"<code>{html_escape(str(e))[:700]}</code>")
+    await message.answer(
+        "👆 Предпросмотр нового оформления — видите только вы.\n\n"
+        f"Сейчас у всех: <b>{'новое' if RICH_MESSAGES else 'старое'}</b>, "
+        f"баннер <b>{'анимированный' if BANNER_ANIMATED else 'статичный'}</b>.\n"
+        "Включить для всех — <code>BOT_RICH_MESSAGES=1</code>, "
+        "анимацию — <code>BOT_BANNER_ANIM=1</code>.")
 
 
 async def _admin_show(cq, text, refresh=None):
