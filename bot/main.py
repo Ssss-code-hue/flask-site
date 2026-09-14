@@ -240,11 +240,12 @@ async def send_banner_to(bot, chat_id, text, reply_markup=None):
     await _send_classic(bot, chat_id, text, reply_markup)
 
 
-# Письмо: рассылки и напоминания. Уходят тем, кто давно не открывал бота, —
+# Письмо: фоновые напоминания. Уходят тем, кто давно не открывал бота, —
 # у них чаще старое приложение, которое богатое сообщение не покажет
 # («не поддерживается вашей версией»). Поэтому письмо идёт проверенным
 # способом — баннер с подписью, — а красоту даёт сама вёрстка: тема жирным,
-# текст курсивом, подпись команды.
+# текст курсивом, подпись команды. Рассылки с 14.09.2026 идут в основном
+# оформлении (send_banner_to) — так решил владелец.
 LETTER_SIGN = "С заботой о вашем интернете,\nкоманда IKK VPN"
 _letter_anim_id = None
 
@@ -314,7 +315,7 @@ async def broadcast(message: Message, users, make_message):
         # Письмо собирается тем же make_message, но уходит только в чат
         # владельца: ссылка внутри — его собственная.
         text, kb = make_message(OWNER_ID)
-        await send_letter_to(message.bot, message.chat.id, text, kb)
+        await send_banner_to(message.bot, message.chat.id, text, kb)
         await message.answer(f"Пример письма — выше. Настоящая рассылка ушла бы "
                              f"<b>{len(users)}</b> получателям.")
         return
@@ -322,7 +323,7 @@ async def broadcast(message: Message, users, make_message):
     for uid in users:
         text, kb = make_message(uid)
         try:
-            await send_letter_to(message.bot, uid, text, kb)
+            await send_banner_to(message.bot, uid, text, kb)
             sent += 1
         except TelegramForbiddenError:
             db.mark_blocked(uid)
@@ -702,7 +703,7 @@ async def _bc_nc(message):
     if _PREVIEW.get():
         # Без обхода панели по всем подпискам — это сотни запросов ради примера
         text = texts.NOT_CONNECTED_NUDGE.format(date=fmt_date(now + 7 * 86400))
-        await send_letter_to(message.bot, message.chat.id, text, connect_kb(PREVIEW_TOKEN))
+        await send_banner_to(message.bot, message.chat.id, text, connect_kb(PREVIEW_TOKEN))
         await message.answer(
             f"Пример письма — выше. Настоящая рассылка проверит {len(users)} "
             "активных подписок и напишет тем, кто ни разу не подключался.")
@@ -723,7 +724,7 @@ async def _bc_nc(message):
         token = sync_panel(uid)
         text = texts.NOT_CONNECTED_NUDGE.format(date=fmt_date(sub_until))
         try:
-            await send_letter_to(message.bot, uid, text, connect_kb(token))
+            await send_banner_to(message.bot, uid, text, connect_kb(token))
             sent += 1
         except TelegramForbiddenError:
             db.mark_blocked(uid)
