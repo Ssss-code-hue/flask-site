@@ -113,23 +113,39 @@ def _short_line(part):
     return "\n" not in part and len(_TAGS.sub("", part)) <= 60
 
 
+# Пустая строка. Отступов у блоков богатого сообщения нет, а текст,
+# прижатый к разделителю, выглядит тесно, — воздух даём строкой.
+# Пробел нулевой ширины нужен, чтобы Telegram не выкинул её как пустую.
+_GAP = "\u200b"
+
+
+def _unbold(part):
+    return re.sub(r"</?b>", "", part)
+
+
 def rich_html(text):
     """Раскладывает текст бота по блокам богатого сообщения, не меняя слов.
 
     Тексты в texts.py устроены одинаково: первая строка — заголовок, дальше
     абзацы через пустую строку, в конце короткий призыв («Выберите
-    действие:»). Заголовок становится заголовком секции, а между ним, телом
-    и призывом встают разделители.
+    действие:»). Заголовок становится заголовком секции, между ним, телом
+    и призывом встают разделители, а тело и призыв идут жирным. Внутренние
+    <b> снимаются: жирный внутри жирного Telegram не различает.
     """
     parts = [p.strip() for p in text.strip().split("\n\n") if p.strip()]
     blocks = []
-    if len(parts) > 1 and _short_line(parts[0]):
-        title = re.sub(r"</?b>", "", parts.pop(0))     # заголовок и так жирный
-        blocks.append(f"<h3>{title}</h3><hr/>")
+    has_top = len(parts) > 1 and _short_line(parts[0])
+    if has_top:
+        blocks.append(f"<h3>{_unbold(parts.pop(0))}</h3><hr/>")
     tail = parts.pop() if len(parts) > 1 and _short_line(parts[-1]) else None
-    blocks += ["<p>" + p.replace("\n", "<br/>") + "</p>" for p in parts]
+    body = [_unbold(p).replace("\n", "<br/>") for p in parts]
+    if body and has_top:
+        body[0] = f"{_GAP}<br/>{body[0]}"         # отступ от верхнего разделителя
+    if body and tail:
+        body[-1] = f"{body[-1]}<br/>{_GAP}"       # и от нижнего
+    blocks += [f"<p><b>{b}</b></p>" for b in body]
     if tail:
-        blocks.append(f"<hr/><p>{tail}</p>")
+        blocks.append(f"<hr/><p><b>{_unbold(tail)}</b></p>")
     return "".join(blocks)
 
 
