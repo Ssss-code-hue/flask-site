@@ -1,5 +1,6 @@
 """IKK VPN — Telegram-бот: оплата звёздами и картой/СБП, подписки, рефералы."""
 import asyncio
+import contextvars
 import json
 import logging
 import os
@@ -63,6 +64,7 @@ from .config import (
 )
 from .keyboards import (BROADCASTS, admin_back_kb, admin_broadcasts_kb,
                         admin_confirm_kb, admin_giveaway_kb, admin_kb,
+                        admin_preview_kb,
                         back_kb, card_invoice_kb, connect_kb, devices_kb,
                         docs_kb, giveaway_kb, giveaway_post_kb, main_menu,
                         support_kb,
@@ -308,6 +310,14 @@ async def broadcast(message: Message, users, make_message):
     каждого. Заблокировавших помечаем в базе, чтобы следующая рассылка их
     не трогала и статистика не врала.
     """
+    if _PREVIEW.get():
+        # Письмо собирается тем же make_message, но уходит только в чат
+        # владельца: ссылка внутри — его собственная.
+        text, kb = make_message(OWNER_ID)
+        await send_letter_to(message.bot, message.chat.id, text, kb)
+        await message.answer(f"Пример письма — выше. Настоящая рассылка ушла бы "
+                             f"<b>{len(users)}</b> получателям.")
+        return
     sent = blocked = failed = 0
     for uid in users:
         text, kb = make_message(uid)
@@ -689,6 +699,14 @@ async def _bc_howsitgoing(message):
 async def _bc_nc(message):
     now = int(time.time())
     users = db.active_users(now)
+    if _PREVIEW.get():
+        # Без обхода панели по всем подпискам — это сотни запросов ради примера
+        text = texts.NOT_CONNECTED_NUDGE.format(date=fmt_date(now + 7 * 86400))
+        await send_letter_to(message.bot, message.chat.id, text, connect_kb(PREVIEW_TOKEN))
+        await message.answer(
+            f"Пример письма — выше. Настоящая рассылка проверит {len(users)} "
+            "активных подписок и напишет тем, кто ни разу не подключался.")
+        return
     await message.answer(f"⏳ Проверяю {len(users)} активных подписок…")
     # «Уже пользуется» и «панель не ответила» — разные вещи, и в одном
     # счётчике они читаются как «не дошло». Первое — норма, этому человеку
@@ -1381,12 +1399,85 @@ def _is_owner(x):
     return bool(OWNER_ID) and x.from_user.id == OWNER_ID
 
 
+def _broadcast_fn(code):
+    return {"lapsed": _bc_lapsed, "nc": _bc_nc, "ref": _bc_ref,
+            "promo": _bc_promo, "sale": _bc_sale, "gift": _bc_gift,
+            "howru": _bc_howsitgoing, "salert": _bc_sale_return,
+            "paidref": _bc_paidref}.get(code)
+
+
+# Предпросмотр писем. Флаг живёт в контексте текущей задачи: параллельная
+# настоящая рассылка его не видит и уйдёт как обычно.
+_PREVIEW = contextvars.ContextVar("broadcast_preview", default=False)
+# Заглушка вместо токена подписки: кнопка «Подключиться» в примере видна,
+# но пользователя в панели ради предпросмотра не заводим.
+PREVIEW_TOKEN = "preview"
+
+
+class _PreviewMessage:
+    """Подменяет message в рассылке: её отчёты помечаются как предпросмотр."""
+
+    def __init__(self, message):
+        self._message = message
+
+    def __getattr__(self, name):
+        return getattr(self._message, name)
+
+    async def answer(self, text, **kwargs):
+        return await self._message.answer(
+            "👁 <i>Предпросмотр. В настоящей рассылке:</i>\n\n" + text, **kwargs)
+
+
+async def _preview_reminder(message, code):
+    """Пример напоминания с примерными датами — только владельцу."""
+    now = int(time.time())
+    common = dict(ending="ось", days=3, word=_plural_days(3))
+    date = fmt_date(now + 3 * 86400)
+    if code == "r_trial_on":
+        if sale_active():
+            text = texts.TRIAL_ENDING_SALE.format(date=date, **_sale_kwargs(), **common)
+        else:
+            text = texts.TRIAL_ENDING_ACTIVE.format(date=date, price=_month_price(), **common)
+        kb = renew_kb()
+    elif code == "r_trial_off":
+        text, kb = texts.TRIAL_ENDING.format(**common), connect_kb(PREVIEW_TOKEN)
+    elif code == "r_sub":
+        common["date"] = date
+        text = (texts.SUB_ENDING_SALE.format(**_sale_kwargs(), **common) if sale_active()
+                else texts.SUB_ENDING.format(**common))
+        kb = renew_kb()
+    elif code == "r_nc":
+        text, kb = texts.NOT_CONNECTED, connect_kb(PREVIEW_TOKEN)
+    elif code == "r_ask":
+        link = f"https://t.me/{BOT_USERNAME}?start=ref_{OWNER_ID}"
+        text = texts.REF_ASK.format(days=ADVOCACY_AFTER_DAYS, bonus=REFERRAL_BONUS_DAYS, link=link)
+        kb = ref_share_kb(link)
+    else:
+        await message.answer("Неизвестное напоминание.")
+        return
+    await send_letter_to(message.bot, message.chat.id, text, kb)
+    await message.answer("👁 Пример напоминания — выше. Даты в нём примерные.")
+
+
+async def _preview_letter(message, code):
+    """Пример письма рассылки или напоминания — только в чат владельца."""
+    if code.startswith("r_"):
+        await _preview_reminder(message, code)
+        return
+    fn = _broadcast_fn(code)
+    if not fn:
+        await message.answer("Неизвестная рассылка.")
+        return
+    flag = _PREVIEW.set(True)
+    try:
+        await fn(_PreviewMessage(message))
+    finally:
+        _PREVIEW.reset(flag)
+
+
 async def _run_broadcast(message, code):
     """Запуск рассылки из панели. Владельца проверили до вызова."""
-    fn = {"lapsed": _bc_lapsed, "nc": _bc_nc, "ref": _bc_ref,
-          "promo": _bc_promo, "sale": _bc_sale, "gift": _bc_gift,
-          "howru": _bc_howsitgoing, "salert": _bc_sale_return,
-          "paidref": _bc_paidref}.get(code)
+    fn = _broadcast_fn(code)
     if not fn:
         await message.answer("Неизвестная рассылка.")
         return
@@ -1400,6 +1491,19 @@ async def cmd_admin(message: Message):
     if not _is_owner(message):
         return
     await message.answer(ADMIN_HOME, reply_markup=admin_kb())
+
+
+@dp.message(Command("letter_preview"))
+async def cmd_letter_preview(message: Message):
+    """Список писем для предпросмотра (owner-only)."""
+    if not _is_owner(message):
+        return
+    await message.answer(
+        "👁 <b>Предпросмотр писем</b>\n\n"
+        "Выберите, что показать, — пример придёт только вам. Рассылка "
+        "собирается так же, как настоящая: если её сейчас нельзя отправить "
+        "(например, акция закончилась), увидите тот же отказ.",
+        reply_markup=admin_preview_kb())
 
 
 @dp.message(Command("style_preview"))
@@ -1527,6 +1631,11 @@ async def cb_admin(cq: CallbackQuery):
             "⚠️ Отменить отправленное нельзя. Рассылать?",
             reply_markup=admin_confirm_kb(code))
         await cq.answer()
+        return
+
+    if action.startswith("pv:"):
+        await cq.answer("Готовлю пример…")
+        await _preview_letter(cq.message, action[3:])
         return
 
     if action.startswith("go:"):

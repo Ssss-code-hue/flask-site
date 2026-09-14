@@ -138,6 +138,28 @@ def admin_broadcasts_kb():
     return kb.as_markup()
 
 
+# Напоминания уходят сами, по расписанию, — посмотреть их можно только
+# предпросмотром. Код с «r_», чтобы не пересечься с кодами рассылок.
+REMINDERS = {
+    "r_trial_on":  "Конец пробного — подключился",
+    "r_trial_off": "Конец пробного — не подключился",
+    "r_sub":       "Конец подписки",
+    "r_nc":        "Ещё не подключились",
+    "r_ask":       "Просьба порекомендовать",
+}
+
+
+def admin_preview_kb():
+    """Все письма для предпросмотра: рассылки, затем напоминания."""
+    kb = InlineKeyboardBuilder()
+    for code, (title, _) in BROADCASTS.items():
+        kb.button(text=f"📢 {title}", callback_data=f"adm:pv:{code}")
+    for code, title in REMINDERS.items():
+        kb.button(text=f"⏰ {title}", callback_data=f"adm:pv:{code}")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
 def admin_confirm_kb(code):
     """Подтверждение рассылки.
 
@@ -146,6 +168,7 @@ def admin_confirm_kb(code):
     отправленное нельзя.
     """
     kb = InlineKeyboardBuilder()
+    kb.button(text="👁 Сначала прислать мне", callback_data=f"adm:pv:{code}")
     kb.button(text="✅ Да, разослать", callback_data=f"adm:go:{code}")
     kb.button(text="◀ Отмена", callback_data="adm:bc")
     kb.adjust(1)
