@@ -72,6 +72,42 @@ def main():
 
     print()
     print("=" * 74)
+    print("ВЫРУЧКА ПО МЕСЯЦАМ (бот + сайт)")
+    print("=" * 74)
+    print(f"{'месяц':<10}{'бот, ₽':>9}{'оплат':>7}{'сайт, ₽':>10}{'оплат':>7}"
+          f"{'звёзды':>9}{'итого ₽':>10}")
+    months = {}
+    for r in q("select created_at, amount_rub from bot_invoices where status='paid'" +
+               SKIP.replace("user_id", "user_id")):
+        k = datetime.fromtimestamp(r["created_at"]).strftime("%Y-%m")
+        m = months.setdefault(k, dict(bot=0, botn=0, web=0, webn=0, stars=0))
+        m["bot"] += r["amount_rub"] or 0
+        m["botn"] += 1
+    for r in q("select created_at, amount_rub from web_payments "
+               "where status in ('CONFIRMED','paid')"):
+        k = datetime.fromtimestamp(r["created_at"]).strftime("%Y-%m")
+        m = months.setdefault(k, dict(bot=0, botn=0, web=0, webn=0, stars=0))
+        m["web"] += r["amount_rub"] or 0
+        m["webn"] += 1
+    for r in q("select created_at, stars from payments where stars>0"):
+        k = datetime.fromtimestamp(r["created_at"]).strftime("%Y-%m")
+        m = months.setdefault(k, dict(bot=0, botn=0, web=0, webn=0, stars=0))
+        m["stars"] += r["stars"] or 0
+    for k in sorted(months)[-6:]:
+        m = months[k]
+        print(f"{k:<10}{m['bot']:>9}{m['botn']:>7}{m['web']:>10}{m['webn']:>7}"
+              f"{m['stars']:>9}{m['bot'] + m['web']:>10}")
+    month_ago = now - 30 * 86400
+    b30 = one("select coalesce(sum(amount_rub),0) from bot_invoices "
+              "where status='paid' and created_at>=?" + SKIP, month_ago)
+    w30 = one("select coalesce(sum(amount_rub),0) from web_payments "
+              "where status in ('CONFIRMED','paid') and created_at>=?", month_ago)
+    s30 = one("select coalesce(sum(stars),0) from payments where stars>0 and created_at>=?", month_ago)
+    print(f"\n  За последние 30 дней: {b30 + w30} ₽" + (f" и {s30} ⭐" if s30 else ""))
+    print("  Это оборот до комиссии кассы и без вычета серверов.")
+
+    print()
+    print("=" * 74)
     print("ОПЛАТА: ГДЕ ТЕРЯЕМ")
     print("=" * 74)
     for r in q("select provider, status, count(*) n, coalesce(sum(amount_rub),0) rub "
