@@ -172,6 +172,16 @@ def get_subscription_url(user_id, sub_until, prefix=None, data_limit_gb=None):
             )
         else:
             r.raise_for_status()
+            # Лимит не опускаем ниже израсходованного: иначе человек,
+            # уже потративший больше нового лимита, окажется за ним и
+            # отключится в ту же секунду — без предупреждения и повода.
+            cur = r.json()
+            used = cur.get("used_traffic") or 0
+            if limit_bytes and used >= limit_bytes:
+                limit_bytes = cur.get("data_limit") or 0
+                limit_reset = cur.get("data_limit_reset_strategy") or limit_reset
+                log.info("panel: %s израсходовал %.1f ГБ — лимит оставляем прежним",
+                         username, used / 1024 ** 3)
             # продлеваем существующего; inbounds и лимит шлём тоже —
             # это чинит пользователей, созданных ранее без инбаундов/лимита
             r = requests.put(
