@@ -25,7 +25,12 @@ def main():
     ap = argparse.ArgumentParser(description="Разбор продаж IKK VPN")
     ap.add_argument("--db", default="/root/flask-site/data/ikk_bot.db")
     ap.add_argument("--weeks", type=int, default=10)
+    # Свои тестовые счета портят картину: владелец создаёт их, чтобы
+    # посмотреть кассу, и они всегда остаются неоплаченными.
+    ap.add_argument("--skip", default="", help="id через запятую: чьи счета не считать")
     args = ap.parse_args()
+    skip = [int(x) for x in args.skip.replace(" ", "").split(",") if x]
+    SKIP = "" if not skip else " and user_id not in (%s)" % ",".join(map(str, skip))
 
     now = int(time.time())
     since = week_start(now) - (args.weeks - 1) * WEEK
@@ -41,8 +46,9 @@ def main():
         return out
 
     new = by_week("select created_at from users where created_at>=?", since)
-    inv = by_week("select created_at from bot_invoices where created_at>=?", since)
-    paid = by_week("select created_at from bot_invoices where status='paid' and created_at>=?", since)
+    inv = by_week("select created_at from bot_invoices where created_at>=?" + SKIP, since)
+    paid = by_week("select created_at from bot_invoices "
+                   "where status='paid' and created_at>=?" + SKIP, since)
     stars = by_week("select created_at from payments where created_at>=?", since)
     promo = {}
     for r in q("select used_at from promo_uses where used_at>=?", since):
@@ -57,7 +63,7 @@ def main():
     for i in range(args.weeks):
         w = since + i * WEEK
         rub = one("select coalesce(sum(amount_rub),0) from bot_invoices "
-                  "where status='paid' and created_at>=? and created_at<?", w, w + WEEK)
+                  "where status='paid' and created_at>=? and created_at<?" + SKIP, w, w + WEEK)
         label = datetime.fromtimestamp(w).strftime("%d.%m")
         print(f"{label:<12}{new.get(w,0):>7}{inv.get(w,0):>8}{paid.get(w,0):>10}"
               f"{stars.get(w,0):>8}{promo.get(w,0):>11}{rub:>11}")
@@ -67,16 +73,29 @@ def main():
     print("ОПЛАТА: ГДЕ ТЕРЯЕМ")
     print("=" * 74)
     for r in q("select provider, status, count(*) n, coalesce(sum(amount_rub),0) rub "
-               "from bot_invoices where created_at>=? group by provider, status "
-               "order by provider, status", since):
+               "from bot_invoices where created_at>=?" + SKIP +
+               " group by provider, status order by provider, status", since):
         print(f"  {r['provider'] or '(не указан)':<12} {r['status']:<10} {r['n']:>4} шт. {r['rub']:>8} ₽")
-    tot = one("select count(*) from bot_invoices where created_at>=?", since)
-    ok = one("select count(*) from bot_invoices where status='paid' and created_at>=?", since)
+    tot = one("select count(*) from bot_invoices where created_at>=?" + SKIP, since)
+    ok = one("select count(*) from bot_invoices "
+             "where status='paid' and created_at>=?" + SKIP, since)
     if tot:
         print(f"\n  Доходят до оплаты: {ok} из {tot} счетов ({ok * 100 // tot}%)")
         print("  Если процент упал почти до нуля — проблема в кассе, а не в людях.")
     else:
         print("\n  Счетов не создавали вовсе — до экрана оплаты люди не доходят.")
+
+    rows = q("select b.user_id uid, u.username, count(*) n from bot_invoices b "
+             "left join users u on u.user_id=b.user_id "
+             "where b.status!='paid' and b.created_at>=?" +
+             SKIP.replace("user_id", "b.user_id") +
+             " group by b.user_id order by n desc limit 5", since)
+    if rows:
+        print("\n  Кто чаще всех бросает счета неоплаченными:")
+        for r in rows:
+            who = f"@{r['username']}" if r["username"] else f"id{r['uid']}"
+            print(f"    {who:<20} {r['n']} шт.  (id {r['uid']})")
+        print("  Свой тестовый аккаунт уберите из счёта: --skip <id>")
 
     print()
     print("=" * 74)
