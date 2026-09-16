@@ -17,10 +17,24 @@ from pathlib import Path
 
 import requests
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from status import load_env                      # noqa: E402  (тот же разбор .env)
-
 GB = 1024 ** 3
+
+
+def load_env(path):
+    """Читает .env сам, чтобы секреты не проходили через командную строку."""
+    p = Path(path)
+    if not p.exists():
+        print(f"[!] Файл настроек {p} не найден")
+        return {}
+    env = {}
+    for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        env[k.strip()] = v.strip().strip('"').strip("'")
+    os.environ.update(env)
+    return env
 
 
 def payers(db_path):
