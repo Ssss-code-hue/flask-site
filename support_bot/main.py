@@ -25,7 +25,11 @@ logging.basicConfig(level=logging.INFO)
 dp = Dispatcher()
 
 BANNER = Path(__file__).parent / "assets" / "banner.png"
+# Анимированный баннер — как у основного бота. Нет файла или не ушёл —
+# отправляем картинку: приветствие важнее оформления.
+BANNER_ANIM = Path(__file__).parent / "assets" / "banner.mp4"
 _banner_file_id = None
+_banner_anim_id = None
 
 # пользователи, нажавшие «Создать тикет» и ещё не написавшие текст
 _awaiting_ticket = set()
@@ -93,7 +97,18 @@ def back_kb(target="menu"):
 
 # ============ Один живой экран: баннер + подпись ============
 async def send_welcome(message: Message):
-    global _banner_file_id
+    global _banner_file_id, _banner_anim_id
+    if BANNER_ANIM.exists():
+        try:
+            sent = await message.answer_animation(
+                _banner_anim_id or FSInputFile(BANNER_ANIM),
+                caption=faq.WELCOME, reply_markup=main_menu(),
+            )
+            if not _banner_anim_id and sent.animation:
+                _banner_anim_id = sent.animation.file_id
+            return
+        except Exception:
+            logging.exception("Анимированный баннер поддержки не ушёл — шлём картинку")
     if BANNER.exists():
         try:
             photo = _banner_file_id or FSInputFile(BANNER)
@@ -110,7 +125,7 @@ async def send_welcome(message: Message):
 
 async def show_screen(cq: CallbackQuery, text, reply_markup=None):
     m = cq.message
-    if m.photo:
+    if m.photo or m.animation:
         await m.edit_caption(caption=text, reply_markup=reply_markup)
     else:
         await m.edit_text(text, reply_markup=reply_markup)
