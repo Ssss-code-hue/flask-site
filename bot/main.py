@@ -816,6 +816,36 @@ async def _bc_sale(message):
     await broadcast(message, users, lambda uid: (text, kb))
 
 
+@dp.message(Command("broadcast_sale_more"))
+async def cmd_broadcast_sale_more(message: Message):
+    """Рассылка «бонус стал больше» ВСЕМ пользователям (owner-only)."""
+    if not OWNER_ID or message.from_user.id != OWNER_ID:
+        return
+    await _bc_sale_more(message)
+
+
+async def _bc_sale_more(message):
+    """Повторный заход по той же акции — когда бонус увеличили.
+
+    Числа берутся из тех же функций, что и начисление, поэтому «40 дней»
+    в тексте и 40 дней при оплате разойтись не могут.
+    """
+    if not sale_active():
+        await message.answer(
+            f"⛔ Акция закончилась {_sale_until_ru()} — рассылка отменена.\n"
+            "Продлите её переменной SALE_UNTIL и перезапустите бота.")
+        return
+
+    users = db.all_user_ids()
+    await message.answer(
+        f"⏳ Рассылаю «бонус стал больше» (месяц {plan_days('1m')} дн., "
+        f"по {_sale_until_ru()}) по {len(users)} пользователям…")
+    text = texts.SALE_MORE_BROADCAST.format(until=_sale_until_ru(),
+                                            **_sale_plans_kwargs())
+    kb = sale_kb()
+    await broadcast(message, users, lambda uid: (text, kb))
+
+
 @dp.message(Command("broadcast_ref"))
 async def cmd_broadcast_ref(message: Message):
     """Рассылка про реферальную программу ВСЕМ пользователям (owner-only).
@@ -1415,7 +1445,7 @@ def _broadcast_fn(code):
     return {"lapsed": _bc_lapsed, "nc": _bc_nc, "ref": _bc_ref,
             "promo": _bc_promo, "sale": _bc_sale, "gift": _bc_gift,
             "howru": _bc_howsitgoing, "salert": _bc_sale_return,
-            "paidref": _bc_paidref}.get(code)
+            "paidref": _bc_paidref, "salemore": _bc_sale_more}.get(code)
 
 
 # Предпросмотр писем. Флаг живёт в контексте текущей задачи: параллельная

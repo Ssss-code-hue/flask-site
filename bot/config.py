@@ -80,7 +80,7 @@ def _sale_bonus_env(name, default):
 
 
 SALE_BONUS = {
-    "1m":  _sale_bonus_env("SALE_BONUS_DAYS", 5),        # имя прежнее — месяц
+    "1m":  _sale_bonus_env("SALE_BONUS_DAYS", 10),       # имя прежнее — месяц
     "3m":  _sale_bonus_env("SALE_BONUS_DAYS_3M", 20),
     "12m": _sale_bonus_env("SALE_BONUS_DAYS_12M", 90),
 }
