@@ -49,7 +49,9 @@ def main():
     inv = by_week("select created_at from bot_invoices where created_at>=?" + SKIP, since)
     paid = by_week("select created_at from bot_invoices "
                    "where status='paid' and created_at>=?" + SKIP, since)
-    stars = by_week("select created_at from payments where created_at>=?", since)
+    # В payments бот пишет и оплаты картой (stars=0), поэтому звёзды —
+    # только те, где stars>0. Иначе столбец дублирует «оплачено».
+    stars = by_week("select created_at from payments where stars>0 and created_at>=?", since)
     promo = {}
     for r in q("select used_at from promo_uses where used_at>=?", since):
         k = week_start(r["used_at"])
