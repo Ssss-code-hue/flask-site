@@ -36,6 +36,10 @@ TIMEOUT = 15
 # компания из нескольких устройств упрётся — так сдерживаем шаринг ключа.
 # 0 = безлимит. Сброс раз в месяц (data_limit_reset_strategy=month).
 DATA_LIMIT_GB = int(os.environ.get("DATA_LIMIT_GB", "200"))
+# Лимит для тех, кто ещё ни разу не платил. Бесплатный пользователь стоит
+# денег за трафик, и 200 ГБ за две недели — это прямой убыток; платящему
+# лимит поднимается автоматически при первой же синхронизации.
+TRIAL_DATA_LIMIT_GB = int(os.environ.get("TRIAL_DATA_LIMIT_GB", "20"))
 DATA_LIMIT_BYTES = DATA_LIMIT_GB * 1024 ** 3
 DATA_LIMIT_RESET = "month" if DATA_LIMIT_GB else "no_reset"
 
@@ -127,11 +131,15 @@ def _inbounds(token):
     return _auto_inbounds
 
 
-def get_subscription_url(user_id, sub_until, prefix=None):
+def get_subscription_url(user_id, sub_until, prefix=None, data_limit_gb=None):
     """Создаёт/продлевает пользователя в Marzban и возвращает subscription-URL.
 
     prefix разделяет пользователей сайта и бота (см. WEB_PREFIX).
+    data_limit_gb — лимит трафика этого человека; None = общий DATA_LIMIT_GB.
     """
+    limit_gb = DATA_LIMIT_GB if data_limit_gb is None else data_limit_gb
+    limit_bytes = limit_gb * 1024 ** 3
+    limit_reset = "month" if limit_gb else "no_reset"
     # Демо-режим, если панель не настроена (бот не упадёт)
     if not _configured():
         base = os.environ.get("SUB_BASE_URL", "").rstrip("/")
@@ -154,8 +162,8 @@ def get_subscription_url(user_id, sub_until, prefix=None):
                 "proxies": PROXIES,
                 "inbounds": _inbounds(token),
                 "expire": int(sub_until),
-                "data_limit": DATA_LIMIT_BYTES,
-                "data_limit_reset_strategy": DATA_LIMIT_RESET,
+                "data_limit": limit_bytes,
+                "data_limit_reset_strategy": limit_reset,
                 "status": "active",
             }
             r = requests.post(
@@ -173,8 +181,8 @@ def get_subscription_url(user_id, sub_until, prefix=None):
                     "expire": int(sub_until),
                     "status": "active",
                     "inbounds": _inbounds(token),
-                    "data_limit": DATA_LIMIT_BYTES,
-                    "data_limit_reset_strategy": DATA_LIMIT_RESET,
+                    "data_limit": limit_bytes,
+                    "data_limit_reset_strategy": limit_reset,
                 },
                 timeout=TIMEOUT, verify=VERIFY,
             )

@@ -81,6 +81,13 @@ def init_db():
         icols = {r["name"] for r in c.execute("PRAGMA table_info(bot_invoices)")}
         if "provider" not in icols:
             c.execute("ALTER TABLE bot_invoices ADD COLUMN provider TEXT DEFAULT 'lolz'")
+        # Ссылка на оплату: без неё нельзя напомнить про брошенный счёт —
+        # кнопка «Оплатить» должна вести туда же, куда вела в первый раз.
+        if "pay_url" not in icols:
+            c.execute("ALTER TABLE bot_invoices ADD COLUMN pay_url TEXT")
+        # Напомнили ли про неоплаченный счёт: ровно один раз на счёт.
+        if "nudged" not in icols:
+            c.execute("ALTER TABLE bot_invoices ADD COLUMN nudged INTEGER DEFAULT 0")
         # Миграция старых баз: пробный период у Telegram-пользователей
         ucols = {r["name"] for r in c.execute("PRAGMA table_info(users)")}
         if "trial_used" not in ucols:
@@ -108,6 +115,10 @@ def init_db():
         # add_days: продлился — значит про новый срок надо напомнить заново.
         if "expiry_reminded" not in ucols:
             c.execute("ALTER TABLE users ADD COLUMN expiry_reminded INTEGER DEFAULT 0")
+        # Предупредили ли, что на пробном заканчивается трафик. Один раз
+        # на человека: второе такое письмо читается как навязывание.
+        if "traffic_warned" not in ucols:
+            c.execute("ALTER TABLE users ADD COLUMN traffic_warned INTEGER DEFAULT 0")
         # Просили ли порекомендовать сервис друзьям (одна просьба на человека).
         if "ref_asked" not in ucols:
             c.execute("ALTER TABLE users ADD COLUMN ref_asked INTEGER DEFAULT 0")
@@ -715,14 +726,48 @@ def admin_delete_bot_user(uid):
 
 # ===== Счета Lolz в боте (оплата картой/СБП) =====
 
-def create_bot_invoice(payment_id, invoice_id, user_id, plan, amount_rub, provider="lolz"):
+def create_bot_invoice(payment_id, invoice_id, user_id, plan, amount_rub,
+                       provider="lolz", pay_url=None):
     with _conn() as c:
         c.execute(
             "INSERT OR IGNORE INTO bot_invoices"
-            "(payment_id, invoice_id, user_id, plan, amount_rub, status, created_at, provider) "
-            "VALUES(?,?,?,?,?,'pending',?,?)",
-            (payment_id, invoice_id, user_id, plan, amount_rub, int(time.time()), provider),
+            "(payment_id, invoice_id, user_id, plan, amount_rub, status, created_at,"
+            " provider, pay_url) VALUES(?,?,?,?,?,'pending',?,?,?)",
+            (payment_id, invoice_id, user_id, plan, amount_rub, int(time.time()),
+             provider, pay_url),
         )
+
+
+def mark_invoice_nudged(payment_id):
+    """Отмечает, что про этот счёт уже напоминали."""
+    with _conn() as c:
+        c.execute("UPDATE bot_invoices SET nudged=1 WHERE payment_id=?", (payment_id,))
+
+
+def has_paid(user_id):
+    """Платил ли человек хоть раз — картой или звёздами.
+
+    По этому признаку расходятся лимит трафика и промокоды: бесплатному
+    пользователю даём меньше, платящему — всё.
+    """
+    with _conn() as c:
+        return bool(c.execute(
+            "SELECT 1 FROM payments WHERE user_id=? "
+            "UNION ALL SELECT 1 FROM bot_invoices WHERE user_id=? AND status='paid' "
+            "LIMIT 1", (user_id, user_id)).fetchone())
+
+
+def mark_traffic_warned(user_id):
+    with _conn() as c:
+        c.execute("UPDATE users SET traffic_warned=1 WHERE user_id=?", (user_id,))
+
+
+def traffic_warn_candidates(now):
+    """Активные, кому ещё не писали про заканчивающийся трафик."""
+    with _conn() as c:
+        return [r["user_id"] for r in c.execute(
+            "SELECT user_id FROM users WHERE sub_until>? AND COALESCE(blocked,0)=0 "
+            "AND COALESCE(traffic_warned,0)=0", (now,))]
 
 
 def get_bot_invoice(payment_id):

@@ -51,7 +51,25 @@ REFERRAL_BONUS_DAYS = int(os.environ.get("REFERRAL_BONUS_DAYS", "10"))
 REFERRAL_ON_TRIAL = os.environ.get("REFERRAL_ON_TRIAL", "0") == "1"
 
 # Пробный период «Попробовать бесплатно» (дней, раз на пользователя)
-TRIAL_DAYS = int(os.environ.get("TRIAL_DAYS", "15"))
+TRIAL_DAYS = int(os.environ.get("TRIAL_DAYS", "10"))
+# Можно ли активировать промокод, пока идёт бесплатный период и человек
+# ещё ни разу не платил. По умолчанию нельзя: 15 дней пробного плюс дни
+# промокода отодвигали решение о покупке почти на месяц.
+PROMO_ON_TRIAL = os.environ.get("PROMO_ON_TRIAL", "0") == "1"
+
+# С какой даты урезанный лимит трафика действует на бесплатных (ГГГГ-ММ-ДД).
+# Нужно, чтобы не отрезать тех, кто уже пользуется: у них в панели стоит
+# полный лимит, и снижение до 20 ГБ отключило бы их в ту же минуту —
+# израсходовано-то больше. Пусто = применять ко всем.
+def _date_env(name):
+    raw = os.environ.get(name, "").strip()
+    try:
+        return int(datetime.strptime(raw, "%Y-%m-%d").timestamp()) if raw else 0
+    except ValueError:
+        return 0
+
+
+TRIAL_LIMIT_SINCE = _date_env("TRIAL_LIMIT_SINCE")
 
 # Путь к базе SQLite
 DB_PATH = os.environ.get("DB_PATH", "ikk_bot.db")

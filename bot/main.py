@@ -44,7 +44,9 @@ from .config import (
     BOT_USERNAME,
     OWNER_ID,
     PLANS,
+    PROMO_ON_TRIAL,
     REFERRAL_BONUS_DAYS,
+    TRIAL_LIMIT_SINCE,
     REFERRAL_ON_TRIAL,
     SALE_BONUS,
     SALE_UNTIL,
@@ -71,8 +73,9 @@ from .keyboards import (BROADCASTS, admin_back_kb, admin_broadcasts_kb,
                         offer_consent_kb, paid_kb,
                         pay_method_kb, plans_kb, promo_offer_kb, ref_share_kb,
                         renew_kb, sale_kb, trial_consent_kb)
-from .panel import (get_subscription_url, online_usernames, site_sub_url,
-                    sub_token, traffic_by_username, user_connected)
+from .panel import (DATA_LIMIT_GB, TRIAL_DATA_LIMIT_GB, get_subscription_url,
+                    online_usernames, site_sub_url, sub_token,
+                    traffic_by_username, user_connected)
 
 logging.basicConfig(level=logging.INFO)
 dp = Dispatcher()
@@ -403,6 +406,31 @@ def ref_text(uid):
                             count=n, paid=paid, earned=paid * REFERRAL_BONUS_DAYS)
 
 
+def _full_limit(uid, u):
+    """Положен ли человеку полный лимит трафика.
+
+    Полный — платившим и тем, кто пришёл до введения урезанного лимита:
+    у них в панели уже стоит 200 ГБ и часть израсходована, а снижение
+    отключило бы их мгновенно и без предупреждения.
+    """
+    if db.has_paid(uid):
+        return True
+    return bool(TRIAL_LIMIT_SINCE and (u["created_at"] or 0) < TRIAL_LIMIT_SINCE)
+
+
+def _promo_too_early(uid):
+    """Промокод поверх идущего бесплатного периода — нельзя (PROMO_ON_TRIAL).
+
+    Пробный период и дни промокода складывались, и человек оказывался с
+    месяцем бесплатного доступа: решение о покупке отодвигалось так далеко,
+    что до него не доходили.
+    """
+    if PROMO_ON_TRIAL:
+        return False
+    u = db.get_user(uid)
+    return bool(u and u["sub_until"] > int(time.time()) and not db.has_paid(uid))
+
+
 def sync_panel(uid):
     """Синхронизирует срок подписки с панелью и возвращает её токен.
 
@@ -412,7 +440,11 @@ def sync_panel(uid):
     u = db.get_user(uid)
     if not (u and u["sub_until"]):
         return None
-    token = sub_token(get_subscription_url(uid, u["sub_until"]))
+    # Бесплатному — урезанный лимит, платящему — полный. Лимит уходит в
+    # панель при каждой синхронизации, поэтому после первой оплаты он
+    # поднимается сам, без отдельного действия.
+    limit = None if _full_limit(uid, u) else TRIAL_DATA_LIMIT_GB
+    token = sub_token(get_subscription_url(uid, u["sub_until"], data_limit_gb=limit))
     # Запоминаем токен: запросы подписки приходят на сайт без user_id, и без
     # этой связки понять, кто именно открыл приложение, невозможно (см. /funnel)
     db.remember_sub_token(uid, token)
@@ -2039,6 +2071,11 @@ async def cb_promo_go(cq: CallbackQuery):
     code = cq.data.split(":", 1)[1]
     uid = cq.from_user.id
     db.create_user(uid, cq.from_user.username)
+    if _promo_too_early(uid):
+        await show_screen(cq, texts.PROMO_AFTER_TRIAL.format(
+            date=fmt_date(db.get_user(uid)["sub_until"])), reply_markup=main_menu())
+        await cq.answer()
+        return
     bonus, err = db.redeem_promo(code, uid)
     if err == "already":
         await cq.answer("Вы уже активировали этот промокод ☝️", show_alert=True)
@@ -2062,6 +2099,10 @@ async def on_promo_text(message: Message):
         return
     uid = message.from_user.id
     db.create_user(uid, message.from_user.username)   # на случай без /start
+    if _promo_too_early(uid):
+        await send_banner(message, texts.PROMO_AFTER_TRIAL.format(
+            date=fmt_date(db.get_user(uid)["sub_until"])), main_menu())
+        return
     bonus, err = db.redeem_promo(code, uid)
     if err == "not_found":
         await send_banner(message, texts.PROMO_NOT_FOUND, main_menu())
@@ -2171,7 +2212,7 @@ async def cb_paycard(cq: CallbackQuery):
         await cq.answer(texts.CARD_FAIL, show_alert=True)
         return
     db.create_bot_invoice(str(payment_id), str(invoice_id), cq.from_user.id,
-                          code, p["rub"], provider=provider)
+                          code, p["rub"], provider=provider, pay_url=pay_url)
     await show_screen(cq,
         texts.CARD_INVOICE.format(rub=p["rub"], title=p["title"]),
         reply_markup=card_invoice_kb(pay_url, payment_id),
@@ -2263,6 +2304,48 @@ CARD_POLL_INTERVAL = 60          # раз в минуту опрашиваем �
 CARD_INVOICE_TTL = 2 * 3600      # счёт живёт час; ещё час запаса — и бросаем опрос
 
 
+TRAFFIC_CHECK_INTERVAL = 3 * 3600     # трафик считается не мгновенно
+TRAFFIC_WARN_AT = 0.8                 # доля лимита, после которой пишем
+
+
+async def warn_traffic_running_out(bot):
+    """Предлагает оплату тем, у кого кончается бесплатный трафик.
+
+    Это самый тёплый момент для предложения: человек пользуется VPN каждый
+    день и упирается в лимит — ему есть что терять. Пишем один раз.
+    """
+    while True:
+        await asyncio.sleep(TRAFFIC_CHECK_INTERVAL)
+        try:
+            used = await asyncio.to_thread(traffic_by_username)
+            if used is None:
+                continue                      # панель молчит — попробуем позже
+            limit = TRIAL_DATA_LIMIT_GB * 1024 ** 3
+            if not limit:
+                continue                      # лимита нет — предупреждать не о чем
+            for uid in db.traffic_warn_candidates(int(time.time())):
+                if db.has_paid(uid):
+                    continue                  # у платящих лимит другой
+                spent = used.get(f"ikk_{uid}") or 0
+                if spent < limit * TRAFFIC_WARN_AT:
+                    continue
+                db.mark_traffic_warned(uid)   # до отправки: второй раз не напишем
+                try:
+                    await send_letter_to(
+                        bot, uid,
+                        texts.TRAFFIC_LOW.format(
+                            used=f"{spent / 1024 ** 3:.0f}", limit=TRIAL_DATA_LIMIT_GB,
+                            full=DATA_LIMIT_GB, price=_month_price()),
+                        renew_kb())
+                except TelegramForbiddenError:
+                    db.mark_blocked(uid)
+                except Exception:
+                    logging.exception("Трафик: не смог написать %s", uid)
+                await asyncio.sleep(0.1)
+        except Exception:
+            logging.exception("Бот: ошибка проверки трафика")
+
+
 async def poll_card_invoices(bot):
     """Фоновая проверка счетов: подписка активируется без нажатия кнопки."""
     while True:
@@ -2280,8 +2363,35 @@ async def poll_card_invoices(bot):
                     await _credit_card_payment(bot, rec)
                 elif state == "dead":
                     db.settle_bot_invoice(rec["payment_id"], "expired")
+                else:
+                    await _nudge_unpaid(bot, rec)
         except Exception:
             logging.exception("Бот: ошибка фоновой проверки счетов")
+
+
+# Через сколько напомнить о неоплаченном счёте. Полчаса: раньше — как
+# будто торопим, позже — человек уже занят другим.
+INVOICE_NUDGE_AFTER = int(os.environ.get("INVOICE_NUDGE_AFTER", "1800"))
+
+
+async def _nudge_unpaid(bot, rec):
+    """Один раз напоминает про счёт, который создали и не оплатили."""
+    if rec.get("nudged") or not rec.get("pay_url"):
+        return
+    if int(time.time()) - rec["created_at"] < INVOICE_NUDGE_AFTER:
+        return
+    db.mark_invoice_nudged(rec["payment_id"])      # до отправки: не задвоим
+    p = PLANS.get(rec["plan"], {})
+    try:
+        await send_letter_to(
+            bot, rec["user_id"],
+            texts.INVOICE_UNPAID.format(title=p.get("title", rec["plan"]),
+                                        rub=rec["amount_rub"]),
+            card_invoice_kb(rec["pay_url"], rec["payment_id"]))
+    except TelegramForbiddenError:
+        db.mark_blocked(rec["user_id"])
+    except Exception:
+        logging.exception("Счёт %s: напоминание не ушло", rec["payment_id"])
 
 
 @dp.pre_checkout_query()
@@ -2586,6 +2696,7 @@ async def main():
     asyncio.create_task(daily_digest(bot))
     asyncio.create_task(remind_sub_ending(bot))
     asyncio.create_task(ask_for_advocacy(bot))
+    asyncio.create_task(warn_traffic_running_out(bot))
     logging.info("Авторассылки включены: триал за %s дн., продление за %s дн., "
                  "просьба порекомендовать через %s дн.",
                  TRIAL_REMIND_BEFORE_DAYS, SUB_REMIND_BEFORE_DAYS,
