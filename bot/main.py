@@ -352,6 +352,22 @@ def _cleanup_text():
             "сообщение остаётся у него как рабочий экран.</i>")
 
 
+async def _drop_previous(bot, chat_id):
+    """Стирает прошлую рассылку перед отправкой новой.
+
+    Иначе после трёх-четырёх рассылок переписка выглядит лентой рекламы.
+    Трогаем только нетронутые: то, что человек открыл кнопкой, — его
+    рабочий экран. Telegram разрешает удалять лишь сообщения моложе
+    48 часов, для старых вызов просто не сработает, и это нормально.
+    """
+    for message_id in db.deletes_for_chat(chat_id):
+        try:
+            await bot.delete_message(chat_id, message_id)
+        except Exception:
+            pass                      # старое, уже удалено или чат недоступен
+        db.cancel_delete(chat_id, message_id)
+
+
 def _plan_cleanup(chat_id, msg):
     """Ставит сообщение рассылки в очередь на удаление через сутки."""
     if BROADCAST_TTL and msg is not None and getattr(msg, "message_id", None):
@@ -406,6 +422,7 @@ async def broadcast(message: Message, users, make_message):
     for uid in users:
         text, kb = make_message(uid)
         try:
+            await _drop_previous(message.bot, uid)
             msg = await send_banner_to(message.bot, uid, with_cta(text), kb)
             _plan_cleanup(uid, msg)
             sent += 1
@@ -840,6 +857,7 @@ async def _bc_nc(message):
         token = sync_panel(uid)
         text = texts.NOT_CONNECTED_NUDGE.format(date=fmt_date(sub_until))
         try:
+            await _drop_previous(message.bot, uid)
             msg = await send_banner_to(message.bot, uid, with_cta(text), connect_kb(token))
             _plan_cleanup(uid, msg)
             sent += 1

@@ -1099,6 +1099,13 @@ def deletes_summary():
         return r["n"], r["first"], r["last"]
 
 
+def deletes_for_chat(chat_id):
+    """Нетронутые рассылки этого человека — их стираем при новой."""
+    with _conn() as c:
+        return [r["message_id"] for r in c.execute(
+            "SELECT message_id FROM pending_deletes WHERE chat_id=?", (chat_id,))]
+
+
 def due_deletes(now, limit=200):
     with _conn() as c:
         return [(r["chat_id"], r["message_id"]) for r in c.execute(
