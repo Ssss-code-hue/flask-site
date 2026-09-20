@@ -232,15 +232,16 @@ async def _send_rich(bot, chat_id, text, reply_markup=None, animated=None):
         logging.exception("Богатое сообщение не ушло — шлём по-старому")
         return False
     _remember_banner(sent)
-    return True
+    return sent
 
 
 async def send_banner_to(bot, chat_id, text, reply_markup=None):
     """Отправляет в чат НОВОЕ сообщение с баннером IKK VPN сверху."""
     if RICH_MESSAGES and not _rich_disabled:
-        if await _send_rich(bot, chat_id, text, reply_markup):
-            return
-    await _send_classic(bot, chat_id, text, reply_markup)
+        sent = await _send_rich(bot, chat_id, text, reply_markup)
+        if sent:
+            return sent
+    return await _send_classic(bot, chat_id, text, reply_markup)
 
 
 # Письмо: фоновые напоминания. Уходят тем, кто давно не открывал бота, —
@@ -279,12 +280,12 @@ async def send_letter_to(bot, chat_id, text, reply_markup=None):
                                             caption=text, reply_markup=reply_markup)
             if not _letter_anim_id and sent.animation:
                 _letter_anim_id = sent.animation.file_id
-            return
+            return sent
         except TelegramForbiddenError:
             raise
         except Exception:
             logging.exception("Письмо с анимацией не ушло — шлём с картинкой")
-    await _send_classic(bot, chat_id, text, reply_markup)
+    return await _send_classic(bot, chat_id, text, reply_markup)
 
 
 async def _send_classic(bot, chat_id, text, reply_markup=None):
@@ -297,14 +298,46 @@ async def _send_classic(bot, chat_id, text, reply_markup=None):
                                         reply_markup=reply_markup)
             if not _banner_file_id:
                 _banner_file_id = sent.photo[-1].file_id
-            return
+            return sent
         except TelegramForbiddenError:
             # чат недоступен (бот заблокирован) — текстом тоже не дойдёт,
             # второй запрос только зря нагружает API и засоряет журнал
             raise
         except Exception:
             logging.exception("Баннер не отправился — шлём текстом")
-    await bot.send_message(chat_id, text, reply_markup=reply_markup)
+    return await bot.send_message(chat_id, text, reply_markup=reply_markup)
+
+
+# Сколько живёт сообщение рассылки. Сутки: за это время его увидят даже те,
+# кто заходит в Telegram раз в день, а переписка не превращается в ленту
+# рекламы. 0 — не убирать. Больше суток ставить нельзя: Telegram разрешает
+# боту удалять свои сообщения только первые 48 часов.
+BROADCAST_TTL = int(os.environ.get("BROADCAST_TTL", str(24 * 3600)))
+CLEANUP_INTERVAL = 600
+
+
+def _plan_cleanup(chat_id, msg):
+    """Ставит сообщение рассылки в очередь на удаление через сутки."""
+    if BROADCAST_TTL and msg is not None and getattr(msg, "message_id", None):
+        db.schedule_delete(chat_id, msg.message_id, int(time.time()) + BROADCAST_TTL)
+
+
+async def clean_old_broadcasts(bot):
+    """Убирает старые рассылки, которые человек так и не открыл."""
+    while True:
+        await asyncio.sleep(CLEANUP_INTERVAL)
+        try:
+            for chat_id, message_id in db.due_deletes(int(time.time())):
+                try:
+                    await bot.delete_message(chat_id, message_id)
+                except Exception:
+                    # уже удалено, бот заблокирован или прошло 48 часов —
+                    # повторять нечего, просто снимаем с очереди
+                    pass
+                db.cancel_delete(chat_id, message_id)
+                await asyncio.sleep(0.05)
+        except Exception:
+            logging.exception("Бот: ошибка уборки старых рассылок")
 
 
 # Рассылки заканчиваются так же, как главное меню: разделителем и
@@ -337,7 +370,8 @@ async def broadcast(message: Message, users, make_message):
     for uid in users:
         text, kb = make_message(uid)
         try:
-            await send_banner_to(message.bot, uid, with_cta(text), kb)
+            msg = await send_banner_to(message.bot, uid, with_cta(text), kb)
+            _plan_cleanup(uid, msg)
             sent += 1
         except TelegramForbiddenError:
             db.mark_blocked(uid)
@@ -372,6 +406,7 @@ async def show_screen(cq: CallbackQuery, text, reply_markup=None, **kwargs):
     Все экраны бота умещаются в лимит подписи (1024 символа).
     """
     m = cq.message
+    db.cancel_delete(m.chat.id, m.message_id)   # открыли — это рабочий экран
     if getattr(m, "rich_message", None):
         # Баннер оставляем того же вида, что был у сообщения, — иначе
         # картинка сменится на анимацию прямо по нажатию кнопки.
@@ -767,7 +802,8 @@ async def _bc_nc(message):
         token = sync_panel(uid)
         text = texts.NOT_CONNECTED_NUDGE.format(date=fmt_date(sub_until))
         try:
-            await send_banner_to(message.bot, uid, with_cta(text), connect_kb(token))
+            msg = await send_banner_to(message.bot, uid, with_cta(text), connect_kb(token))
+            _plan_cleanup(uid, msg)
             sent += 1
         except TelegramForbiddenError:
             db.mark_blocked(uid)
@@ -2697,6 +2733,7 @@ async def main():
     asyncio.create_task(remind_sub_ending(bot))
     asyncio.create_task(ask_for_advocacy(bot))
     asyncio.create_task(warn_traffic_running_out(bot))
+    asyncio.create_task(clean_old_broadcasts(bot))
     logging.info("Авторассылки включены: триал за %s дн., продление за %s дн., "
                  "просьба порекомендовать через %s дн.",
                  TRIAL_REMIND_BEFORE_DAYS, SUB_REMIND_BEFORE_DAYS,

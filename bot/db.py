@@ -54,6 +54,12 @@ def init_db():
                 status     TEXT DEFAULT 'pending',-- pending/paid/expired
                 created_at INTEGER
             );
+            CREATE TABLE IF NOT EXISTS pending_deletes (
+                chat_id    INTEGER,
+                message_id INTEGER,
+                delete_at  INTEGER,           -- когда стереть (unix)
+                PRIMARY KEY (chat_id, message_id)
+            );
             CREATE TABLE IF NOT EXISTS email_codes (
                 email      TEXT PRIMARY KEY,
                 code_hash  TEXT,                   -- sha256 от кода (сам код не храним)
@@ -1065,3 +1071,28 @@ def stats():
         payments = c.execute("SELECT COUNT(*) AS n FROM payments").fetchone()["n"]
         stars = c.execute("SELECT COALESCE(SUM(stars), 0) AS s FROM payments").fetchone()["s"]
     return {"users": users, "active_subscriptions": active, "payments": payments, "stars_total": stars}
+
+
+# ============ Уборка рассылок ============
+# Рассылки живут сутки и удаляются: после нескольких подряд переписка с
+# ботом выглядит как лента рекламы. Удаляем только нетронутые — если
+# человек нажал кнопку, это сообщение стало его рабочим экраном.
+def schedule_delete(chat_id, message_id, delete_at):
+    with _conn() as c:
+        c.execute("INSERT OR REPLACE INTO pending_deletes"
+                  "(chat_id, message_id, delete_at) VALUES(?,?,?)",
+                  (chat_id, message_id, int(delete_at)))
+
+
+def cancel_delete(chat_id, message_id):
+    """Человек открыл сообщение кнопкой — больше не трогаем."""
+    with _conn() as c:
+        c.execute("DELETE FROM pending_deletes WHERE chat_id=? AND message_id=?",
+                  (chat_id, message_id))
+
+
+def due_deletes(now, limit=200):
+    with _conn() as c:
+        return [(r["chat_id"], r["message_id"]) for r in c.execute(
+            "SELECT chat_id, message_id FROM pending_deletes WHERE delete_at<=? "
+            "ORDER BY delete_at LIMIT ?", (int(now), limit))]
