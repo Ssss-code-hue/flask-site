@@ -94,6 +94,7 @@ def admin_kb():
     kb.button(text="🤝 Кто приводит людей", callback_data="adm:refs")
     kb.button(text="🎁 Розыгрыш", callback_data="adm:gw")
     kb.button(text="📢 Рассылки", callback_data="adm:bc")
+    kb.button(text="🧹 Уборка рассылок", callback_data="adm:cleanup")
     kb.adjust(1)
     return kb.as_markup()
 

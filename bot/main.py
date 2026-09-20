@@ -316,6 +316,42 @@ BROADCAST_TTL = int(os.environ.get("BROADCAST_TTL", str(24 * 3600)))
 CLEANUP_INTERVAL = 600
 
 
+def _left(seconds):
+    """«3 ч 20 мин» — сколько осталось."""
+    seconds = max(0, int(seconds))
+    h, m = seconds // 3600, seconds % 3600 // 60
+    if h and m:
+        return f"{h} ч {m} мин"
+    return f"{h} ч" if h else f"{m} мин"
+
+
+def _cleanup_line():
+    """Когда уберутся только что отправленные сообщения."""
+    when = datetime.fromtimestamp(time.time() + BROADCAST_TTL)
+    return (f"Уберу из переписки через {_left(BROADCAST_TTL)} — "
+            f"{when.strftime('%d.%m в %H:%M')}. "
+            "Те, кто нажмёт кнопку, сообщение сохранят.")
+
+
+def _cleanup_text():
+    """Экран «Уборка рассылок» в панели: сколько ждёт и сколько осталось."""
+    n, first, last = db.deletes_summary()
+    if not n:
+        return ("🧹 <b>Уборка рассылок</b>\n\n"
+                "Очередь пуста — убирать нечего.\n\n"
+                f"<i>Срок жизни рассылки: {_left(BROADCAST_TTL)}. "
+                "Сообщения, которые человек открыл кнопкой, не удаляются.</i>")
+    now = int(time.time())
+    return ("🧹 <b>Уборка рассылок</b>\n\n"
+            f"Ждут удаления: <b>{n}</b>\n"
+            f"Ближайшее — через <b>{_left(first - now)}</b> "
+            f"({datetime.fromtimestamp(first).strftime('%d.%m в %H:%M')})\n"
+            f"Последнее — через <b>{_left(last - now)}</b> "
+            f"({datetime.fromtimestamp(last).strftime('%d.%m в %H:%M')})\n\n"
+            "<i>Считаются только нетронутые: если человек нажал кнопку, "
+            "сообщение остаётся у него как рабочий экран.</i>")
+
+
 def _plan_cleanup(chat_id, msg):
     """Ставит сообщение рассылки в очередь на удаление через сутки."""
     if BROADCAST_TTL and msg is not None and getattr(msg, "message_id", None):
@@ -387,6 +423,8 @@ async def broadcast(message: Message, users, make_message):
     if blocked:
         report += (f"\n\nЭти {blocked} больше не получат рассылок — "
                    f"вернутся сами, если снова напишут боту.")
+    if BROADCAST_TTL and sent:
+        report += f"\n\n🧹 {_cleanup_line()}"
     await message.answer(report)
 
 
@@ -1673,6 +1711,11 @@ async def cb_admin(cq: CallbackQuery):
     if action == "home":
         await cq.message.edit_text(ADMIN_HOME, reply_markup=admin_kb())
         await cq.answer()
+        return
+
+    if action == "cleanup":
+        await cq.answer()
+        await _admin_show(cq, _cleanup_text(), "adm:cleanup")
         return
 
     if action == "stats":

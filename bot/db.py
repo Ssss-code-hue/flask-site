@@ -1091,6 +1091,14 @@ def cancel_delete(chat_id, message_id):
                   (chat_id, message_id))
 
 
+def deletes_summary():
+    """Сколько рассылок ждёт уборки и когда ближайшая/последняя."""
+    with _conn() as c:
+        r = c.execute("SELECT COUNT(*) n, MIN(delete_at) first, MAX(delete_at) last "
+                      "FROM pending_deletes").fetchone()
+        return r["n"], r["first"], r["last"]
+
+
 def due_deletes(now, limit=200):
     with _conn() as c:
         return [(r["chat_id"], r["message_id"]) for r in c.execute(
