@@ -503,7 +503,7 @@ def _full_limit(uid, u):
     у них в панели уже стоит 200 ГБ и часть израсходована, а снижение
     отключило бы их мгновенно и без предупреждения.
     """
-    if db.has_paid(uid):
+    if db.has_paid(uid) or (OWNER_ID and uid == OWNER_ID):
         return True
     return bool(TRIAL_LIMIT_SINCE and (u["created_at"] or 0) < TRIAL_LIMIT_SINCE)
 
@@ -1657,6 +1657,53 @@ async def cmd_admin(message: Message):
     if not _is_owner(message):
         return
     await message.answer(ADMIN_HOME, reply_markup=admin_kb())
+
+
+@dp.message(Command("give"))
+async def cmd_give(message: Message):
+    """Начислить дни подписки (owner-only).
+
+    /give 30               — себе
+    /give @username 30     — пользователю по имени
+    /give 123456789 30     — пользователю по id
+
+    Дни пишутся в базу и сразу уходят в панель, иначе ключ отключился бы
+    по старому сроку, хотя бот показывает новый.
+    """
+    if not _is_owner(message):
+        return
+    args = (message.text or "").split()[1:]
+    usage = ("Как пользоваться:\n<code>/give 30</code> — себе\n"
+             "<code>/give @username 30</code>\n<code>/give 123456789 30</code>")
+    if not args or not args[-1].isdigit():
+        await message.answer(usage)
+        return
+    days = int(args[-1])
+    if not 1 <= days <= 3650:
+        await message.answer("Дней должно быть от 1 до 3650.")
+        return
+
+    if len(args) == 1:
+        uid = message.from_user.id
+    elif args[0].lstrip("-").isdigit():
+        uid = int(args[0])
+    else:
+        uid = db.find_user_by_username(args[0])
+    u = db.get_user(uid) if uid else None
+    if not u:
+        await message.answer(
+            f"Не нашёл <code>{html_escape(args[0] if len(args) > 1 else str(uid))}</code> "
+            "среди пользователей бота. Он должен хотя бы раз нажать /start.")
+        return
+
+    new_until = db.add_days(uid, days)
+    token = sync_panel(uid)
+    who = f"@{u['username']}" if u["username"] else f"id{uid}"
+    note = "" if token else ("\n\n⚠️ Панель не ответила — в базе срок продлён, "
+                             "но ключ обновится только при следующей синхронизации.")
+    logging.info("Владелец начислил %s дн. пользователю %s", days, uid)
+    await message.answer(f"✅ {who}: <b>+{days} дн.</b>, подписка до "
+                         f"<b>{fmt_date(new_until)}</b>.{note}")
 
 
 @dp.message(Command("letter_preview"))

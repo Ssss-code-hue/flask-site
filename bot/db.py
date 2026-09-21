@@ -1111,3 +1111,14 @@ def due_deletes(now, limit=200):
         return [(r["chat_id"], r["message_id"]) for r in c.execute(
             "SELECT chat_id, message_id FROM pending_deletes WHERE delete_at<=? "
             "ORDER BY delete_at LIMIT ?", (int(now), limit))]
+
+
+def find_user_by_username(username):
+    """id пользователя бота по @username (без учёта регистра), None — нет такого."""
+    name = (username or "").lstrip("@").strip()
+    if not name:
+        return None
+    with _conn() as c:
+        r = c.execute("SELECT user_id FROM users WHERE lower(username)=lower(?)",
+                      (name,)).fetchone()
+        return r["user_id"] if r else None
