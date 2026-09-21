@@ -132,6 +132,14 @@ def _unbold(part):
     return re.sub(r"</?b>", "", part)
 
 
+def _shout(part):
+    """Строка капсом — главный призыв текста, её рисуем заголовком."""
+    if "\n" in part:
+        return False
+    letters = [ch for ch in _TAGS.sub("", part) if ch.isalpha()]
+    return len(letters) >= 6 and all(ch.isupper() for ch in letters)
+
+
 def rich_html(text):
     """Раскладывает текст бота по блокам богатого сообщения, не меняя слов.
 
@@ -147,12 +155,18 @@ def rich_html(text):
     if has_top:
         blocks.append(f"<h3>{_unbold(parts.pop(0))}</h3><hr/>")
     tail = parts.pop() if len(parts) > 1 and _short_line(parts[-1]) else None
-    body = [_unbold(p).replace("\n", "<br/>") for p in parts]
-    if body and has_top:
-        body[0] = f"{_GAP}<br/>{body[0]}"         # отступ от верхнего разделителя
-    if body and tail:
-        body[-1] = f"{body[-1]}<br/>{_GAP}"       # и от нижнего
-    blocks += [f"<p><b>{b}</b></p>" for b in body]
+    body = []
+    for p in parts:
+        if _shout(p):
+            body.append(("h3", _unbold(p)))
+        else:
+            body.append(("p", _unbold(p).replace("\n", "<br/>")))
+    if body and has_top and body[0][0] == "p":
+        body[0] = ("p", f"{_GAP}<br/>{body[0][1]}")   # отступ от верхнего разделителя
+    if body and tail and body[-1][0] == "p":
+        body[-1] = ("p", f"{body[-1][1]}<br/>{_GAP}")  # и от нижнего
+    blocks += [f"<h3>{t}</h3>" if kind == "h3" else f"<p><b>{t}</b></p>"
+               for kind, t in body]
     if tail:
         blocks.append(f"<hr/><p><b>{_unbold(tail)}</b></p>")
     return "".join(blocks)
@@ -940,6 +954,37 @@ async def _bc_sale(message):
     await broadcast(message, users, lambda uid: (text, kb))
 
 
+@dp.message(Command("broadcast_refresh"))
+async def cmd_broadcast_refresh(message: Message):
+    """Извинение и просьба обновить подписку — активным (owner-only)."""
+    if not OWNER_ID or message.from_user.id != OWNER_ID:
+        return
+    await _bc_refresh(message)
+
+
+async def _bc_refresh(message):
+    """Серверы переехали — людям нужно обновить подписку в приложении.
+
+    Только активным: у кого подписка закончилась, обновлять нечего. Кнопка
+    «Подключиться» личная — ключ заново добавляется в приложение уже с
+    новыми адресами. Токен берём из базы, а не из панели: сотни запросов к
+    панели ради кнопки не нужны.
+    """
+    users = [uid for uid, _ in db.active_users(int(time.time()))]
+    await message.answer(
+        f"⏳ Рассылаю извинение и «обновите подписку» по {len(users)} "
+        "активным подписчикам…")
+
+    def make(uid):
+        u = db.get_user(uid)
+        # из базы — без запроса к панели; нет в базе — берём у панели,
+        # иначе кнопки «Подключиться», на которую ссылается текст, не будет
+        token = (u["sub_token"] if u and u["sub_token"] else None) or sync_panel(uid)
+        return texts.REFRESH_SUB_BROADCAST, connect_kb(token)
+
+    await broadcast(message, users, make)
+
+
 @dp.message(Command("broadcast_sale_more"))
 async def cmd_broadcast_sale_more(message: Message):
     """Рассылка «бонус стал больше» ВСЕМ пользователям (owner-only)."""
@@ -1569,7 +1614,8 @@ def _broadcast_fn(code):
     return {"lapsed": _bc_lapsed, "nc": _bc_nc, "ref": _bc_ref,
             "promo": _bc_promo, "sale": _bc_sale, "gift": _bc_gift,
             "howru": _bc_howsitgoing, "salert": _bc_sale_return,
-            "paidref": _bc_paidref, "salemore": _bc_sale_more}.get(code)
+            "paidref": _bc_paidref, "salemore": _bc_sale_more,
+            "refresh": _bc_refresh}.get(code)
 
 
 # Предпросмотр писем. Флаг живёт в контексте текущей задачи: параллельная
