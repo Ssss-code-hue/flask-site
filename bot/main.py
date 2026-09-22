@@ -646,6 +646,12 @@ async def cmd_start(message: Message):
     # подарок; обычное меню он читать не станет и уйдёт.
     tag = _clean_source(param)
 
+    # Пост «100 ⭐ за оплатившего друга» — сразу условия и личная ссылка
+    if tag == "stars":
+        text, kb = _stars_offer(uid)
+        await send_banner(message, text, kb)
+        return
+
     # Кнопка «Пригласи друга и получи подарок» — сразу личная ссылка
     if tag == "gift":
         await send_banner(message, _gift_text(uid), ref_share_kb(_ref_link(uid)))
@@ -1045,6 +1051,21 @@ REF_GIFT_STARS = int(os.environ.get("REF_GIFT_STARS", "25"))
 
 def _ref_link(uid):
     return f"https://t.me/{BOT_USERNAME}?start=ref_{uid}"
+
+
+def _stars_offer(uid):
+    """Экран для ссылки ?start=stars из рекламного поста.
+
+    Если акция со звёздами выключена (REF_PAID_STARS=0), показываем обычное
+    приглашение: пообещать звёзды, которые бот не засчитает, — хуже, чем
+    не пообещать ничего.
+    """
+    link = _ref_link(uid)
+    if REF_PAID_STARS:
+        return (texts.REF_PAID_BROADCAST.format(
+                    stars=REF_PAID_STARS, days=REFERRAL_BONUS_DAYS, link=link),
+                ref_share_kb(link))
+    return ref_text(uid), ref_share_kb(link)
 
 
 def _gift_text(uid):
