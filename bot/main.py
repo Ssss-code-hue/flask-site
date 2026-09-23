@@ -2594,7 +2594,9 @@ async def _nudge_unpaid(bot, rec):
     db.mark_invoice_nudged(rec["payment_id"])      # до отправки: не задвоим
     p = PLANS.get(rec["plan"], {})
     try:
-        await send_letter_to(
+        # Основным оформлением, а не письмом: человек только что был в боте,
+        # его приложение заведомо свежее, а заметность здесь важнее всего.
+        await send_banner_to(
             bot, rec["user_id"],
             texts.INVOICE_UNPAID.format(title=p.get("title", rec["plan"]),
                                         rub=rec["amount_rub"]),
