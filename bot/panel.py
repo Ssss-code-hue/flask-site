@@ -20,6 +20,7 @@
 import json
 import logging
 import os
+from datetime import datetime, timezone
 
 import requests
 
@@ -250,6 +251,41 @@ def online_usernames():
                 if u.get("online_at") or (u.get("used_traffic") or 0) > 0}
     except Exception:
         log.exception("panel: не удалось получить список пользователей")
+        return None
+
+
+def last_online_by_username():
+    """Когда каждый пользователь последний раз был в сети: имя → unix-время.
+
+    Нужна, чтобы найти тех, кто перестал пользоваться VPN после поломки:
+    подписка активна, а последний выход в сеть — до неё. Кто не выходил
+    ни разу, в словарь не попадает.
+
+    None — панель недоступна (как и в online_usernames): пустой словарь
+    здесь означал бы «никто никогда не подключался» и увёл бы рассылку
+    не туда.
+    """
+    if not _configured():
+        return None
+    try:
+        r = requests.get(
+            f"{PANEL_URL}/api/users",
+            headers=_headers(_login()), timeout=TIMEOUT, verify=VERIFY,
+        )
+        r.raise_for_status()
+        out = {}
+        for u in r.json().get("users", []):
+            raw = u.get("online_at")
+            if not raw:
+                continue
+            try:
+                dt = datetime.fromisoformat(str(raw).replace("Z", ""))
+            except ValueError:
+                continue
+            out[u["username"]] = int(dt.replace(tzinfo=timezone.utc).timestamp())
+        return out
+    except Exception:
+        log.exception("panel: не удалось получить время последнего выхода в сеть")
         return None
 
 

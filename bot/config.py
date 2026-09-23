@@ -61,12 +61,15 @@ PROMO_ON_TRIAL = os.environ.get("PROMO_ON_TRIAL", "0") == "1"
 # Нужно, чтобы не отрезать тех, кто уже пользуется: у них в панели стоит
 # полный лимит, и снижение до 20 ГБ отключило бы их в ту же минуту —
 # израсходовано-то больше. Пусто = применять ко всем.
-def _date_env(name):
-    raw = os.environ.get(name, "").strip()
-    try:
-        return int(datetime.strptime(raw, "%Y-%m-%d").timestamp()) if raw else 0
-    except ValueError:
-        return 0
+def _date_env(name, default=""):
+    """Дата (ГГГГ-ММ-ДД) или дата со временем (ГГГГ-ММ-ДД ЧЧ:ММ) → unix."""
+    raw = (os.environ.get(name, "") or default).strip()
+    for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        try:
+            return int(datetime.strptime(raw, fmt).timestamp())
+        except ValueError:
+            continue
+    return 0
 
 
 TRIAL_LIMIT_SINCE = _date_env("TRIAL_LIMIT_SINCE")

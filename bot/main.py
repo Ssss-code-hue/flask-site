@@ -45,6 +45,7 @@ from .config import (
     OWNER_ID,
     PLANS,
     PROMO_ON_TRIAL,
+    _date_env,
     REFERRAL_BONUS_DAYS,
     TRIAL_LIMIT_SINCE,
     REFERRAL_ON_TRIAL,
@@ -74,8 +75,8 @@ from .keyboards import (BROADCASTS, admin_back_kb, admin_broadcasts_kb,
                         pay_method_kb, plans_kb, promo_offer_kb, ref_share_kb,
                         renew_kb, sale_kb, trial_consent_kb)
 from .panel import (DATA_LIMIT_GB, TRIAL_DATA_LIMIT_GB, get_subscription_url,
-                    online_usernames, site_sub_url, sub_token,
-                    traffic_by_username, user_connected)
+                    last_online_by_username, online_usernames, site_sub_url,
+                    sub_token, traffic_by_username, user_connected)
 
 logging.basicConfig(level=logging.INFO)
 dp = Dispatcher()
@@ -960,6 +961,52 @@ async def _bc_sale(message):
     await broadcast(message, users, lambda uid: (text, kb))
 
 
+# Момент поломки: с 21.09.2026 12:35 адреса серверов заблокировали в части
+# регионов, и у людей VPN перестал подключаться. Отсюда считаем, кого она
+# выбила. BACK_WINDOW_DAYS — сколько дней до поломки человек должен был
+# пользоваться VPN, чтобы попасть в рассылку: иначе она уйдёт и тем, кто
+# пропал месяц назад совсем по другой причине.
+BACK_SINCE = _date_env("BACK_SINCE", "2026-09-21 12:35")
+BACK_WINDOW_DAYS = int(os.environ.get("BACK_WINDOW_DAYS", "14"))
+
+
+@dp.message(Command("broadcast_back"))
+async def cmd_broadcast_back(message: Message):
+    """«Всё работает, возвращайтесь» — кого выбила поломка (owner-only)."""
+    if not OWNER_ID or message.from_user.id != OWNER_ID:
+        return
+    await _bc_back(message)
+
+
+async def _bc_back(message):
+    """Тем, кто пользовался VPN до поломки и ни разу после неё."""
+    seen = await asyncio.to_thread(last_online_by_username)
+    if seen is None:
+        await message.answer("Панель недоступна — не могу понять, кто "
+                             "перестал пользоваться. Попробуйте позже.")
+        return
+    now = int(time.time())
+    window = BACK_SINCE - BACK_WINDOW_DAYS * 86400
+    users = [uid for uid, _ in db.active_users(now)
+             if window <= (seen.get(f"ikk_{uid}") or 0) < BACK_SINCE]
+    if not users:
+        await message.answer("Некому слать: все, кто пользовался до поломки, "
+                             "уже вернулись.")
+        return
+    when = datetime.fromtimestamp(BACK_SINCE).strftime("%d.%m %H:%M")
+    await message.answer(
+        f"⏳ Рассылаю «всё работает» по {len(users)} чел. — это те, у кого "
+        f"активная подписка, кто пользовался VPN в {BACK_WINDOW_DAYS} дней "
+        f"до {when} и ни разу после.")
+
+    def make(uid):
+        u = db.get_user(uid)
+        token = (u["sub_token"] if u and u["sub_token"] else None) or sync_panel(uid)
+        return texts.BACK_ONLINE_BROADCAST, connect_kb(token)
+
+    await broadcast(message, users, make)
+
+
 @dp.message(Command("broadcast_refresh"))
 async def cmd_broadcast_refresh(message: Message):
     """Извинение и просьба обновить подписку — активным (owner-only)."""
@@ -1636,7 +1683,7 @@ def _broadcast_fn(code):
             "promo": _bc_promo, "sale": _bc_sale, "gift": _bc_gift,
             "howru": _bc_howsitgoing, "salert": _bc_sale_return,
             "paidref": _bc_paidref, "salemore": _bc_sale_more,
-            "refresh": _bc_refresh}.get(code)
+            "refresh": _bc_refresh, "back": _bc_back}.get(code)
 
 
 # Предпросмотр писем. Флаг живёт в контексте текущей задачи: параллельная
